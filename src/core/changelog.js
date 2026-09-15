@@ -1,7 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.112';
+export const APP_VERSION = '2.113';
 
 export const CHANGELOG = [
+  { v:'2.113', date:'15.09.2026', title:'Относительные пути для публикации в подпапке GitHub Pages', notes:[
+    'index.html: советчик и шесть стикеров экранов — пути без ведущего слэша (assets/…, stickers/…)',
+    'tutorialView.js, tsypa.js, exportPoster.js: пути к boy.svg, chick.svg, chick_full.svg, logo.svg без ведущего слэша',
+    'Публикация в репозиторий-проект smart-gardener: сайт https://sgubanov99-glitch.github.io/smart-gardener/'
+  ]},
   { v:'2.112', date:'15.09.2026', title:'Мобильная адаптация интерфейса (финальный этап очереди)', notes:[
     'Медиа-запросы 900/640/480px: шапка в два яруса, кнопки и палитры переносятся, тап-цели от 40–56px',
     'Нижнее меню во всю ширину с учётом safe-area; тело страницы получило отступ под меню',

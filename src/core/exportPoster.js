@@ -1,6 +1,6 @@
-// src/core/exportPoster.js — постер «Мой участок» (ревизия 2.106)
-// 2.106: иконки культур на крыше теплицы (до 4 грядок) — раньше у теплицы не было
-//        поля culture и бейдж не рисовался
+// src/core/exportPoster.js — постер «Мой участок» (ревизия 2.113)
+// 2.113: относительные пути assets/chick_full.svg и assets/logo.svg (для подпапки GitHub Pages)
+// 2.106: иконки культур на крыше теплицы (до 4 грядок)
 // 2.105: знак бренда в шапке постера (вместо солнца, с фолбэком)
 // 2.89: просрочка без «можно пропустить» (isRainExcused)
 // 2.85: «Урожай» учитывает возраст плодоношения многолетников (first_fruit_year)
@@ -265,14 +265,14 @@ async function loadIcons(D){
     const img=new Image();
     img.onload=()=>{ icons.__tsypa=img; res(); };
     img.onerror=()=>res();
-    img.src='/assets/chick_full.svg';
+    img.src='assets/chick_full.svg'; // 2.113: относительный путь
   }));
   // 2.105: знак бренда для шапки постера
   jobs.push(new Promise(res=>{
     const img=new Image();
     img.onload=()=>{ icons.__logo=img; res(); };
     img.onerror=()=>res();
-    img.src='/assets/logo.svg';
+    img.src='assets/logo.svg'; // 2.113: относительный путь
   }));
   await Promise.all(jobs);
   return icons;
