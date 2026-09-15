@@ -470,8 +470,8 @@
       <button type="button" class="btn" id="tutorialBtn">🎓 Обучение</button>
       <!-- 2.101: Книга отзывов и предложений (было «Мой календарь») -->
       <button type="button" class="btn btn-violet" id="guestbookBtn">📖 Книга отзывов</button>
-      <!-- 2.71: Цыпа в Советчике — векторный рисунок -->
-      <button type="button" class="btn btn-olive advisor" id="advisorBtn">Советчик<img src="/assets/chick.svg" alt="" class="advisor-emoji" /></button>
+      <!-- 2.71/2.113: Цыпа в Советчике — векторный рисунок, относительный путь -->
+      <button type="button" class="btn btn-olive advisor" id="advisorBtn">Советчик<img src="assets/chick.svg" alt="" class="advisor-emoji" /></button>
     </div>
   </header>
 
@@ -560,7 +560,8 @@
 
   <section class="screen" id="screen-plants">
     <div style="position:relative">
-      <img src="/stickers/chick.png" alt="" class="plants-sticker" />
+      <!-- 2.113: относительный путь стикера -->
+      <img src="stickers/chick.png" alt="" class="plants-sticker" />
       <h2 class="screen-title">Каталог <span class="accent">растений</span></h2>
       <div id="screen-plants-body"></div>
     </div>
@@ -569,9 +570,10 @@
   <section class="screen" id="screen-calendar">
     <div style="position:relative">
       <div class="cal-stickers">
-        <img src="/stickers/watering.png" alt="" title="Полив" />
-        <img src="/stickers/apples.png" alt="" title="Урожай" />
-        <img src="/stickers/seedlings.png" alt="" title="Рассада" class="stickers-row2" />
+        <!-- 2.113: относительные пути стикеров -->
+        <img src="stickers/watering.png" alt="" title="Полив" />
+        <img src="stickers/apples.png" alt="" title="Урожай" />
+        <img src="stickers/seedlings.png" alt="" title="Рассада" class="stickers-row2" />
       </div>
       <h2 class="screen-title">Календарь <span class="accent">по фазам</span></h2>
       <div id="screen-calendar-body"></div>
@@ -580,7 +582,8 @@
 
   <section class="screen" id="screen-chat">
     <div style="position:relative">
-      <img src="/stickers/boy.png" alt="" class="chat-sticker" />
+      <!-- 2.113: относительный путь стикера -->
+      <img src="stickers/boy.png" alt="" class="chat-sticker" />
       <h2 class="screen-title">Чат <span class="accent">с садоводом</span></h2>
       <div id="chatRoot" class="chat-root"></div>
     </div>
@@ -593,7 +596,8 @@
 
   <section class="screen" id="screen-analytics">
     <div style="position:relative">
-      <img src="/stickers/cat.png" alt="" class="analytics-sticker" />
+      <!-- 2.113: относительный путь стикера -->
+      <img src="stickers/cat.png" alt="" class="analytics-sticker" />
       <h2 class="screen-title">Аналитика <span class="accent">сезона</span></h2>
       <div id="screen-analytics-body"></div>
     </div>
