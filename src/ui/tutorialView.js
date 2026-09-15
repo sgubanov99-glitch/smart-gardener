@@ -1,10 +1,11 @@
-// src/ui/tutorialView.js — обучающая слайд-программа (ревизия 2.111)
+// src/ui/tutorialView.js — обучающая слайд-программа (ревизия 2.113)
+// 2.113: относительные пути assets/boy.svg и assets/chick.svg (для подпапки GitHub Pages)
 // 2.111: автооткрытие при каждом запуске, пока обучение не пройдено до конца:
 //        флаг sg-tutorial-seen ставится ТОЛЬКО кнопкой «Понятно! 🌱» на последнем слайде;
 //        закрытие крестиком, кликом по фону или Esc флаг не ставит —
 //        при следующем запуске обучение откроется снова
 // 2.105: брендовая строка внизу слайдов (знак + «Умный садовод · обучение»)
-// 2.87: Садовод — векторный рисунок /assets/boy.svg вместо эмодзи
+// 2.87: Садовод — векторный рисунок assets/boy.svg вместо эмодзи
 // 2.86: слайды с пояснениями Садовода и репликами Цыпы; навигация кнопками, точками и клавиатурой
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -28,13 +29,13 @@ export function createTutorialView({ slides }) {
       </div>
       <h2 class="tut-title">${esc(s.title || '')}</h2>
       <div class="tut-gardener">
-        <img src="/assets/boy.svg" alt="Садовод" class="tut-gardener-img" />
+        <img src="assets/boy.svg" alt="Садовод" class="tut-gardener-img" />
         <p>${esc(s.gardener || '')}</p>
       </div>
       ${Array.isArray(s.tips) && s.tips.length ? `<ul class="tut-tips">${s.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>` : ''}
       ${s.tsypa ? `<div class="tut-tsypa">
         <div class="tut-tsypa-bubble">${esc(s.tsypa)}</div>
-        <img src="/assets/chick.svg" alt="Цыпа" class="tut-tsypa-img" />
+        <img src="assets/chick.svg" alt="Цыпа" class="tut-tsypa-img" />
       </div>` : ''}
       <div class="tut-nav">
         <button type="button" class="btn" id="tutPrev" ${idx===0?'disabled':''}>← Назад</button>

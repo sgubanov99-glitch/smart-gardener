@@ -1,11 +1,9 @@
-// src/ui/tsypa.js — Цыпа, проактивный маскот-агроном (ревизия 2.108)
-// 2.108: полностью убран механизм, способный блокировать главный поток:
-//        - НЕТ transition по left/right/top/bottom (позиции переключаются мгновенно);
-//        - НЕТ keyframes-анимации прыжка и принудительного reflow (void offsetWidth);
-//        - позиции задаются CSS-классами pos-0..pos-5 (без churn inline-стилей);
-//        - защита кликов по времени (600 мс) + try/catch вокруг обработчика;
-// 2.107: z-index 35 (ниже шапки и меню), позиции отодвинуты от панелей;
-// 2.106: 6 позиций экрана; клик — новая подсказка + перемещение; слева рисунок зеркалится;
+// src/ui/tsypa.js — Цыпа, проактивный маскот-агроном (ревизия 2.113)
+// 2.113: относительный путь assets/chick_full.svg (для подпапки GitHub Pages)
+// 2.108: позиции только классами pos-0..pos-5, без transition/keyframes на контейнере;
+//        клик-защита по времени (600 мс) + try/catch вокруг обработчика
+// 2.107: z-index 35 (ниже шапки и меню), позиции отодвинуты от панелей
+// 2.106: 6 позиций экрана; клик — новая подсказка + перемещение; слева рисунок зеркалится
 // 2.100: авто-подсказки через getReminders(); 2.75: авторотация, приоритеты, celebrate()
 import { WEATHER_MODES, weatherMode, isRainExcused } from '../core/weather.js';
 
@@ -55,12 +53,12 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
     el = document.createElement('div');
     el.id = 'tsypa';
     el.innerHTML = `<div class="tsypa-bubble" id="tsypaBubble"></div>
-      <div class="tsypa-avatar"><img src="/assets/chick_full.svg" alt="Цыпа" /></div>`;
+      <div class="tsypa-avatar"><img src="assets/chick_full.svg" alt="Цыпа" /></div>`;
     document.body.appendChild(el);
   }
   const bubble = el.querySelector('#tsypaBubble');
 
-  /* ---------- 2.108: позиции только классами pos-0..pos-5 (см. CSS в index.html) ---------- */
+  /* ---------- позиции на экране (6 точек, классами pos-0..pos-5) ---------- */
   const POS_COUNT = 6;
   let posIdx = Math.floor(Math.random()*POS_COUNT);
   let lastHopAt = 0;
@@ -111,7 +109,7 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
       if (date >= today) return;
       byDay[date].forEach(t=>{
         const key = `${t.date}|${t.bed_id}|${t.name}`;
-        if (isRainExcused(scheme, t, today)) return;
+        if (isRainExcused(scheme, t, today)) return; // дожди — не просрочка
         if (!(scheme.completedTasks || {})[key]) { overdueCount++; if (!overdueExample) overdueExample = t; }
       });
     });
