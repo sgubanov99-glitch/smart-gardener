@@ -1,7 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.113';
+export const APP_VERSION = '2.114';
 
 export const CHANGELOG = [
+  { v:'2.114', date:'15.09.2026', title:'Погода: запасные источники при блокировках сети', notes:[
+    'Прогноз: при недоступности Open-Meteo автоматически пробуется met.no (Норвежский метеоинститут, без ключа)',
+    'Город → координаты: фолбэк photon.komoot.io; координаты → город: фолбэк Nominatim (OpenStreetMap)',
+    'Ошибки сети по-прежнему обрабатываются штатно: тост «Прогноз не загрузился», ручные режимы работают'
+  ]},
   { v:'2.113', date:'15.09.2026', title:'Относительные пути для публикации в подпапке GitHub Pages', notes:[
     'index.html: советчик и шесть стикеров экранов — пути без ведущего слэша (assets/…, stickers/…)',
     'tutorialView.js, tsypa.js, exportPoster.js: пути к boy.svg, chick.svg, chick_full.svg, logo.svg без ведущего слэша',
