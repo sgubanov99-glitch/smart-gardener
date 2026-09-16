@@ -1,6 +1,6 @@
-// src/main.js — точка входа ревизии 2.127. Связывает слои каркаса.
-// 2.127: Обзор — построчная раскладка блоков «Посаженные культуры» и «Задачи на 7 дней»
-//        (пост-обработка идемпотентна: повторные вызовы разворачивают предыдущие обёртки)
+// src/main.js — точка входа ревизии 2.128. Связывает слои каркаса.
+// 2.128: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных
+//        схемы и календаря: один столбец, элементы на отдельных строках, независимо от разметки homeView
 // 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
 // 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
 // 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
@@ -18,7 +18,7 @@
 // 2.85: параметр planting проброшен в календарь и обзор
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
-import { advancePhase } from './core/phaseMachine.js';
+import { advancePhase, PHASE_META } from './core/phaseMachine.js';
 import { loadCompatibility } from './core/compatibility.js';
 import { loadPlants } from './domain/plant.js';
 import { StorageService } from './storage/storage.js';
@@ -159,7 +159,7 @@ try {
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
-  if (pres.ok) planting = deepTrim(await pres.json());
+  if (pres.ok) planting = deepTrim(await res.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
 
 /* --- 2.86: слайды обучения --- */
@@ -275,73 +275,85 @@ const homeView = createHomeView({
 /* --- аналитика --- */
 const analyticsView = createAnalyticsView({ scheme: scheme, plants: plants, phases: phases, compat: compat, buildCalendar: buildCalendar, planting: planting });
 
-/* --- 2.127: Обзор — каждый элемент блоков «Посаженные культуры» и «Задачи на 7 дней» на отдельной строке --- */
-const PHASE_RE = /(семен|всход|посадк|рост|цветен|плодонош|увяд|покой|🌱|🌳|🍃|🍅|❄|🌶|🥕|🍆|🌽|🍓|🥬|🌿)/i;
-function isPhaseEl(el){
-  if (!el || !el.classList) return false;
-  const cn = String(el.className || '');
-  if (/phase|badge/i.test(cn)) return true;
-  return PHASE_RE.test(el.textContent || '');
+/* --- 2.128: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней»
+       перестраиваются из данных схемы: один столбец, элементы на отдельных строках --- */
+function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function addDaysISO2(iso,n){ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+
+function rowPlanted(culture, objName, phase, objId){
+  const pm = (phase && PHASE_META[phase]) || null;
+  return '<div class="hm-row">' +
+    '<div class="hm-line">' + esc(culture) + ' · ' + esc(objName) + '</div>' +
+    '<div class="hm-line hm-phase">' + (pm ? ((pm.icon||'') + ' ' + (pm.label||phase)) : (phase ? esc(String(phase)) : 'фаза не указана')) + '</div>' +
+    '<button type="button" class="btn hm-btn" data-obj-id="' + objId + '">На схему</button>' +
+    '</div>';
 }
-function restackRow(row, mode){
-  // mode 'plants': строка1 = культура+объект, строка2 = фаза, строка3 = кнопка «На схему»
-  // mode 'tasks' : строка1 = задача+культура+дата, строка2 = кнопка «К календарю»
-  // идемпотентность: разворачиваем предыдущие обёртки, если они есть
-  let flat = [];
-  Array.from(row.children).forEach(k => {
-    if (k.tagName === 'DIV' && k.dataset && k.dataset.restacked === '1') {
-      Array.from(k.children).forEach(c => flat.push(c));
-    } else {
-      flat.push(k);
+function plantedRowsHTML(){
+  const rows = [];
+  (scheme.objects||[]).forEach(o=>{
+    if (o.type==='greenhouse') {
+      (o.greenhouseBedCultures||[]).forEach((c,i)=>{
+        if (!c) return;
+        const ph = ((o.greenhouseBedPhases||[])[i]||{}).phase;
+        rows.push(rowPlanted(c, o.name + ', грядка ' + (i+1), ph, o.id));
+      });
+    } else if (o.culture && ['bed','tree','bush'].includes(o.type)) {
+      rows.push(rowPlanted(o.culture, o.name, o.phase, o.id));
     }
   });
-  row.innerHTML = '';
-  flat.forEach(k => row.appendChild(k));
-  const kids = Array.from(row.children);
-  if (!kids.length) return;
-  const btn = kids.find(k => k.tagName === 'BUTTON' || (k.querySelector && k.querySelector('button')));
-  const phases = (mode === 'plants') ? kids.filter(k => k !== btn && isPhaseEl(k)) : [];
-  const texts = kids.filter(k => k !== btn && phases.indexOf(k) === -1);
-  const line = (els) => {
-    const d = document.createElement('div');
-    d.style.display = 'block';
-    d.style.width = '100%';
-    d.style.margin = '2px 0';
-    d.dataset.restacked = '1';
-    els.forEach(el => d.appendChild(el));
-    return d;
-  };
-  const frag = document.createDocumentFragment();
-  if (texts.length) frag.appendChild(line(texts));
-  if (phases.length) frag.appendChild(line(phases));
-  if (btn) frag.appendChild(line([btn]));
-  row.innerHTML = '';
-  row.appendChild(frag);
-  row.style.display = 'block';
-  row.style.width = '100%';
+  if (!rows.length) return '<div class="hm-line" style="color:var(--ink-soft)">Пока ничего не посажено — добавьте культуры на «Схеме».</div>';
+  return rows.join('');
+}
+function tasksRowsHTML(){
+  const today = todayISO();
+  const horizon = addDaysISO2(today, 7);
+  let byDay = {};
+  try { byDay = buildCalendar(scheme.objects, phases, true, plants, planting, scheme.weather) || {}; } catch(e){}
+  const rows = [];
+  Object.keys(byDay).sort().forEach(d=>{
+    if (d < today || d > horizon) return;
+    (byDay[d]||[]).forEach(t=>{
+      rows.push('<div class="hm-row">' +
+        '<div class="hm-line">' + esc(t.name||'') + (t.crop ? ' · ' + esc(t.crop) : '') + ' · ' + d.slice(8,10) + '.' + d.slice(5,7) + '</div>' +
+        '<button type="button" class="btn hm-btn" data-go-cal="1">К календарю</button>' +
+        '</div>');
+    });
+  });
+  if (!rows.length) return '<div class="hm-line" style="color:var(--ink-soft)">Задач на ближайшие 7 дней нет.</div>';
+  return rows.join('');
+}
+/* ищем блок по заголовку независимо от классов разметки homeView */
+function findBlock(root, re){
+  const titleEl = Array.from(root.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,b,strong'))
+    .find(el => el.children.length === 0 && re.test((el.textContent||'').trim()));
+  if (!titleEl) return null;
+  let n = titleEl;
+  for (let i=0;i<6 && n;i++){
+    n = n.parentElement;
+    if (!n) break;
+    if (n !== titleEl && (n.querySelector('button') || n.querySelector('ul,ol'))) return { container:n, titleEl };
+  }
+  return { container: titleEl.parentElement, titleEl };
 }
 function restyleHomeBlocks(){
   const root = document.getElementById('screen-home-body');
   if (!root) return;
-  root.querySelectorAll('.an-section').forEach(sec => {
-    const h = sec.querySelector('h3');
-    const title = h ? (h.textContent || '') : '';
-    let mode = null;
-    if (/Посаженные культуры/i.test(title)) mode = 'plants';
-    else if (/Задачи на ближайшие/i.test(title)) mode = 'tasks';
-    if (!mode) return;
-    Array.from(sec.children).forEach(child => {
-      if (child === h) return;
-      if (child.tagName === 'UL' || child.tagName === 'OL') {
-        child.style.paddingLeft = '0';
-        child.style.listStyle = 'none';
-        Array.from(child.children).forEach(li => restackRow(li, mode));
-      } else if (child.tagName === 'DIV' || child.tagName === 'LI') {
-        if (child.querySelector && child.querySelector('button')) restackRow(child, mode);
-        else Array.from(child.children).forEach(gc => { if (gc.querySelector && gc.querySelector('button')) restackRow(gc, mode); });
-      }
-    });
-  });
+  const b1 = findBlock(root, /Посаженные культуры/i);
+  if (b1) {
+    const box = document.createElement('div');
+    box.innerHTML = plantedRowsHTML();
+    b1.container.innerHTML = '';
+    b1.container.appendChild(b1.titleEl);
+    b1.container.appendChild(box);
+  }
+  const b2 = findBlock(root, /Задачи на ближайшие/i);
+  if (b2) {
+    const box = document.createElement('div');
+    box.innerHTML = tasksRowsHTML();
+    b2.container.innerHTML = '';
+    b2.container.appendChild(b2.titleEl);
+    b2.container.appendChild(box);
+  }
 }
 
 /* --- 2.95: undo/redo схемы --- */
@@ -350,7 +362,7 @@ function refreshAfterHistory(){
   calendarView.render();
   const active = document.querySelector('.screen.active');
   if (active) {
-    if (active.id === 'screen-home') { homeView.render(); restyleHomeBlocks(); }  // 2.127
+    if (active.id === 'screen-home') { homeView.render(); restyleHomeBlocks(); }  // 2.128
     if (active.id === 'screen-analytics') analyticsView.render();
   }
   if (window.__tsypa) window.__tsypa.refresh();
@@ -576,7 +588,7 @@ function showScreen(id) {
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
     homeView.render();
-    restyleHomeBlocks();   // 2.127: построчная раскладка блоков Обзора
+    restyleHomeBlocks();   // 2.128: перестройка блоков Обзора в один столбец
     const hpn = document.getElementById('homePlotName');
     if (hpn) {
       const pn = (scheme.plotName || '').trim();
