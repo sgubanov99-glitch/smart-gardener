@@ -1,12 +1,12 @@
-// src/main.js — точка входа ревизии 2.120. Связывает слои каркаса.
-// 2.120: карточка растения открывается принудительно и видимо с любого экрана
-//        (перенос оверлея в body + снятие hidden/display; запасной сценарий через «Каталог»);
-//        настройки объекта на мобильном — одним столбцом (CSS в index.html)
-// 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия» и подсказкой про браузерную галочку;
-//        resetViewOffset() перед полноэкранными листами и сменой экранов (лечит «половинки»);
-//        body overflow-x:hidden в CSS
-// 2.118: карточка растения на мобильном, FAB/undo только на Схеме, переключатель «Мобильная версия»
-// 2.117: мобильный каркас — ☰-меню-лист, лист добавления объектов, FAB, плавающие undo/redo
+// src/main.js — точка входа ревизии 2.121. Связывает слои каркаса.
+// 2.121: карточка растения открывается надёжно — симуляция клика по карточке каталога
+//        (рабочий путь) + принудительный показ оверлея + резерв через каталог;
+//        на мобильном не грузится тяжёлый gb.png (src снимается), на десктопе подключается
+// 2.120: настройки объекта на мобильном одним столбцом (CSS); карточка растения принудительно видима
+// 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия»; resetViewOffset() перед листами;
+//        body overflow-x:hidden
+// 2.118: FAB/undo только на Схеме; переключатель «Мобильная версия»
+// 2.117: мобильный каркас — ☰-меню-лист, лист добавления, FAB, плавающие undo/redo
 // 2.116: глобальный сброс мобильного масштаба после завершения ввода
 // 2.110: удалён мёртвый блок «Мой календарь»
 // 2.101: Книга отзывов и предложений (guestbookView)
@@ -159,7 +159,7 @@ try {
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
-  if (pres.ok) planting = deepTrim(await res.json());
+  if (pres.ok) planting = deepTrim(await pres.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
 
 /* --- 2.86: слайды обучения --- */
@@ -219,25 +219,43 @@ const plantsView = createPlantsView({
   }
 });
 schemeView.onOpenPlantCard = function(plantName){
-  // 2.120: открываем карточку растения принудительно и видимо с любого экрана
-  plantsView.openPlantCard(plantName);
-  let overlays = document.querySelectorAll('.plant-detail-overlay');
-  // если оверлей остался внутри скрытого экрана — переносим в body и показываем
-  overlays.forEach(function(ov){
-    if (ov.parentElement !== document.body) document.body.appendChild(ov);
-    ov.classList.remove('hidden');
-    ov.style.display = '';
-  });
-  // запасной сценарий: оверлей вообще не создался — открываем на экране «Каталог»
-  if (!document.querySelector('.plant-detail-overlay')) {
-    showScreen('screen-plants');
-    plantsView.openPlantCard(plantName);
-    const ov2 = document.querySelector('.plant-detail-overlay');
-    if (ov2) {
-      if (ov2.parentElement !== document.body) document.body.appendChild(ov2);
-      ov2.classList.remove('hidden');
-      ov2.style.display = '';
+  // 2.121: надёжное открытие карточки растения — симулируем клик по карточке каталога
+  // (тот же путь, которым карточка открывается вручную в «Каталоге»)
+  var norm = function(s){ return (s || '').toLowerCase().trim(); };
+  function forceShowOverlays(){
+    var ovs = document.querySelectorAll('.plant-detail-overlay');
+    ovs.forEach(function(ov){
+      if (ov.parentElement !== document.body) document.body.appendChild(ov);
+      ov.classList.remove('hidden');
+      ov.style.display = '';
+    });
+    return ovs.length;
+  }
+  function clickCatalogCard(name){
+    var cards = Array.from(document.querySelectorAll('.plant-card'));
+    var target = cards.find(function(c){
+      var n = c.querySelector('.plant-name');
+      return n && norm(n.textContent) === norm(name);
+    });
+    if (!target) target = cards.find(function(c){ return norm(c.textContent).indexOf(norm(name)) !== -1; });
+    if (target) {
+      (target.querySelector('.plant-detail-btn') || target).click();
+      return true;
     }
+    return false;
+  }
+  try { plantsView.render(); } catch(e){}          // гарантируем наличие DOM каталога
+  var clicked = clickCatalogCard(plantName);
+  if (!clicked && typeof plantsView.openPlantCard === 'function') {
+    try { plantsView.openPlantCard(plantName); } catch(e){}
+  }
+  var found = forceShowOverlays();                  // оверлей мог создаться внутри скрытого экрана
+  if (!found) {
+    // последний резерв: открываем каталог и кликаем карточку там
+    showScreen('screen-plants');
+    try { plantsView.render(); } catch(e){}
+    clickCatalogCard(plantName);
+    forceShowOverlays();
   }
   resetViewOffset();
 };
@@ -318,6 +336,16 @@ const guestbookView = createGuestbookView({
 });
 on('guestbookBtn', function(){ guestbookView.open(); });
 on('gbClose', function(){ guestbookView.close(); });
+
+/* --- 2.121: на мобильном не грузим тяжёлый gb.png; на десктопе подключаем фоном --- */
+const gbBg = document.getElementById('guestbookBg');
+function applyGbBg(){
+  if (!gbBg) return;
+  const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches;
+  if (isMob) { gbBg.removeAttribute('src'); }
+  else if (!gbBg.getAttribute('src')) { gbBg.setAttribute('src', 'gb.png'); }
+}
+applyGbBg();
 
 /* --- 2.117: мобильный каркас: меню-лист, лист добавления, FAB, плавающие undo/redo --- */
 const mMenuSheet = document.getElementById('mMenuSheet');
