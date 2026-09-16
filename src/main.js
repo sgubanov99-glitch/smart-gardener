@@ -1,5 +1,7 @@
-// src/main.js — точка входа ревизии 2.110. Связывает слои каркаса.
-// 2.110: удалён мёртвый блок «Мой календарь» (обработчики несуществующих элементов)
+// src/main.js — точка входа ревизии 2.116. Связывает слои каркаса.
+// 2.116: глобальный сброс мобильного масштаба к 1:1 после завершения ввода
+//        (focusout / change / закрытие клавиатуры) на всех экранах
+// 2.110: удалён мёртвый блок «Мой календарь»
 // 2.101: Книга отзывов и предложений (guestbookView)
 // 2.100: авто-подсказки погоды и прогноза (reminders.js)
 // 2.95: undo/redo схемы — снапшот-история (history.js), кнопки и Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
@@ -61,6 +63,41 @@ function showToast(msg){
   t.classList.add('show');
   clearTimeout(t._tm);
   t._tm = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+/* --- 2.116: сброс мобильного масштаба после завершения ввода --- */
+function resetMobileZoom(){
+  try {
+    const vv = window.visualViewport;
+    if (vv && vv.scale <= 1.01) return; // масштаб не увеличен — не трогаем
+    const m = document.querySelector('meta[name="viewport"]');
+    if (!m) return;
+    const old = m.getAttribute('content') || '';
+    if (/maximum-scale=1(\D|$)/.test(old)) return;
+    m.setAttribute('content', old + ', maximum-scale=1');
+    setTimeout(()=>{ m.setAttribute('content', old); }, 150);
+  } catch(e){}
+}
+function isFormEl(el){
+  if (!el || !el.tagName) return false;
+  const t = el.tagName.toLowerCase();
+  return t==='input' || t==='textarea' || t==='select';
+}
+// фокус ушёл с поля и не перешёл на другое поле — возвращаем масштаб к 1:1
+document.addEventListener('focusout', (e)=>{
+  if (!isFormEl(e.target)) return;
+  setTimeout(()=>{ if (!isFormEl(document.activeElement)) resetMobileZoom(); }, 250);
+});
+// значение установлено (change) — возвращаем масштаб, даже если фокус ещё на поле
+document.addEventListener('change', (e)=>{
+  if (!isFormEl(e.target)) return;
+  setTimeout(resetMobileZoom, 300);
+});
+// клавиатура закрылась / вьюпорт изменился при увеличенном масштабе и без фокуса в поле
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', ()=>{
+    if (!isFormEl(document.activeElement)) resetMobileZoom();
+  });
 }
 
 /* --- домен --- */
@@ -407,7 +444,7 @@ on('advisorBtn', function(){
 
   bubble.innerHTML =
     '<button type="button" class="tip-close" id="tipClose" aria-label="Закрыть">✕</button>' +
-    '<strong style="font-family:\'Neucha\';font-size:19px;display:inline-flex;align-items:center;gap:6px"><img src="/assets/chick.svg" alt="" style="width:28px;height:28px" />Советчик · ' + MONTHS_NOM[now.getMonth()].toLowerCase() + '</strong>' +
+    '<strong style="font-family:\'Neucha\';font-size:19px;display:inline-flex;align-items:center;gap:6px"><img src="assets/chick.svg" alt="" style="width:28px;height:28px" />Советчик · ' + MONTHS_NOM[now.getMonth()].toLowerCase() + '</strong>' +
     '<div class="tip-season"><b>Совет сезона</b>' + (SEASON_ADVICE[now.getMonth()] || '') + '</div>' +
     '<span class="tip-count">посадить сейчас: ' + sowP.length + ' · собрать: ' + harP.length + '</span><br><br>' +
     body +
