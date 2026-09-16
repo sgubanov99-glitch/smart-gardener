@@ -390,7 +390,8 @@
     .palette-right { margin-left:0; }
     .pal-btn { padding:10px 14px; min-height:40px; }
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
-    .plot-wrap { padding:16px 8px 8px; }
+    /* 2.118: место под маркер солнца — не обрезается экраном */
+    .plot-wrap { padding:26px 22px 22px; }
     .obj-panel { padding:12px; }
     .op-grid { grid-template-columns:repeat(2,1fr); }
     .op-grid input, .op-grid select { min-height:40px; }
@@ -412,8 +413,8 @@
     .an-kpi-value { font-size:26px; }
     .an-gantt-label { font-size:11px; }
     /* --- Цыпа и пузыри --- */
-    #tsypa { max-width:210px; }
-    .tsypa-avatar img { width:56px; height:56px; }
+    #tsypa { max-width:170px; }
+    #tsypa .tsypa-avatar img { width:44px; height:44px; }
     .tsypa-bubble { font-size:12.5px; padding:8px 10px; }
     #tsypa.pos-2, #tsypa.pos-3 { top:118px; }   /* шапка стала выше */
     .tip-bubble { top:118px; left:8px; right:8px; width:auto; }
@@ -454,8 +455,10 @@
     .m-undoredo { display:flex; }
     /* компактная Цыпа: пузырь только по тапу, аватар 44px */
     #tsypa { max-width:170px; }
-    #tsypa .tsypa-avatar img { width:44px; height:44px; }
     #tsypa.tsypa-quiet .tsypa-bubble { display:none; }
+    /* 2.118: карточка растения на мобильном — полноэкранный лист поверх всех слоёв */
+    .plant-detail-overlay { padding:0; z-index:95; }
+    .plant-detail-modal { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); }
   }
 
   @media (max-width: 640px) {
@@ -668,6 +671,8 @@
       <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi">🎓</span>Обучение</button>
       <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi">📖</span>Книга отзывов</button>
       <button type="button" class="m-item" data-mact="advisorBtn"><span class="mi">🐤</span>Советчик</button>
+      <!-- 2.118: переключатель мобильной версии (выкл = эффект «Версии для ПК») -->
+      <label class="m-switch"><span class="mi">📱</span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <label class="m-switch"><span class="mi">🐤</span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
       <div style="text-align:center;color:var(--ink-soft);font-size:12px;margin-top:8px">Умный садовод · v<span id="mVersion"></span></div>
     </div>
