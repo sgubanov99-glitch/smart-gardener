@@ -1,6 +1,7 @@
-// src/main.js — точка входа ревизии 2.125. Связывает слои каркаса.
-// 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404) —
-//        цыплёнок на карточках культур текущего месяца виден на мобильном
+// src/main.js — точка входа ревизии 2.126. Связывает слои каркаса.
+// 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
+//        (пути картинок фиксятся после каждой перерисовки каталога)
+// 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
 // 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
 // 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия»; resetViewOffset() перед листами
 // 2.118: FAB/undo только на Схеме; переключатель «Мобильная версия»
@@ -353,6 +354,13 @@ function fixRelativeImages(root){
   });
 }
 fixRelativeImages(document);
+
+/* --- 2.126: цыплёнок не пропадает при смене фильтров: фиксим пути после каждой перерисовки каталога --- */
+const plantsBody = document.getElementById('screen-plants-body');
+if (plantsBody && window.MutationObserver) {
+  const plantsMo = new MutationObserver(()=>{ fixRelativeImages(plantsBody); });
+  plantsMo.observe(plantsBody, { childList:true, subtree:true });
+}
 
 /* --- 2.117: мобильный каркас: меню-лист, лист добавления, FAB, плавающие undo/redo --- */
 const mMenuSheet = document.getElementById('mMenuSheet');
