@@ -425,6 +425,19 @@
     .chat-messages { flex:1 1 auto; min-height:0; }
     .chat-input-row { flex:0 0 auto; flex-direction:column; gap:8px; }
     .chat-input-row button { width:100%; min-height:44px; }
+    /* --- 2.124: Чат — ввод не прячется за нижним меню (высота экрана чата уменьшена) --- */
+    #screen-chat.active { height:calc(100dvh - 200px); min-height:300px; }
+    /* --- 2.124: Обучение в один столбец: Садовод первой строкой, текст строками ниже --- */
+    .tut-gardener { flex-direction:column; align-items:flex-start; gap:8px; }
+    .tut-gardener-img { width:56px; height:56px; }
+    .tut-gardener p { width:100%; }
+    .tut-tips { padding-left:18px; }
+    /* --- 2.124: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней» целиком на экране --- */
+    .an-section { padding:14px 12px; }
+    .an-section table { table-layout:fixed; width:100%; }
+    .an-section th, .an-section td { overflow-wrap:break-word; white-space:normal; font-size:12px; }
+    .an-section ul, .an-section ol { padding-left:18px; }
+    .an-section li { overflow-wrap:break-word; }
     /* --- аналитика и обзор --- */
     .an-kpi-value { font-size:26px; }
     .an-gantt-label { font-size:11px; }
