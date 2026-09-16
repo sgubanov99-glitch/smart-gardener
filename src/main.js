@@ -1,6 +1,9 @@
-// src/main.js — точка входа ревизии 2.117. Связывает слои каркаса.
-// 2.117: мобильный каркас — ☰-меню-лист, лист добавления объектов, FAB,
-//        плавающие undo/redo, переключатель видимости Цыпы (localStorage)
+// src/main.js — точка входа ревизии 2.118. Связывает слои каркаса.
+// 2.118: карточка растения на мобильном открывается на экране «Каталог» (оверлей всегда видим);
+//        FAB «+» и плавающие ↩/↪ только на листе «Схема»;
+//        переключатель «Мобильная версия» в ☰-меню (выкл = вьюпорт width=1024, эффект «Версии для ПК»)
+// 2.117: мобильный каркас — ☰-меню-лист, лист добавления объектов, FAB, плавающие undo/redo,
+//        переключатель видимости Цыпы (localStorage)
 // 2.116: глобальный сброс мобильного масштаба после завершения ввода
 // 2.110: удалён мёртвый блок «Мой календарь»
 // 2.101: Книга отзывов и предложений (guestbookView)
@@ -101,6 +104,23 @@ if (window.visualViewport) {
   });
 }
 
+/* --- 2.118: переключатель «Мобильная версия» / режим ПК (через ширину вьюпорта) --- */
+const mobileModeToggle = document.getElementById('mobileModeToggle');
+function applyViewportMode(){
+  let mobile = true;
+  try { mobile = localStorage.getItem('sg-mobile-mode') !== '0'; } catch(e){}
+  const m = document.querySelector('meta[name="viewport"]');
+  if (m) m.setAttribute('content', mobile
+    ? 'width=device-width, initial-scale=1, viewport-fit=cover'
+    : 'width=1024, user-scalable=yes'); // эффект «Версия для ПК»: десктопная раскладка на телефоне
+  if (mobileModeToggle) mobileModeToggle.checked = mobile;
+}
+if (mobileModeToggle) mobileModeToggle.addEventListener('change', ()=>{
+  try { localStorage.setItem('sg-mobile-mode', mobileModeToggle.checked ? '1' : '0'); } catch(e){}
+  location.reload(); // применяем раскладку чисто, без артефактов масштаба
+});
+applyViewportMode();
+
 /* --- домен --- */
 const scheme = createScheme();
 scheme.completedTasks = scheme.completedTasks || {};
@@ -176,7 +196,13 @@ const plantsView = createPlantsView({
     showScreen('screen-scheme');
   }
 });
-schemeView.onOpenPlantCard = function(plantName){ plantsView.openPlantCard(plantName); };
+schemeView.onOpenPlantCard = function(plantName){
+  // 2.118: на мобильном карточку растения открываем на экране «Каталог» — оверлей гарантированно видим
+  if (window.matchMedia && window.matchMedia('(max-width:900px)').matches) {
+    showScreen('screen-plants');
+  }
+  plantsView.openPlantCard(plantName);
+};
 
 /* --- обзор (2.85: с planting) --- */
 const homeView = createHomeView({
@@ -402,6 +428,12 @@ function showScreen(id) {
     }
   }
   if (window.__tsypa) window.__tsypa.refresh();
+  // 2.118: FAB «+» и плавающие undo/redo — только на листе «Схема»
+  const fab = document.getElementById('addFab');
+  const ur = document.getElementById('mUndoRedo');
+  const onlyScheme = (id === 'screen-scheme');
+  if (fab) fab.style.display = onlyScheme ? '' : 'none';
+  if (ur) ur.style.display = onlyScheme ? '' : 'none';
 }
 document.addEventListener('click', function(e){
   const g = e.target.closest('[data-goto]');
