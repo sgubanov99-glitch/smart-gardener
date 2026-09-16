@@ -1,7 +1,9 @@
-// src/ui/guestbookView.js — интерфейс «Книги отзывов и предложений» (ревизия 2.102)
-// 2.102: строка согласия на обработку IP в форме; ответ админа — тёмно-красный (CSS)
-// 2.101: вкладки «Написать» (тема, настроение, сообщение, подпись, контакт, диагностика)
-//        и «Читать» (общая лента со статусами и ответами администратора)
+// src/ui/guestbookView.js — интерфейс «Книги отзывов и предложений» (ревизия 2.115)
+// 2.115: после отправки сообщения и при закрытии книги снимаем фокус с поля
+//        и сбрасываем мобильный масштаб экрана к 1:1 (визуальный viewport
+//        иначе остаётся увеличенным после закрытия клавиатуры)
+// 2.102: тёмно-красный ответ администратора; согласие на обработку IP в примечании
+// 2.101: вкладки «Написать» / «Читать», офлайн-очередь, диагностика в письме
 import { submitEntry, fetchEntries, pendingCount, GUESTBOOK_CONFIG } from '../core/guestbook.js';
 
 const TOPICS = [
@@ -25,6 +27,22 @@ function fmtDate(iso){
   if (isNaN(d)) return iso || '';
   const p = n => String(n).padStart(2,'0');
   return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()}`;
+}
+
+/* ---------- 2.115: клавиатура и масштаб ---------- */
+function blurActive(){
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch(e){}
+}
+function resetMobileZoom(){
+  try {
+    const m = document.querySelector('meta[name="viewport"]');
+    if (!m) return;
+    const old = m.getAttribute('content') || '';
+    if (/maximum-scale=1(\D|$)/.test(old)) return;
+    // кратковременный запрет масштабирования заставляет браузер вернуть масштаб к 1:1
+    m.setAttribute('content', old + ', maximum-scale=1');
+    setTimeout(()=>{ m.setAttribute('content', old); }, 150);
+  } catch(e){}
 }
 
 export function createGuestbookView({ overlay, panel, getDiagnostics, notify }) {
@@ -135,7 +153,11 @@ export function createGuestbookView({ overlay, panel, getDiagnostics, notify }) 
     render();
     load();
   }
+
+  /* 2.115: при закрытии тоже возвращаем масштаб и прячем клавиатуру */
   function close(){
+    blurActive();
+    resetMobileZoom();
     if (overlay) overlay.classList.add('hidden');
   }
 
@@ -165,6 +187,8 @@ export function createGuestbookView({ overlay, panel, getDiagnostics, notify }) 
         });
         busy = false;
         if (res.ok) {
+          blurActive();        // 2.115: прячем клавиатуру
+          resetMobileZoom();   // 2.115: возвращаем масштаб экрана к 1:1
           thanksTopic = topic;
           render();
           if (notify) notify(res.sent ? 'Запись отправлена в книгу ✓' : 'Сохранено: отправим, когда сервис станет доступен');
