@@ -244,6 +244,10 @@
   .hm-row { border:1px solid rgba(63,62,58,.12); border-radius:12px; padding:10px 12px; margin:8px 0; background:#fff; box-shadow:var(--shadow-s); max-width:100%; }
   .hm-line { display:block; width:100%; margin:2px 0; font-size:13.5px; color:var(--ink); }
   .hm-phase { color:var(--ink-soft); }
+  /* 2.131: отметка выполнения задачи в Обзоре */
+  .hm-check { display:flex; align-items:center; gap:8px; cursor:pointer; }
+  .hm-check input { width:20px; height:20px; flex:none; margin:0; }
+  .hm-done .hm-task-text { text-decoration:line-through; color:var(--ink-soft); }
   /* 2.129: кнопки в оливковом стиле основных действий — не сливаются с фоном */
   .hm-btn { display:block; width:100%; margin-top:6px; min-height:40px; background:var(--olive); color:#fff; }
   @media (min-width:901px) { .hm-btn { display:inline-block; width:auto; } .hm-title { font-size:24px; } }
@@ -261,7 +265,7 @@
   /* 2.108: НЕТ transition и keyframes на контейнере: переключение мгновенное, блокировать поток нечему */
   #tsypa { z-index:35; }
   #tsypa.pos-left { align-items:flex-start; }
-  #tsypa.flip .tsypa-avatar img { transform: scaleX(-1); }
+  .tsypa.flip .tsypa-avatar img { transform: scaleX(-1); }
   /* 2.110: в левых позициях зеркалится и хвост пузыря */
   #tsypa.pos-left .tsypa-bubble { border-radius:14px 14px 14px 4px; }
   #tsypa.pos-0 { right:16px; bottom:96px; top:auto; left:auto; }
@@ -463,10 +467,8 @@
     #screen-home .an-section button { width:100%; min-height:40px; margin-top:6px; text-align:center; }
     #screen-home .an-section li > * { max-width:100%; }
     /* --- 2.130: силовая нормализация ширины Обзора на мобильном --- */
-    /* обёртка блоков homeView может быть flex/grid-строкой десктопа — делаем её вертикальной */
     #screen-home-body { display:block !important; overflow-x:hidden; max-width:100vw; min-height:120px; }
     #screen-home-body > * { display:block !important; width:100% !important; max-width:100% !important; margin-left:0 !important; margin-right:0 !important; }
-    /* все элементы блоков Обзора — не шире контентной области экрана (vw минус боковые отступы) */
     #screen-home-body * { box-sizing:border-box; }
     .hm-block, .hm-box, .hm-row, .hm-title { width:calc(100vw - 24px) !important; max-width:calc(100vw - 24px) !important; }
     .hm-row { overflow:hidden; }
@@ -503,12 +505,12 @@
     .gb-close::after { content:"Закрыть книгу"; }
     /* --- 2.123: окна без горизонтальной прокрутки — контент переносится, а не расширяется --- */
     .overlay .modal, .overlay .tutorial-modal, .plant-detail-modal { overflow-y:auto; overflow-x:hidden; overflow-wrap:break-word; }
-    .tut-nav { flex-wrap:wrap; gap:8px; }          /* точки слайдов переносятся, а не распирают окно */
+    .tut-nav { flex-wrap:wrap; gap:8px; }
     .tut-dots { flex-wrap:wrap; justify-content:center; }
-    .gb-head { flex-wrap:wrap; }                  /* заголовок Книги с вкладками переносится */
+    .gb-head { flex-wrap:wrap; }
     .gb-panel { overflow-y:auto; overflow-x:hidden; }
     .calendar-stage { overflow:hidden; }
-    .an-weeks { overflow-x:hidden; }              /* недели сжимаются вместо прокрутки */
+    .an-weeks { overflow-x:hidden; }
     .an-kpi-grid > *, .an-gantt-row > * { min-width:0; }
     /* --- шрифты инпутов 16px: iOS не zoom'ит при фокусе --- */
     input, select, textarea { font-size:16px !important; }
