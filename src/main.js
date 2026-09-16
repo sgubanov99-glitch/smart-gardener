@@ -1,6 +1,8 @@
-// src/main.js — точка входа ревизии 2.126. Связывает слои каркаса.
+// src/main.js — точка входа ревизии 2.127. Связывает слои каркаса.
+// 2.127: Обзор — построчная раскладка блоков:
+//        «Посаженные культуры» → строка1 культура+объект, строка2 фаза, строка3 кнопка «На схему»
+//        «Задачи на ближайшие 7 дней» → строка1 задача+культура+дата, строка2 кнопка «К календарю»
 // 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
-//        (пути картинок фиксятся после каждой перерисовки каталога)
 // 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
 // 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
 // 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия»; resetViewOffset() перед листами
@@ -219,7 +221,6 @@ const plantsView = createPlantsView({
 });
 schemeView.onOpenPlantCard = function(plantName){
   // 2.121: надёжное открытие карточки растения — симулируем клик по карточке каталога
-  // (тот же путь, которым карточка открывается вручную в «Каталоге»)
   var norm = function(s){ return (s || '').toLowerCase().trim(); };
   function forceShowOverlays(){
     var ovs = document.querySelectorAll('.plant-detail-overlay');
@@ -243,14 +244,13 @@ schemeView.onOpenPlantCard = function(plantName){
     }
     return false;
   }
-  try { plantsView.render(); fixRelativeImages(document); } catch(e){}  // гарантируем DOM каталога + относительные пути
+  try { plantsView.render(); fixRelativeImages(document); } catch(e){}
   var clicked = clickCatalogCard(plantName);
   if (!clicked && typeof plantsView.openPlantCard === 'function') {
     try { plantsView.openPlantCard(plantName); } catch(e){}
   }
-  var found = forceShowOverlays();                  // оверлей мог создаться внутри скрытого экрана
+  var found = forceShowOverlays();
   if (!found) {
-    // последний резерв: открываем каталог и кликаем карточку там
     showScreen('screen-plants');
     try { plantsView.render(); fixRelativeImages(document); } catch(e){}
     clickCatalogCard(plantName);
@@ -274,13 +274,69 @@ const homeView = createHomeView({
 /* --- аналитика --- */
 const analyticsView = createAnalyticsView({ scheme: scheme, plants: plants, phases: phases, compat: compat, buildCalendar: buildCalendar, planting: planting });
 
+/* --- 2.127: Обзор — построчная раскладка блоков «Посаженные культуры» и «Задачи на 7 дней» --- */
+const PHASE_RE = /(семен|всход|посадк|рост|цветен|плодонош|увяд|покой|🌱|🌳|🍃|🍅|❄)/i;
+function isPhaseEl(el){
+  if (!el || !el.classList) return false;
+  if (String(el.className).match(/phase|badge/i)) return true;
+  return PHASE_RE.test(el.textContent || '');
+}
+function restackRow(row, mode){
+  // mode 'plants': строка1 = культура+объект, строка2 = фаза, строка3 = кнопка «На схему»
+  // mode 'tasks' : строка1 = задача+культура+дата, строка2 = кнопка «К календарю»
+  const kids = Array.from(row.children);
+  if (!kids.length) return;
+  const btn = kids.find(k => k.tagName === 'BUTTON' || (k.querySelector && k.querySelector('button')));
+  const phases = (mode === 'plants') ? kids.filter(k => k !== btn && isPhaseEl(k)) : [];
+  const texts = kids.filter(k => k !== btn && phases.indexOf(k) === -1);
+  const line = (els) => {
+    const d = document.createElement('div');
+    d.style.display = 'block';
+    d.style.width = '100%';
+    d.style.margin = '2px 0';
+    els.forEach(el => d.appendChild(el));
+    return d;
+  };
+  const frag = document.createDocumentFragment();
+  if (texts.length) frag.appendChild(line(texts));
+  if (phases.length) frag.appendChild(line(phases));
+  if (btn) frag.appendChild(line([btn]));
+  row.innerHTML = '';
+  row.appendChild(frag);
+  row.style.display = 'block';
+  row.style.width = '100%';
+}
+function restyleHomeBlocks(){
+  const root = document.getElementById('screen-home-body');
+  if (!root) return;
+  root.querySelectorAll('.an-section').forEach(sec => {
+    const h = sec.querySelector('h3');
+    const title = h ? (h.textContent || '') : '';
+    let mode = null;
+    if (/Посаженные культуры/i.test(title)) mode = 'plants';
+    else if (/Задачи на ближайшие/i.test(title)) mode = 'tasks';
+    if (!mode) return;
+    Array.from(sec.children).forEach(child => {
+      if (child === h) return;
+      if (child.tagName === 'UL' || child.tagName === 'OL') {
+        child.style.paddingLeft = '0';
+        child.style.listStyle = 'none';
+        Array.from(child.children).forEach(li => restackRow(li, mode));
+      } else if (child.tagName === 'DIV' || child.tagName === 'LI') {
+        if (child.querySelector && child.querySelector('button')) restackRow(child, mode);
+        else Array.from(child.children).forEach(gc => { if (gc.querySelector && gc.querySelector('button')) restackRow(gc, mode); });
+      }
+    });
+  });
+}
+
 /* --- 2.95: undo/redo схемы --- */
 function refreshAfterHistory(){
   schemeView.render();
   calendarView.render();
   const active = document.querySelector('.screen.active');
   if (active) {
-    if (active.id === 'screen-home') homeView.render();
+    if (active.id === 'screen-home') { homeView.render(); restyleHomeBlocks(); }  // 2.127
     if (active.id === 'screen-analytics') analyticsView.render();
   }
   if (window.__tsypa) window.__tsypa.refresh();
@@ -298,7 +354,6 @@ function updateHistoryButtons(){
   if (r) r.disabled = !history.canRedo();
 }
 history.onStacksChange(updateHistoryButtons);
-// фиксация состояния после потенциально изменяющих взаимодействий
 document.addEventListener('click', ()=>history.commit());
 document.addEventListener('change', ()=>history.commit());
 document.addEventListener('pointerup', ()=>history.commit());
@@ -379,9 +434,8 @@ if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{
   if (!item) return;
   mCloseSheets();
   const target = document.getElementById(item.dataset.mact);
-  if (target) setTimeout(()=>target.click(), 60); // переиспользуем десктопные обработчики
+  if (target) setTimeout(()=>target.click(), 60);
 });
-// Цыпа: переключатель видимости с запоминанием
 const tsypaToggle = document.getElementById('tsypaToggle');
 function applyTsypaVisibility(){
   const elTs = document.getElementById('tsypa');
@@ -397,7 +451,6 @@ if (tsypaToggle) tsypaToggle.addEventListener('change', ()=>{
 });
 applyTsypaVisibility();
 const mVer = document.getElementById('mVersion'); if (mVer) mVer.textContent = APP_VERSION;
-// FAB: лист добавления -> клик по настоящей кнопке палитры
 on('addFab', function(){ if (mAddSheet) mAddSheet.classList.remove('hidden'); });
 if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
   const b = e.target.closest('[data-addfab]');
@@ -406,7 +459,6 @@ if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
   const real = document.querySelector('.palette-left [data-add="' + b.dataset.addfab + '"]');
   if (real) setTimeout(()=>real.click(), 60);
 });
-// плавающие undo/redo дублируют десктопные кнопки
 on('undoFab', function(){ const u = document.getElementById('undoBtn'); if (u) u.click(); });
 on('redoFab', function(){ const r = document.getElementById('redoBtn'); if (r) r.click(); });
 function syncFabs(){
@@ -479,7 +531,7 @@ on('undoBtn', function(){ if (history.undo()) showToast('Отменено ↩');
 on('redoBtn', function(){ if (history.redo()) showToast('Повторено ↪'); });
 document.addEventListener('keydown', function(e){
   const tag = ((e.target && e.target.tagName) || '').toLowerCase();
-  if (tag==='input' || tag==='textarea' || tag==='select') return; // в полях ввода работает родной undo
+  if (tag==='input' || tag==='textarea' || tag==='select') return;
   if ((e.ctrlKey||e.metaKey) && !e.altKey && (e.key==='z' || e.key==='Z' || e.key==='я' || e.key==='Я')) {
     if (e.shiftKey) { if (history.redo()) showToast('Повторено ↪'); }
     else if (history.undo()) showToast('Отменено ↩');
@@ -502,10 +554,11 @@ function showScreen(id) {
   if (id === 'screen-scheme') schemeView.render();
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
-  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
+  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
     homeView.render();
+    restyleHomeBlocks();   // 2.127: построчная раскладка блоков Обзора
     const hpn = document.getElementById('homePlotName');
     if (hpn) {
       const pn = (scheme.plotName || '').trim();
@@ -554,7 +607,7 @@ on('loadBtn', function(){
     calendarView.render();
     if (window.__tsypa) window.__tsypa.refresh();
     showToast('План загружен ✓');
-    history.commit(); // 2.95: загрузка файла асинхронная — фиксируем вручную
+    history.commit();
   });
 });
 on('gridStep', function(){
@@ -628,7 +681,7 @@ on('advisorBtn', function(){
   const tc = bubble.querySelector('#tipClose');
   if (tc) tc.addEventListener('click', function(e){ e.stopPropagation(); bubble.classList.add('hidden'); });
   bubble.classList.remove('hidden');
-  fixRelativeImages(bubble); // 2.125: относительные пути в пузыре Советчика
+  fixRelativeImages(bubble);
 });
 document.addEventListener('pointerdown', function(e){
   const bubble = document.getElementById('tipBubble');
