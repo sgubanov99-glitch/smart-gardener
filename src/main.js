@@ -1,6 +1,8 @@
-// src/main.js — точка входа ревизии 2.129. Связывает слои каркаса.
-// 2.129: контейнеры блоков Обзора нормализуются при перестройке (ширина по экрану);
-//        кнопки строк в оливковом стиле; пустая схема — подсказки и навигация в Обзоре
+// src/main.js — точка входа ревизии 2.131. Связывает слои каркаса.
+// 2.131: перестройка строк Обзора только на мобильном (десктоп — родной Обзор homeView с отметкой выполнения);
+//        мобильные строки «Задачи на 7 дней» получили чекбокс выполнения, синхронный с Календарём в обе стороны
+// 2.130: силовая нормализация ширины Обзора на мобильном (CSS)
+// 2.129: пустая схема — подсказки и навигация в Обзоре; нормализация контейнеров блоков
 // 2.128: блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных схемы
 // 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
 // 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
@@ -61,7 +63,7 @@ function on(id, fn, ev){
 }
 
 /* --- экранирование для вставки имён в HTML --- */
-function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
 /* --- toast-уведомления --- */
 function showToast(msg){
@@ -276,10 +278,11 @@ const homeView = createHomeView({
 /* --- аналитика --- */
 const analyticsView = createAnalyticsView({ scheme: scheme, plants: plants, phases: phases, compat: compat, buildCalendar: buildCalendar, planting: planting });
 
-/* --- 2.128/2.129: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней»
-       перестраиваются из данных схемы: один столбец, элементы на отдельных строках --- */
+/* --- 2.128/2.129/2.131: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней» --- */
 function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function addDaysISO2(iso,n){ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+/* 2.131: тот же ключ задачи, что используется в Календаре */
+function taskKeyOf(t){ return t.date + '|' + t.bed_id + '|' + t.name; }
 
 function rowPlanted(culture, objName, phase, objId){
   const pm = (phase && PHASE_META[phase]) || null;
@@ -305,6 +308,7 @@ function plantedRowsHTML(){
   if (!rows.length) return '<div class="hm-line" style="color:var(--ink-soft)">Пока ничего не посажено — добавьте культуры на «Схеме».</div>';
   return rows.join('');
 }
+/* 2.131: строки задач с чекбоксом выполнения, синхронным с Календарём */
 function tasksRowsHTML(){
   const today = todayISO();
   const horizon = addDaysISO2(today, 7);
@@ -314,8 +318,13 @@ function tasksRowsHTML(){
   Object.keys(byDay).sort().forEach(d=>{
     if (d < today || d > horizon) return;
     (byDay[d]||[]).forEach(t=>{
-      rows.push('<div class="hm-row">' +
-        '<div class="hm-line">' + esc(t.name||'') + (t.crop ? ' · ' + esc(t.crop) : '') + ' · ' + d.slice(8,10) + '.' + d.slice(5,7) + '</div>' +
+      const key = taskKeyOf(t);
+      const done = !!(scheme.completedTasks||{})[key];
+      rows.push('<div class="hm-row' + (done ? ' hm-done' : '') + '">' +
+        '<label class="hm-line hm-check">' +
+          '<input type="checkbox" data-task-key="' + esc(key) + '"' + (done ? ' checked' : '') + ' />' +
+          '<span class="hm-task-text">' + esc(t.name||'') + (t.crop ? ' · ' + esc(t.crop) : '') + ' · ' + d.slice(8,10) + '.' + d.slice(5,7) + '</span>' +
+        '</label>' +
         '<button type="button" class="btn hm-btn" data-go-cal="1">К календарю</button>' +
         '</div>');
     });
@@ -372,14 +381,16 @@ function emptyHomeHTML(){
     '<button type="button" class="btn empty-state-action" data-goto="screen-calendar">🗓 Посмотреть Календарь</button>' +
     '</div>';
 }
+/* 2.131: десктоп — родной Обзор homeView без изменений; мобильный — перестройка строк */
 function renderHomeBody(){
   const body = document.getElementById('screen-home-body');
+  const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches;
   if (!(scheme.objects||[]).length) {
     if (body) body.innerHTML = emptyHomeHTML();
-  } else {
-    homeView.render();
-    restyleHomeBlocks();
+    return;
   }
+  homeView.render();                // десктоп: родной Обзор с отметкой выполнения
+  if (isMob) restyleHomeBlocks();   // мобильный: строки по ширине экрана + чекбоксы
 }
 
 /* --- 2.95: undo/redo схемы --- */
@@ -388,7 +399,7 @@ function refreshAfterHistory(){
   calendarView.render();
   const active = document.querySelector('.screen.active');
   if (active) {
-    if (active.id === 'screen-home') renderHomeBody();   // 2.129
+    if (active.id === 'screen-home') renderHomeBody();   // 2.131
     if (active.id === 'screen-analytics') analyticsView.render();
   }
   if (window.__tsypa) window.__tsypa.refresh();
@@ -613,7 +624,7 @@ function showScreen(id) {
   if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
-    renderHomeBody();   // 2.129: пустая схема — подсказки, иначе обзор + перестройка блоков
+    renderHomeBody();   // 2.131: десктоп — родной Обзор, мобильный — перестроенные строки
     const hpn = document.getElementById('homePlotName');
     if (hpn) {
       const pn = (scheme.plotName || '').trim();
@@ -642,6 +653,23 @@ document.addEventListener('click', function(e){
   if (objBtn) { showScreen('screen-scheme'); schemeView.selectAndShow(parseInt(objBtn.dataset.objId, 10)); return; }
   const calBtn = e.target.closest('button[data-go-cal]');
   if (calBtn) { showScreen('screen-calendar'); return; }
+});
+
+/* --- 2.131: отметка выполнения задачи в Обзоре — синхронно с Календарём в обе стороны --- */
+document.addEventListener('change', function(e){
+  const cb = e.target.closest('#screen-home-body input[data-task-key]');
+  if (!cb) return;
+  const key = cb.getAttribute('data-task-key');
+  if (!scheme.completedTasks) scheme.completedTasks = {};
+  if (cb.checked) {
+    scheme.completedTasks[key] = { at: todayISO() };
+    window.dispatchEvent(new CustomEvent('sg-task-done', { detail:{} })); // поощрение Цыпы
+  } else {
+    delete scheme.completedTasks[key];
+  }
+  calendarView.render();          // Календарь сразу видит отметку
+  renderHomeBody();               // Обзор перерисовывает строки с актуальными галочками
+  if (window.__tsypa) window.__tsypa.refresh();
 });
 
 /* --- кнопки шапки (с toast) --- */
