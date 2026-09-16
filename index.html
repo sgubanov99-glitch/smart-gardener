@@ -236,6 +236,12 @@
   @media (max-width:640px) {
     .an-gantt-row, .an-gantt-axis { grid-template-columns:120px minmax(0,1fr); }
   }
+  /* ===== 2.128: Обзор — строки блоков «Посаженные культуры» и «Задачи на 7 дней» ===== */
+  .hm-row { border:1px solid rgba(63,62,58,.12); border-radius:12px; padding:10px 12px; margin:8px 0; background:#fff; box-shadow:var(--shadow-s); }
+  .hm-line { display:block; width:100%; margin:2px 0; font-size:13.5px; color:var(--ink); }
+  .hm-phase { color:var(--ink-soft); }
+  .hm-btn { display:block; width:100%; margin-top:6px; min-height:40px; }
+  @media (min-width:901px) { .hm-btn { display:inline-block; width:auto; } }
   /* 2.68: Цыпа — маскот-агроном */
   #tsypa { position:fixed; right:16px; bottom:88px; z-index:46; display:flex; flex-direction:column; align-items:flex-end; gap:6px; cursor:pointer; max-width:260px; }
   .tsypa-bubble { background:var(--panel); border:1px solid rgba(138,155,110,.3); border-radius:14px 14px 4px 14px; padding:10px 12px; font-size:13px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow-s); }
