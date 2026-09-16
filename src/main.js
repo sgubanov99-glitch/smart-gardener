@@ -1,6 +1,8 @@
-// src/main.js — точка входа ревизии 2.119. Связывает слои каркаса.
+// src/main.js — точка входа ревизии 2.120. Связывает слои каркаса.
+// 2.120: карточка растения открывается принудительно и видимо с любого экрана
+//        (перенос оверлея в body + снятие hidden/display; запасной сценарий через «Каталог»);
+//        настройки объекта на мобильном — одним столбцом (CSS в index.html)
 // 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия» и подсказкой про браузерную галочку;
-//        карточка растения открывается по месту (оверлей переносится в body);
 //        resetViewOffset() перед полноэкранными листами и сменой экранов (лечит «половинки»);
 //        body overflow-x:hidden в CSS
 // 2.118: карточка растения на мобильном, FAB/undo только на Схеме, переключатель «Мобильная версия»
@@ -157,7 +159,7 @@ try {
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
-  if (pres.ok) planting = deepTrim(await pres.json());
+  if (pres.ok) planting = deepTrim(await res.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
 
 /* --- 2.86: слайды обучения --- */
@@ -217,10 +219,26 @@ const plantsView = createPlantsView({
   }
 });
 schemeView.onOpenPlantCard = function(plantName){
-  // 2.119: открываем карточку там, где нажато; если оверлей оказался внутри скрытого экрана — переносим в body
+  // 2.120: открываем карточку растения принудительно и видимо с любого экрана
   plantsView.openPlantCard(plantName);
-  const ov = document.querySelector('.plant-detail-overlay');
-  if (ov && ov.parentElement !== document.body) document.body.appendChild(ov);
+  let overlays = document.querySelectorAll('.plant-detail-overlay');
+  // если оверлей остался внутри скрытого экрана — переносим в body и показываем
+  overlays.forEach(function(ov){
+    if (ov.parentElement !== document.body) document.body.appendChild(ov);
+    ov.classList.remove('hidden');
+    ov.style.display = '';
+  });
+  // запасной сценарий: оверлей вообще не создался — открываем на экране «Каталог»
+  if (!document.querySelector('.plant-detail-overlay')) {
+    showScreen('screen-plants');
+    plantsView.openPlantCard(plantName);
+    const ov2 = document.querySelector('.plant-detail-overlay');
+    if (ov2) {
+      if (ov2.parentElement !== document.body) document.body.appendChild(ov2);
+      ov2.classList.remove('hidden');
+      ov2.style.display = '';
+    }
+  }
   resetViewOffset();
 };
 
