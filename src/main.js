@@ -1,6 +1,7 @@
-// src/main.js — точка входа ревизии 2.116. Связывает слои каркаса.
-// 2.116: глобальный сброс мобильного масштаба к 1:1 после завершения ввода
-//        (focusout / change / закрытие клавиатуры) на всех экранах
+// src/main.js — точка входа ревизии 2.117. Связывает слои каркаса.
+// 2.117: мобильный каркас — ☰-меню-лист, лист добавления объектов, FAB,
+//        плавающие undo/redo, переключатель видимости Цыпы (localStorage)
+// 2.116: глобальный сброс мобильного масштаба после завершения ввода
 // 2.110: удалён мёртвый блок «Мой календарь»
 // 2.101: Книга отзывов и предложений (guestbookView)
 // 2.100: авто-подсказки погоды и прогноза (reminders.js)
@@ -253,6 +254,61 @@ const guestbookView = createGuestbookView({
 });
 on('guestbookBtn', function(){ guestbookView.open(); });
 on('gbClose', function(){ guestbookView.close(); });
+
+/* --- 2.117: мобильный каркас: меню-лист, лист добавления, FAB, плавающие undo/redo --- */
+const mMenuSheet = document.getElementById('mMenuSheet');
+const mAddSheet = document.getElementById('mAddSheet');
+function mCloseSheets(){
+  if (mMenuSheet) mMenuSheet.classList.add('hidden');
+  if (mAddSheet) mAddSheet.classList.add('hidden');
+}
+on('menuBtn', function(){ if (mMenuSheet) mMenuSheet.classList.remove('hidden'); });
+on('mMenuClose', mCloseSheets);
+on('mAddClose', mCloseSheets);
+if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{ if (e.target === mMenuSheet) mCloseSheets(); });
+if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{ if (e.target === mAddSheet) mCloseSheets(); });
+if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{
+  const item = e.target.closest('[data-mact]');
+  if (!item) return;
+  mCloseSheets();
+  const target = document.getElementById(item.dataset.mact);
+  if (target) setTimeout(()=>target.click(), 60); // переиспользуем десктопные обработчики
+});
+// Цыпа: переключатель видимости с запоминанием
+const tsypaToggle = document.getElementById('tsypaToggle');
+function applyTsypaVisibility(){
+  const elTs = document.getElementById('tsypa');
+  if (!elTs) return;
+  let hiddenTs = false;
+  try { hiddenTs = localStorage.getItem('sg-tsypa-hidden') === '1'; } catch(e){}
+  elTs.style.display = hiddenTs ? 'none' : '';
+  if (tsypaToggle) tsypaToggle.checked = !hiddenTs;
+}
+if (tsypaToggle) tsypaToggle.addEventListener('change', ()=>{
+  try { localStorage.setItem('sg-tsypa-hidden', tsypaToggle.checked ? '0' : '1'); } catch(e){}
+  applyTsypaVisibility();
+});
+applyTsypaVisibility();
+const mVer = document.getElementById('mVersion'); if (mVer) mVer.textContent = APP_VERSION;
+// FAB: лист добавления -> клик по настоящей кнопке палитры
+on('addFab', function(){ if (mAddSheet) mAddSheet.classList.remove('hidden'); });
+if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
+  const b = e.target.closest('[data-addfab]');
+  if (!b) return;
+  mCloseSheets();
+  const real = document.querySelector('.palette-left [data-add="' + b.dataset.addfab + '"]');
+  if (real) setTimeout(()=>real.click(), 60);
+});
+// плавающие undo/redo дублируют десктопные кнопки
+on('undoFab', function(){ const u = document.getElementById('undoBtn'); if (u) u.click(); });
+on('redoFab', function(){ const r = document.getElementById('redoBtn'); if (r) r.click(); });
+function syncFabs(){
+  const uf = document.getElementById('undoFab'), rf = document.getElementById('redoFab');
+  if (uf) uf.disabled = !history.canUndo();
+  if (rf) rf.disabled = !history.canRedo();
+}
+history.onStacksChange(syncFabs);
+syncFabs();
 
 /* --- поощрение за закрытие задачи --- */
 const ENCOURAGEMENTS = [
