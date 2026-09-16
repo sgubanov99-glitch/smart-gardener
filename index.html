@@ -462,6 +462,14 @@
     #screen-home .an-section div, #screen-home .an-section li { flex-wrap:wrap !important; }
     #screen-home .an-section button { width:100%; min-height:40px; margin-top:6px; text-align:center; }
     #screen-home .an-section li > * { max-width:100%; }
+    /* --- 2.130: силовая нормализация ширины Обзора на мобильном --- */
+    /* обёртка блоков homeView может быть flex/grid-строкой десктопа — делаем её вертикальной */
+    #screen-home-body { display:block !important; overflow-x:hidden; max-width:100vw; min-height:120px; }
+    #screen-home-body > * { display:block !important; width:100% !important; max-width:100% !important; margin-left:0 !important; margin-right:0 !important; }
+    /* все элементы блоков Обзора — не шире контентной области экрана (vw минус боковые отступы) */
+    #screen-home-body * { box-sizing:border-box; }
+    .hm-block, .hm-box, .hm-row, .hm-title { width:calc(100vw - 24px) !important; max-width:calc(100vw - 24px) !important; }
+    .hm-row { overflow:hidden; }
     /* --- аналитика и обзор --- */
     .an-kpi-value { font-size:26px; }
     .an-gantt-label { font-size:11px; }
