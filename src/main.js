@@ -1,9 +1,10 @@
-// src/main.js — точка входа ревизии 2.118. Связывает слои каркаса.
-// 2.118: карточка растения на мобильном открывается на экране «Каталог» (оверлей всегда видим);
-//        FAB «+» и плавающие ↩/↪ только на листе «Схема»;
-//        переключатель «Мобильная версия» в ☰-меню (выкл = вьюпорт width=1024, эффект «Версии для ПК»)
-// 2.117: мобильный каркас — ☰-меню-лист, лист добавления объектов, FAB, плавающие undo/redo,
-//        переключатель видимости Цыпы (localStorage)
+// src/main.js — точка входа ревизии 2.119. Связывает слои каркаса.
+// 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия» и подсказкой про браузерную галочку;
+//        карточка растения открывается по месту (оверлей переносится в body);
+//        resetViewOffset() перед полноэкранными листами и сменой экранов (лечит «половинки»);
+//        body overflow-x:hidden в CSS
+// 2.118: карточка растения на мобильном, FAB/undo только на Схеме, переключатель «Мобильная версия»
+// 2.117: мобильный каркас — ☰-меню-лист, лист добавления объектов, FAB, плавающие undo/redo
 // 2.116: глобальный сброс мобильного масштаба после завершения ввода
 // 2.110: удалён мёртвый блок «Мой календарь»
 // 2.101: Книга отзывов и предложений (guestbookView)
@@ -82,6 +83,15 @@ function resetMobileZoom(){
     setTimeout(()=>{ m.setAttribute('content', old); }, 150);
   } catch(e){}
 }
+
+/* 2.119: сброс горизонтального смещения и масштаба перед полноэкранными листами */
+function resetViewOffset(){
+  try {
+    if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+    resetMobileZoom();
+  } catch(e){}
+}
+
 function isFormEl(el){
   if (!el || !el.tagName) return false;
   const t = el.tagName.toLowerCase();
@@ -104,22 +114,32 @@ if (window.visualViewport) {
   });
 }
 
-/* --- 2.118: переключатель «Мобильная версия» / режим ПК (через ширину вьюпорта) --- */
+/* --- 2.118/2.119: переключатель «Мобильная версия» / ПК-режим --- */
 const mobileModeToggle = document.getElementById('mobileModeToggle');
-function applyViewportMode(){
-  let mobile = true;
-  try { mobile = localStorage.getItem('sg-mobile-mode') !== '0'; } catch(e){}
-  const m = document.querySelector('meta[name="viewport"]');
-  if (m) m.setAttribute('content', mobile
-    ? 'width=device-width, initial-scale=1, viewport-fit=cover'
-    : 'width=1024, user-scalable=yes'); // эффект «Версия для ПК»: десктопная раскладка на телефоне
-  if (mobileModeToggle) mobileModeToggle.checked = mobile;
+function isTouch(){ return (navigator.maxTouchPoints || 0) > 0; }
+function mobileModeWanted(){ try { return localStorage.getItem('sg-mobile-mode') !== '0'; } catch(e){ return true; } }
+function applyMobileMode(){
+  const wantMobile = mobileModeWanted();
+  if (!wantMobile && isTouch()) {
+    document.documentElement.classList.add('fd'); // для пилюли возврата
+    const m = document.querySelector('meta[name="viewport"]');
+    if (m) m.setAttribute('content', 'width=1024, user-scalable=yes');
+  }
+  if (mobileModeToggle) mobileModeToggle.checked = wantMobile;
+  // 2.119: браузерная «Версия для ПК» перекрывает наш мобильный режим — подсказываем один раз
+  if (wantMobile && isTouch() && window.matchMedia && !window.matchMedia('(max-width:900px)').matches) {
+    setTimeout(()=>showToast('Отключите «Версию для ПК» в меню браузера (⋮) один раз'), 1200);
+  }
 }
 if (mobileModeToggle) mobileModeToggle.addEventListener('change', ()=>{
   try { localStorage.setItem('sg-mobile-mode', mobileModeToggle.checked ? '1' : '0'); } catch(e){}
-  location.reload(); // применяем раскладку чисто, без артефактов масштаба
+  location.reload();
 });
-applyViewportMode();
+on('fdExit', function(){
+  try { localStorage.setItem('sg-mobile-mode','1'); } catch(e){}
+  location.reload();
+});
+applyMobileMode();
 
 /* --- домен --- */
 const scheme = createScheme();
@@ -197,11 +217,11 @@ const plantsView = createPlantsView({
   }
 });
 schemeView.onOpenPlantCard = function(plantName){
-  // 2.118: на мобильном карточку растения открываем на экране «Каталог» — оверлей гарантированно видим
-  if (window.matchMedia && window.matchMedia('(max-width:900px)').matches) {
-    showScreen('screen-plants');
-  }
+  // 2.119: открываем карточку там, где нажато; если оверлей оказался внутри скрытого экрана — переносим в body
   plantsView.openPlantCard(plantName);
+  const ov = document.querySelector('.plant-detail-overlay');
+  if (ov && ov.parentElement !== document.body) document.body.appendChild(ov);
+  resetViewOffset();
 };
 
 /* --- обзор (2.85: с planting) --- */
@@ -409,6 +429,11 @@ document.addEventListener('keydown', function(e){
   }
 });
 
+// 2.119: перед открытием полноэкранных листов сбрасываем сдвиг/масштаб (лечит «половинки»)
+document.addEventListener('click', function(e){
+  if (e.target.closest('#historyBtn,#tutorialBtn,#guestbookBtn,#advisorBtn,[data-mact],.obj-chip,.btn-card,.gh-plant-card,.obj')) resetViewOffset();
+}, true);
+
 /* --- навигация --- */
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.toggle('active', s.id === id); });
@@ -434,6 +459,8 @@ function showScreen(id) {
   const onlyScheme = (id === 'screen-scheme');
   if (fab) fab.style.display = onlyScheme ? '' : 'none';
   if (ur) ur.style.display = onlyScheme ? '' : 'none';
+  // 2.119: сброс горизонтального сдвига/масштаба при смене экрана
+  resetViewOffset();
 }
 document.addEventListener('click', function(e){
   const g = e.target.closest('[data-goto]');
