@@ -1,6 +1,7 @@
-// src/main.js — точка входа ревизии 2.128. Связывает слои каркаса.
-// 2.128: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных
-//        схемы и календаря: один столбец, элементы на отдельных строках, независимо от разметки homeView
+// src/main.js — точка входа ревизии 2.129. Связывает слои каркаса.
+// 2.129: контейнеры блоков Обзора нормализуются при перестройке (ширина по экрану);
+//        кнопки строк в оливковом стиле; пустая схема — подсказки и навигация в Обзоре
+// 2.128: блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных схемы
 // 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
 // 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
 // 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
@@ -159,7 +160,7 @@ try {
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
-  if (pres.ok) planting = deepTrim(await res.json());
+  if (pres.ok) planting = deepTrim(await pres.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
 
 /* --- 2.86: слайды обучения --- */
@@ -275,7 +276,7 @@ const homeView = createHomeView({
 /* --- аналитика --- */
 const analyticsView = createAnalyticsView({ scheme: scheme, plants: plants, phases: phases, compat: compat, buildCalendar: buildCalendar, planting: planting });
 
-/* --- 2.128: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней»
+/* --- 2.128/2.129: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней»
        перестраиваются из данных схемы: один столбец, элементы на отдельных строках --- */
 function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function addDaysISO2(iso,n){ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
@@ -338,21 +339,46 @@ function findBlock(root, re){
 function restyleHomeBlocks(){
   const root = document.getElementById('screen-home-body');
   if (!root) return;
-  const b1 = findBlock(root, /Посаженные культуры/i);
-  if (b1) {
+  [ [/Посаженные культуры/i, plantedRowsHTML()],
+    [/Задачи на ближайшие/i, tasksRowsHTML()] ].forEach(function(pair){
+    const b = findBlock(root, pair[0]);
+    if (!b) return;
+    const c = b.container;
+    // 2.129: нормализуем контейнер блока напрямую (он может быть вне .an-section
+    // и иметь inline-стили ширины/flex, распирающие экран)
+    c.removeAttribute('style');
+    c.classList.add('hm-block');
+    b.titleEl.classList.add('hm-title');
+    b.titleEl.style.display = 'block';
+    b.titleEl.style.width = '100%';
+    b.titleEl.style.whiteSpace = 'normal';
     const box = document.createElement('div');
-    box.innerHTML = plantedRowsHTML();
-    b1.container.innerHTML = '';
-    b1.container.appendChild(b1.titleEl);
-    b1.container.appendChild(box);
-  }
-  const b2 = findBlock(root, /Задачи на ближайшие/i);
-  if (b2) {
-    const box = document.createElement('div');
-    box.innerHTML = tasksRowsHTML();
-    b2.container.innerHTML = '';
-    b2.container.appendChild(b2.titleEl);
-    b2.container.appendChild(box);
+    box.className = 'hm-box';
+    box.innerHTML = pair[1];
+    c.innerHTML = '';
+    c.appendChild(b.titleEl);
+    c.appendChild(box);
+  });
+}
+
+/* --- 2.129: пустая схема — Обзор с подсказками и навигацией в принятом стиле --- */
+function emptyHomeHTML(){
+  return '<div class="empty-state">' +
+    '<div class="empty-state-icon">🏡</div>' +
+    '<div class="empty-state-title">Участок пока пуст</div>' +
+    '<div class="empty-state-text">Добавьте грядки, теплицы, деревья и кустарники на «Схеме» — и здесь появится обзор сезона: посаженные культуры, задачи на неделю, прогноз урожая и подсказки Цыпы.</div>' +
+    '<button type="button" class="btn btn-olive empty-state-action" data-goto="screen-scheme">🏠 Перейти к Схеме</button>' +
+    '<button type="button" class="btn empty-state-action" data-goto="screen-plants">🌱 Открыть Каталог растений</button>' +
+    '<button type="button" class="btn empty-state-action" data-goto="screen-calendar">🗓 Посмотреть Календарь</button>' +
+    '</div>';
+}
+function renderHomeBody(){
+  const body = document.getElementById('screen-home-body');
+  if (!(scheme.objects||[]).length) {
+    if (body) body.innerHTML = emptyHomeHTML();
+  } else {
+    homeView.render();
+    restyleHomeBlocks();
   }
 }
 
@@ -362,7 +388,7 @@ function refreshAfterHistory(){
   calendarView.render();
   const active = document.querySelector('.screen.active');
   if (active) {
-    if (active.id === 'screen-home') { homeView.render(); restyleHomeBlocks(); }  // 2.128
+    if (active.id === 'screen-home') renderHomeBody();   // 2.129
     if (active.id === 'screen-analytics') analyticsView.render();
   }
   if (window.__tsypa) window.__tsypa.refresh();
@@ -587,8 +613,7 @@ function showScreen(id) {
   if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
-    homeView.render();
-    restyleHomeBlocks();   // 2.128: перестройка блоков Обзора в один столбец
+    renderHomeBody();   // 2.129: пустая схема — подсказки, иначе обзор + перестройка блоков
     const hpn = document.getElementById('homePlotName');
     if (hpn) {
       const pn = (scheme.plotName || '').trim();
