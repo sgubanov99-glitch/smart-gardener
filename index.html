@@ -29,6 +29,8 @@
   * { box-sizing:border-box; } html, body { margin:0; padding:0; }
   /* 2.119: overflow-x:hidden — запрет горизонтального скролла страницы (лечит «половинки») */
   body { background: var(--paper) url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)' opacity='0.05'/></svg>"); color: var(--ink); font-family:"Manrope",Arial,sans-serif; font-size:16px; line-height:1.5; padding-bottom:110px; overflow-x:hidden; }
+  /* 2.123: горизонтальная прокрутка страницы исключена полностью */
+  html { overflow-x:hidden; }
   .hidden { display:none !important; }
   .topbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
   .logo { font-family:"Neucha",cursive; font-size:clamp(30px,4.5vw,42px); display:flex; align-items:center; gap:10px; margin-right:auto; }
@@ -415,11 +417,14 @@
     /* --- календарь --- */
     .cal-mode-btn { min-height:40px; }
     .m-cell { min-height:52px; }
-    .chat-root { height:60dvh; }
-    /* --- 2.122: Чат — кнопка «Отправить» под полем ввода, подсказка компактная --- */
-    .chat-input-row { flex-direction:column; gap:8px; }
+    /* --- 2.123: Чат — фиксированная видимая область: экран чата по высоте вьюпорта, подсказка всегда видна --- */
+    #screen-chat.active { display:flex; flex-direction:column; height:calc(100dvh - 168px); min-height:320px; }
+    #screen-chat .screen-title { flex:0 0 auto; margin-bottom:8px; font-size:22px; }
+    #screen-chat .screen-hint { flex:0 0 auto; font-size:12px; padding:6px 10px; max-height:44px; overflow-y:auto; margin-bottom:8px; }
+    .chat-root { flex:1 1 auto; min-height:0; height:auto; }
+    .chat-messages { flex:1 1 auto; min-height:0; }
+    .chat-input-row { flex:0 0 auto; flex-direction:column; gap:8px; }
     .chat-input-row button { width:100%; min-height:44px; }
-    #screen-chat .screen-hint { font-size:12px; padding:6px 10px; max-height:44px; overflow-y:auto; margin-bottom:8px; }
     /* --- аналитика и обзор --- */
     .an-kpi-value { font-size:26px; }
     .an-gantt-label { font-size:11px; }
@@ -451,6 +456,15 @@
     .gb-close { left:8px; right:8px; top:auto; bottom:8px; width:auto; height:48px; border-radius:999px; background:#5A4668; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; gap:8px; font:700 15px Manrope,sans-serif; color:#fff; }
     .gb-close::before { content:"✕"; font-size:18px; line-height:1; }
     .gb-close::after { content:"Закрыть книгу"; }
+    /* --- 2.123: окна без горизонтальной прокрутки — контент переносится, а не расширяется --- */
+    .overlay .modal, .overlay .tutorial-modal, .plant-detail-modal { overflow-y:auto; overflow-x:hidden; overflow-wrap:break-word; }
+    .tut-nav { flex-wrap:wrap; gap:8px; }          /* точки слайдов переносятся, а не распирают окно */
+    .tut-dots { flex-wrap:wrap; justify-content:center; }
+    .gb-head { flex-wrap:wrap; }                  /* заголовок Книги с вкладками переносится */
+    .gb-panel { overflow-y:auto; overflow-x:hidden; }
+    .calendar-stage { overflow:hidden; }
+    .an-weeks { overflow-x:hidden; }              /* недели сжимаются вместо прокрутки */
+    .an-kpi-grid > *, .an-gantt-row > * { min-width:0; }
     /* --- шрифты инпутов 16px: iOS не zoom'ит при фокусе --- */
     input, select, textarea { font-size:16px !important; }
 
