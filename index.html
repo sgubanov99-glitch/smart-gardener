@@ -217,13 +217,13 @@
   .an-legend span { display:inline-flex; align-items:center; gap:5px; }
   .an-legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
   .an-gantt { display:flex; flex-direction:column; gap:6px; position:relative; }
-  /* 2.110: единая колонка подписей Ганта 210px (как в Календаре) */
-  .an-gantt-row { display:grid; grid-template-columns:210px 1fr; gap:10px; align-items:center; }
+  /* 2.110/2.122: колонка подписей Ганта с minmax(0,1fr) — трек не распирает экран */
+  .an-gantt-row { display:grid; grid-template-columns:210px minmax(0,1fr); gap:10px; align-items:center; }
   .an-gantt-label { font-size:12.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px; }
   .an-gantt-track { position:relative; height:18px; background:rgba(63,62,58,.06); border-radius:6px; overflow:hidden; }
   .an-gantt-seg { position:absolute; top:2px; bottom:2px; border-radius:4px; opacity:.92; }
   .an-gantt-today { position:absolute; top:0; bottom:24px; width:2px; background:var(--rose-dark); z-index:2; }
-  .an-gantt-axis { display:grid; grid-template-columns:210px 1fr; gap:10px; margin-top:4px; }
+  .an-gantt-axis { display:grid; grid-template-columns:210px minmax(0,1fr); gap:10px; margin-top:4px; }
   .an-gantt-months { position:relative; height:16px; font-size:10.5px; color:var(--ink-soft); }
   .an-gantt-months span { position:absolute; top:0; }
   .an-section table { width:100%; }
@@ -232,7 +232,7 @@
   .an-risk { border-left:4px solid var(--rose-dark); background:rgba(217,165,160,.14); border-radius:8px; padding:10px 12px; font-size:13px; color:var(--ink); line-height:1.45; }
   .an-risk.ok { border-left-color:var(--olive); background:rgba(138,155,110,.14); }
   @media (max-width:640px) {
-    .an-gantt-row, .an-gantt-axis { grid-template-columns:140px 1fr; }
+    .an-gantt-row, .an-gantt-axis { grid-template-columns:120px minmax(0,1fr); }
   }
   /* 2.68: Цыпа — маскот-агроном */
   #tsypa { position:fixed; right:16px; bottom:88px; z-index:46; display:flex; flex-direction:column; align-items:flex-end; gap:6px; cursor:pointer; max-width:260px; }
@@ -416,9 +416,18 @@
     .cal-mode-btn { min-height:40px; }
     .m-cell { min-height:52px; }
     .chat-root { height:60dvh; }
-    /* --- аналитика --- */
+    /* --- 2.122: Чат — кнопка «Отправить» под полем ввода, подсказка компактная --- */
+    .chat-input-row { flex-direction:column; gap:8px; }
+    .chat-input-row button { width:100%; min-height:44px; }
+    #screen-chat .screen-hint { font-size:12px; padding:6px 10px; max-height:44px; overflow-y:auto; margin-bottom:8px; }
+    /* --- аналитика и обзор --- */
     .an-kpi-value { font-size:26px; }
     .an-gantt-label { font-size:11px; }
+    /* 2.122: Обзор не выходит за ширину экрана */
+    .an-weeks { gap:2px; overflow-x:auto; }
+    .an-week { min-width:3px; }
+    .an-section { overflow:hidden; }
+    .an-gantt-row, .an-gantt-axis { grid-template-columns:96px minmax(0,1fr); }
     /* --- Цыпа и пузыри --- */
     #tsypa { max-width:170px; }
     #tsypa .tsypa-avatar img { width:44px; height:44px; }
@@ -430,22 +439,16 @@
     .bottomnav { left:0; right:0; transform:none; bottom:0; border-radius:0; padding:6px 4px calc(6px + env(safe-area-inset-bottom)); justify-content:space-between; box-shadow:0 -6px 16px rgba(62,62,58,.10); }
     .nav-btn { flex:1; padding:8px 2px; font-size:11px; min-height:56px; }
     .nav-btn .ico { font-size:20px; }
-    /* --- 2.121: окна ровно по ширине экрана, без vw-артефактов --- */
-    .overlay { padding:0; display:block; }
-    .overlay .modal, .tutorial-modal { width:100%; max-width:100%; height:100%; max-height:100%; border-radius:0; margin:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); }
-    .tut-icon { font-size:44px; }
-    .tut-title { font-size:24px; }
-    .tut-gardener p { font-size:14px; }
-    .tut-gardener-img { width:36px; height:36px; }
-    .tut-tsypa-bubble { max-width:80%; font-size:15px; }
-    .tut-tsypa-img { width:44px; height:44px; }
-    /* --- 2.121: Книга отзывов без gb.png: лёгкий градиент вместо картинки --- */
-    .calendar-modal { background:rgba(40,35,25,.6); }
-    .calendar-stage { width:100%; height:100%; aspect-ratio:auto; background:linear-gradient(180deg,#F6F1E4,#EFE7D6); }
+    /* --- 2.122: модальные окна той же ширины, что основные экраны (отступы 12px по бокам) --- */
+    .overlay { padding:12px; display:flex; }
+    .overlay .modal, .overlay .tutorial-modal { width:100%; max-width:100%; height:100%; max-height:100%; border-radius:var(--radius); margin:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); overflow:auto; }
+    /* Книга отзывов: сцена тоже с отступами и скруглёнными углами */
+    .calendar-modal { padding:12px; }
+    .calendar-stage { width:100%; height:100%; aspect-ratio:auto; background:linear-gradient(180deg,#F6F1E4,#EFE7D6); border-radius:var(--radius); overflow:hidden; }
     #guestbookBg { display:none; }
-    .gb-panel { left:0; right:0; top:0; bottom:72px; transform:none; width:auto; max-height:none; border-radius:0; box-shadow:none; }
-    /* 2.116: выход из Книги — заметная пилюля с подписью, а не прозрачный кружок */
-    .gb-close { left:10px; right:10px; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); width:auto; height:52px; border-radius:999px; background:#5A4668; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; gap:8px; font:700 15px Manrope,sans-serif; color:#fff; }
+    .gb-panel { left:0; right:0; top:0; bottom:64px; transform:none; width:auto; max-height:none; border-radius:0; box-shadow:none; }
+    /* 2.116: выход из Книги — заметная пилюля с подписью */
+    .gb-close { left:8px; right:8px; top:auto; bottom:8px; width:auto; height:48px; border-radius:999px; background:#5A4668; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; gap:8px; font:700 15px Manrope,sans-serif; color:#fff; }
     .gb-close::before { content:"✕"; font-size:18px; line-height:1; }
     .gb-close::after { content:"Закрыть книгу"; }
     /* --- шрифты инпутов 16px: iOS не zoom'ит при фокусе --- */
@@ -475,7 +478,7 @@
     .screen-title { font-size:24px; }
     /* 2.120: один столбец настроек объекта */
     .op-grid { grid-template-columns:1fr; }
-    .an-gantt-row, .an-gantt-axis { grid-template-columns:120px 1fr; }
+    .an-gantt-row, .an-gantt-axis { grid-template-columns:120px minmax(0,1fr); }
     .an-gantt-label { font-size:10.5px; }
     .plants-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
     .plant-emoji { font-size:30px; }
@@ -489,7 +492,7 @@
     .topbar-actions .btn { flex:1 1 auto; text-align:center; }
     .scheme-toolbar label { flex:1 1 100%; }
     .pal-btn { flex:1 1 46%; text-align:center; }
-    .an-gantt-row, .an-gantt-axis { grid-template-columns:96px 1fr; }
+    .an-gantt-row, .an-gantt-axis { grid-template-columns:96px minmax(0,1fr); }
     .an-kpi { padding:12px; }
     .an-kpi-value { font-size:23px; }
     .m-cell { min-height:46px; }
