@@ -1,7 +1,6 @@
 // src/main.js — точка входа ревизии 2.127. Связывает слои каркаса.
-// 2.127: Обзор — построчная раскладка блоков:
-//        «Посаженные культуры» → строка1 культура+объект, строка2 фаза, строка3 кнопка «На схему»
-//        «Задачи на ближайшие 7 дней» → строка1 задача+культура+дата, строка2 кнопка «К календарю»
+// 2.127: Обзор — построчная раскладка блоков «Посаженные культуры» и «Задачи на 7 дней»
+//        (пост-обработка идемпотентна: повторные вызовы разворачивают предыдущие обёртки)
 // 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
 // 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
 // 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
@@ -221,6 +220,7 @@ const plantsView = createPlantsView({
 });
 schemeView.onOpenPlantCard = function(plantName){
   // 2.121: надёжное открытие карточки растения — симулируем клик по карточке каталога
+  // (тот же путь, которым карточка открывается вручную в «Каталоге»)
   var norm = function(s){ return (s || '').toLowerCase().trim(); };
   function forceShowOverlays(){
     var ovs = document.querySelectorAll('.plant-detail-overlay');
@@ -244,13 +244,14 @@ schemeView.onOpenPlantCard = function(plantName){
     }
     return false;
   }
-  try { plantsView.render(); fixRelativeImages(document); } catch(e){}
+  try { plantsView.render(); fixRelativeImages(document); } catch(e){}  // гарантируем DOM каталога + относительные пути
   var clicked = clickCatalogCard(plantName);
   if (!clicked && typeof plantsView.openPlantCard === 'function') {
     try { plantsView.openPlantCard(plantName); } catch(e){}
   }
-  var found = forceShowOverlays();
+  var found = forceShowOverlays();                  // оверлей мог создаться внутри скрытого экрана
   if (!found) {
+    // последний резерв: открываем каталог и кликаем карточку там
     showScreen('screen-plants');
     try { plantsView.render(); fixRelativeImages(document); } catch(e){}
     clickCatalogCard(plantName);
@@ -274,16 +275,28 @@ const homeView = createHomeView({
 /* --- аналитика --- */
 const analyticsView = createAnalyticsView({ scheme: scheme, plants: plants, phases: phases, compat: compat, buildCalendar: buildCalendar, planting: planting });
 
-/* --- 2.127: Обзор — построчная раскладка блоков «Посаженные культуры» и «Задачи на 7 дней» --- */
-const PHASE_RE = /(семен|всход|посадк|рост|цветен|плодонош|увяд|покой|🌱|🌳|🍃|🍅|❄)/i;
+/* --- 2.127: Обзор — каждый элемент блоков «Посаженные культуры» и «Задачи на 7 дней» на отдельной строке --- */
+const PHASE_RE = /(семен|всход|посадк|рост|цветен|плодонош|увяд|покой|🌱|🌳|🍃|🍅|❄|🌶|🥕|🍆|🌽|🍓|🥬|🌿)/i;
 function isPhaseEl(el){
   if (!el || !el.classList) return false;
-  if (String(el.className).match(/phase|badge/i)) return true;
+  const cn = String(el.className || '');
+  if (/phase|badge/i.test(cn)) return true;
   return PHASE_RE.test(el.textContent || '');
 }
 function restackRow(row, mode){
   // mode 'plants': строка1 = культура+объект, строка2 = фаза, строка3 = кнопка «На схему»
   // mode 'tasks' : строка1 = задача+культура+дата, строка2 = кнопка «К календарю»
+  // идемпотентность: разворачиваем предыдущие обёртки, если они есть
+  let flat = [];
+  Array.from(row.children).forEach(k => {
+    if (k.tagName === 'DIV' && k.dataset && k.dataset.restacked === '1') {
+      Array.from(k.children).forEach(c => flat.push(c));
+    } else {
+      flat.push(k);
+    }
+  });
+  row.innerHTML = '';
+  flat.forEach(k => row.appendChild(k));
   const kids = Array.from(row.children);
   if (!kids.length) return;
   const btn = kids.find(k => k.tagName === 'BUTTON' || (k.querySelector && k.querySelector('button')));
@@ -294,6 +307,7 @@ function restackRow(row, mode){
     d.style.display = 'block';
     d.style.width = '100%';
     d.style.margin = '2px 0';
+    d.dataset.restacked = '1';
     els.forEach(el => d.appendChild(el));
     return d;
   };
@@ -354,6 +368,7 @@ function updateHistoryButtons(){
   if (r) r.disabled = !history.canRedo();
 }
 history.onStacksChange(updateHistoryButtons);
+// фиксация состояния после потенциально изменяющих взаимодействий
 document.addEventListener('click', ()=>history.commit());
 document.addEventListener('change', ()=>history.commit());
 document.addEventListener('pointerup', ()=>history.commit());
@@ -434,8 +449,9 @@ if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{
   if (!item) return;
   mCloseSheets();
   const target = document.getElementById(item.dataset.mact);
-  if (target) setTimeout(()=>target.click(), 60);
+  if (target) setTimeout(()=>target.click(), 60); // переиспользуем десктопные обработчики
 });
+// Цыпа: переключатель видимости с запоминанием
 const tsypaToggle = document.getElementById('tsypaToggle');
 function applyTsypaVisibility(){
   const elTs = document.getElementById('tsypa');
@@ -451,6 +467,7 @@ if (tsypaToggle) tsypaToggle.addEventListener('change', ()=>{
 });
 applyTsypaVisibility();
 const mVer = document.getElementById('mVersion'); if (mVer) mVer.textContent = APP_VERSION;
+// FAB: лист добавления -> клик по настоящей кнопке палитры
 on('addFab', function(){ if (mAddSheet) mAddSheet.classList.remove('hidden'); });
 if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
   const b = e.target.closest('[data-addfab]');
@@ -459,6 +476,7 @@ if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
   const real = document.querySelector('.palette-left [data-add="' + b.dataset.addfab + '"]');
   if (real) setTimeout(()=>real.click(), 60);
 });
+// плавающие undo/redo дублируют десктопные кнопки
 on('undoFab', function(){ const u = document.getElementById('undoBtn'); if (u) u.click(); });
 on('redoFab', function(){ const r = document.getElementById('redoBtn'); if (r) r.click(); });
 function syncFabs(){
@@ -531,7 +549,7 @@ on('undoBtn', function(){ if (history.undo()) showToast('Отменено ↩');
 on('redoBtn', function(){ if (history.redo()) showToast('Повторено ↪'); });
 document.addEventListener('keydown', function(e){
   const tag = ((e.target && e.target.tagName) || '').toLowerCase();
-  if (tag==='input' || tag==='textarea' || tag==='select') return;
+  if (tag==='input' || tag==='textarea' || tag==='select') return; // в полях ввода работает родной undo
   if ((e.ctrlKey||e.metaKey) && !e.altKey && (e.key==='z' || e.key==='Z' || e.key==='я' || e.key==='Я')) {
     if (e.shiftKey) { if (history.redo()) showToast('Повторено ↪'); }
     else if (history.undo()) showToast('Отменено ↩');
@@ -554,7 +572,7 @@ function showScreen(id) {
   if (id === 'screen-scheme') schemeView.render();
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
-  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }
+  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
     homeView.render();
@@ -607,7 +625,7 @@ on('loadBtn', function(){
     calendarView.render();
     if (window.__tsypa) window.__tsypa.refresh();
     showToast('План загружен ✓');
-    history.commit();
+    history.commit(); // 2.95: загрузка файла асинхронная — фиксируем вручную
   });
 });
 on('gridStep', function(){
@@ -681,7 +699,7 @@ on('advisorBtn', function(){
   const tc = bubble.querySelector('#tipClose');
   if (tc) tc.addEventListener('click', function(e){ e.stopPropagation(); bubble.classList.add('hidden'); });
   bubble.classList.remove('hidden');
-  fixRelativeImages(bubble);
+  fixRelativeImages(bubble); // 2.125: относительные пути в пузыре Советчика
 });
 document.addEventListener('pointerdown', function(e){
   const bubble = document.getElementById('tipBubble');
