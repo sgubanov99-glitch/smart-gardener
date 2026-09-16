@@ -398,7 +398,9 @@
     /* 2.118: место под маркер солнца — не обрезается экраном */
     .plot-wrap { padding:26px 22px 22px; }
     .obj-panel { padding:12px; }
-    .op-grid { grid-template-columns:repeat(2,1fr); }
+    /* 2.120: настройки объекта одним столбцом на мобильном */
+    .op-grid { grid-template-columns:1fr; }
+    .op-bed { grid-template-columns:1fr; }
     .op-grid input, .op-grid select { min-height:40px; }
     .op-extra { grid-template-columns:1fr; }
     .op-footer { flex-wrap:wrap; }
@@ -472,7 +474,8 @@
     .version { font-size:10px; padding:2px 8px; }
     .btn { padding:11px 12px; font-size:13px; }
     .screen-title { font-size:24px; }
-    .op-grid { grid-template-columns:1fr 1fr; }
+    /* 2.120: один столбец настроек объекта */
+    .op-grid { grid-template-columns:1fr; }
     .an-gantt-row, .an-gantt-axis { grid-template-columns:120px 1fr; }
     .an-gantt-label { font-size:10.5px; }
     .plants-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
@@ -506,7 +509,7 @@
     <!-- 2.105: логотип-блок со знаком бренда -->
     <div class="logo"><img src="assets/logo.svg" alt="Умный садовод — логотип" class="logo-img" /> Умный садовод <span class="version" id="appVersion"></span></div>
     <div class="topbar-actions">
-      <!-- 2.117: мобильное меню (на десктопе скрыто) -->
+      <!-- 2.117: мобильное меню (на дескменте скрыто) -->
       <button type="button" class="btn m-only" id="menuBtn" aria-label="Меню">☰</button>
       <button type="button" class="btn btn-blue" id="saveBtn">💾 Сохранить</button>
       <button type="button" class="btn btn-green" id="loadBtn">📂 Загрузить</button>
