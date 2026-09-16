@@ -1,10 +1,8 @@
-// src/main.js — точка входа ревизии 2.121. Связывает слои каркаса.
-// 2.121: карточка растения открывается надёжно — симуляция клика по карточке каталога
-//        (рабочий путь) + принудительный показ оверлея + резерв через каталог;
-//        на мобильном не грузится тяжёлый gb.png (src снимается), на десктопе подключается
-// 2.120: настройки объекта на мобильном одним столбцом (CSS); карточка растения принудительно видима
-// 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия»; resetViewOffset() перед листами;
-//        body overflow-x:hidden
+// src/main.js — точка входа ревизии 2.125. Связывает слои каркаса.
+// 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404) —
+//        цыплёнок на карточках культур текущего месяца виден на мобильном
+// 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
+// 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия»; resetViewOffset() перед листами
 // 2.118: FAB/undo только на Схеме; переключатель «Мобильная версия»
 // 2.117: мобильный каркас — ☰-меню-лист, лист добавления, FAB, плавающие undo/redo
 // 2.116: глобальный сброс мобильного масштаба после завершения ввода
@@ -244,7 +242,7 @@ schemeView.onOpenPlantCard = function(plantName){
     }
     return false;
   }
-  try { plantsView.render(); } catch(e){}          // гарантируем наличие DOM каталога
+  try { plantsView.render(); fixRelativeImages(document); } catch(e){}  // гарантируем DOM каталога + относительные пути
   var clicked = clickCatalogCard(plantName);
   if (!clicked && typeof plantsView.openPlantCard === 'function') {
     try { plantsView.openPlantCard(plantName); } catch(e){}
@@ -253,10 +251,11 @@ schemeView.onOpenPlantCard = function(plantName){
   if (!found) {
     // последний резерв: открываем каталог и кликаем карточку там
     showScreen('screen-plants');
-    try { plantsView.render(); } catch(e){}
+    try { plantsView.render(); fixRelativeImages(document); } catch(e){}
     clickCatalogCard(plantName);
     forceShowOverlays();
   }
+  fixRelativeImages(document);
   resetViewOffset();
 };
 
@@ -346,6 +345,14 @@ function applyGbBg(){
   else if (!gbBg.getAttribute('src')) { gbBg.setAttribute('src', 'gb.png'); }
 }
 applyGbBg();
+
+/* --- 2.125: фикс абсолютных путей картинок (в подпапке Pages «/assets/…» = 404) --- */
+function fixRelativeImages(root){
+  (root || document).querySelectorAll('img[src^="/"]').forEach(function(im){
+    im.setAttribute('src', im.getAttribute('src').replace(/^\//, ''));
+  });
+}
+fixRelativeImages(document);
 
 /* --- 2.117: мобильный каркас: меню-лист, лист добавления, FAB, плавающие undo/redo --- */
 const mMenuSheet = document.getElementById('mMenuSheet');
@@ -487,7 +494,7 @@ function showScreen(id) {
   if (id === 'screen-scheme') schemeView.render();
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
-  if (id === 'screen-plants') plantsView.render();
+  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
     homeView.render();
@@ -613,6 +620,7 @@ on('advisorBtn', function(){
   const tc = bubble.querySelector('#tipClose');
   if (tc) tc.addEventListener('click', function(e){ e.stopPropagation(); bubble.classList.add('hidden'); });
   bubble.classList.remove('hidden');
+  fixRelativeImages(bubble); // 2.125: относительные пути в пузыре Советчика
 });
 document.addEventListener('pointerdown', function(e){
   const bubble = document.getElementById('tipBubble');
