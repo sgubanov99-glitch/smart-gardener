@@ -342,7 +342,7 @@
   .gb-thanks { text-align:center; padding:18px 8px; }
   .gb-thanks-emoji { font-size:56px; }
   .gb-note { font-size:11px; color:var(--ink-soft); margin-top:6px; }
-  /* 2.102: кнопка закрытия — поверх нарисованного зелёного кружка с крестиком */
+  /* 2.102: кнопка закрытия — поверх нарисованного зелёного кружка с крестиком (десктоп) */
   .gb-close { position:absolute; left:63%; top:76%; width:7.8%; aspect-ratio:1; border-radius:50%; border:none; background:transparent; padding:0; cursor:pointer; }
   .gb-close:active { transform:scale(.92); }
 
@@ -415,12 +415,15 @@
     .tut-gardener-img { width:36px; height:36px; }
     .tut-tsypa-bubble { max-width:80%; font-size:15px; }
     .tut-tsypa-img { width:44px; height:44px; }
-    /* --- Книга отзывов: полноэкранный лист, кнопка закрытия видимая --- */
+    /* --- Книга отзывов: полноэкранный лист --- */
     .calendar-modal { background:rgba(40,35,25,.6); }
     .calendar-stage { width:100vw; height:100dvh; aspect-ratio:auto; }
     .calendar-stage img { border-radius:0; }
-    .gb-panel { left:10px; right:10px; top:10px; bottom:88px; transform:none; width:auto; max-height:none; }
-    .gb-close { left:auto; right:14px; top:auto; bottom:calc(16px + env(safe-area-inset-bottom)); width:56px; height:56px; background:rgba(255,253,247,.92); box-shadow:var(--shadow-s); }
+    .gb-panel { left:10px; right:10px; top:10px; bottom:80px; transform:none; width:auto; max-height:none; }
+    /* 2.116: выход из Книги — заметная пилюля с подписью, а не прозрачный кружок */
+    .gb-close { left:10px; right:10px; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); width:auto; height:52px; border-radius:999px; background:#5A4668; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; gap:8px; font:700 15px Manrope,sans-serif; color:#fff; }
+    .gb-close::before { content:"✕"; font-size:18px; line-height:1; }
+    .gb-close::after { content:"Закрыть книгу"; }
     /* --- шрифты инпутов 16px: iOS не zoom'ит при фокусе --- */
     input, select, textarea { font-size:16px !important; }
   }
@@ -453,7 +456,7 @@
     .m-badge { font-size:10px; }
     .nav-btn { font-size:10px; }
     .tut-title { font-size:22px; }
-    .gb-panel { left:6px; right:6px; top:6px; bottom:84px; }
+    .gb-panel { left:6px; right:6px; top:6px; bottom:80px; }
   }
 </style>
 </head>
