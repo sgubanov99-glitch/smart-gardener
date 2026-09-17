@@ -1,30 +1,18 @@
-// src/main.js — точка входа ревизии 2.139. Связывает слои каркаса.
-// 2.139: защита теплицы от TypeError (массивы грядок гарантируются до обработчика schemeView);
-//        закрытие bottom-sheet через schemeView.closePanel() с фолбэком для старых schemeView
-// 2.138: принудительная перерисовка панели при смене культуры/фазы/урожая в #opExtra
-// 2.137: убран собственный canvas-zoom (нативный pinch), умные бейджи фаз (obj-tiny/obj-ultra)
-// 2.136: удалена внедрённая надстройка «Урожая» — урожай полностью родной в schemeView
-// 2.135: хуки сняты с пути рендера — rAF-планировщик scheduleSchemeHooks
-// 2.132: bottom-sheet настроек объекта на мобильном, умные бейджи фаз
-// 2.131: десктоп — родной Обзор homeView; мобильные строки Обзора с чекбоксами
-// 2.130: силовая нормализация ширины Обзора на мобильном (CSS)
-// 2.129: пустая схема — подсказки и навигация в Обзоре
-// 2.128: блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных схемы
-// 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
-// 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
-// 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
+// src/main.js — точка входа ревизии 2.151. Связывает слои каркаса.
+// 2.151: fixBadges() вызывается на каждом рендере схемы (включая pinch-кадры) —
+//        значки фаз (obj-tiny/obj-ultra) актуальны мгновенно и всегда внутри границ объекта
+// 2.149: weather: isRainExcused не отменяет полив теплиц (любые признаки теплицы)
+// 2.139: guardGreenhouse (массивы грядок), injectOpsHead (closePanel), opExtra re-render hook
+// 2.137: умные бейджи фаз (fixBadges), scheduleSchemeHooks на click/pointerup
+// 2.135: минимальная обёртка schemeView.render
+// 2.131: десктоп — родной Обзор; мобильные строки Обзора с чекбоксами
+// 2.125: фиксатор абсолютных путей картинок
+// 2.121: карточка растения открывается надёжно
 // 2.119: ПК-режим с пилюлей возврата; resetViewOffset() перед листами
 // 2.118: FAB/undo только на Схеме; переключатель «Мобильная версия»
-// 2.117: мобильный каркас — ☰-меню-лист, лист добавления, FAB, плавающие undo/redo
-// 2.116: глобальный сброс мобильного масштаба после завершения ввода
-// 2.110: удалён мёртвый блок «Мой календарь»
-// 2.101: Книга отзывов и предложений (guestbookView)
-// 2.100: авто-подсказки погоды и прогноза (reminders.js)
-// 2.95: undo/redo схемы — снапшот-история (history.js), кнопки и Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
-// 2.89: режимы погоды (WEATHER_MODES), тост при смене режима, погода в самопроверке
-// 2.88: автозапуск обучения, пока не пройдено до конца
-// 2.86: обучение — слайды Садовода и Цыпы
-// 2.85: параметр planting проброшен в календарь и обзор
+// 2.117: мобильный каркас — ☰-меню, лист добавления, FAB, плавающие undo/redo
+// 2.116: сброс мобильного масштаба после ввода
+// 2.101: Книга отзывов; 2.100: авто-подсказки; 2.95: undo/redo; 2.89: погода; 2.88: обучение
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
 import { advancePhase, PHASE_META } from './core/phaseMachine.js';
@@ -68,10 +56,10 @@ function on(id, fn, ev){
   return el;
 }
 
-/* --- экранирование для вставки имён в HTML --- */
+/* --- экранирование --- */
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
-/* --- toast-уведомления --- */
+/* --- toast --- */
 function showToast(msg){
   const t = document.getElementById('toast');
   if (!t) return;
@@ -81,11 +69,11 @@ function showToast(msg){
   t._tm = setTimeout(()=>t.classList.remove('show'), 2400);
 }
 
-/* --- 2.116: сброс мобильного масштаба после завершения ввода --- */
+/* --- 2.116: сброс мобильного масштаба после ввода --- */
 function resetMobileZoom(){
   try {
     const vv = window.visualViewport;
-    if (vv && vv.scale <= 1.01) return; // масштаб не увеличен — не трогаем
+    if (vv && vv.scale <= 1.01) return;
     const m = document.querySelector('meta[name="viewport"]');
     if (!m) return;
     const old = m.getAttribute('content') || '';
@@ -94,31 +82,25 @@ function resetMobileZoom(){
     setTimeout(()=>{ m.setAttribute('content', old); }, 150);
   } catch(e){}
 }
-
-/* 2.119: сброс горизонтального смещения и масштаба перед полноэкранными листами */
 function resetViewOffset(){
   try {
     if (window.scrollX !== 0) window.scrollTo(0, window.scrollY);
     resetMobileZoom();
   } catch(e){}
 }
-
 function isFormEl(el){
   if (!el || !el.tagName) return false;
   const t = el.tagName.toLowerCase();
   return t==='input' || t==='textarea' || t==='select';
 }
-// фокус ушёл с поля и не перешёл на другое поле — возвращаем масштаб к 1:1
 document.addEventListener('focusout', (e)=>{
   if (!isFormEl(e.target)) return;
   setTimeout(()=>{ if (!isFormEl(document.activeElement)) resetMobileZoom(); }, 250);
 });
-// значение установлено (change) — возвращаем масштаб, даже если фокус ещё на поле
 document.addEventListener('change', (e)=>{
   if (!isFormEl(e.target)) return;
   setTimeout(resetMobileZoom, 300);
 });
-// клавиатура закрылась / вьюпорт изменился при увеличенном масштабе и без фокуса в поле
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', ()=>{
     if (!isFormEl(document.activeElement)) resetMobileZoom();
@@ -132,12 +114,11 @@ function mobileModeWanted(){ try { return localStorage.getItem('sg-mobile-mode')
 function applyMobileMode(){
   const wantMobile = mobileModeWanted();
   if (!wantMobile && isTouch()) {
-    document.documentElement.classList.add('fd'); // для пилюли возврата
+    document.documentElement.classList.add('fd');
     const m = document.querySelector('meta[name="viewport"]');
     if (m) m.setAttribute('content', 'width=1024, user-scalable=yes');
   }
   if (mobileModeToggle) mobileModeToggle.checked = wantMobile;
-  // 2.119: браузерная «Версия для ПК» перекрывает наш мобильный режим — подсказываем один раз
   if (wantMobile && isTouch() && window.matchMedia && !window.matchMedia('(max-width:900px)').matches) {
     setTimeout(()=>showToast('Отключите «Версию для ПК» в меню браузера (⋮) один раз'), 1200);
   }
@@ -164,21 +145,16 @@ try {
   const res = await fetch('data/phases.json');
   if (res.ok) phases = deepTrim(await res.json());
 } catch (e) { console.warn('phases.json не загрузился', e); }
-
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
   if (pres.ok) planting = deepTrim(await pres.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
-
-/* --- 2.86: слайды обучения --- */
 let tutorialSlides = [];
 try {
   const tres = await fetch('data/tutorial.json');
   if (tres.ok) tutorialSlides = await tres.json();
 } catch (e) { console.warn('tutorial.json не загрузился', e); }
-
-/* --- инлайним SVG-спрайт иконок --- */
 try {
   const iconsRes = await fetch('assets/icons.svg');
   if (iconsRes.ok) {
@@ -189,11 +165,8 @@ try {
 
 /* --- сервисы --- */
 const storage = new StorageService();
-
-/* --- UI: схема --- */
 const schemeView = new SchemeView({ scheme, plants, phases, nextUniqueName, compat, planting });
 
-/* --- календарь по фазам (2.91: с погодой и уведомлениями) --- */
 const calendarView = createCalendarView({
   scheme, phases, plants, planting, buildCalendar,
   onChange: function(){ calendarView.render(); },
@@ -206,30 +179,21 @@ const calendarView = createCalendarView({
 });
 schemeView.onPhaseChange = function(){ calendarView.render(); };
 
-/* --- бот --- */
 const bot = createBot({
-  scheme: scheme,
-  plants: plants,
-  phases: phases,
-  compat: compat,
-  generateTasks: generateTasks,
+  scheme, plants, phases, compat, generateTasks,
   onAdvancePhase: function(bedId, bedIndex, newPhase){ schemeView.advancePhaseForBed(bedId, bedIndex, newPhase); },
   onStateChanged: function(){ schemeView.render(); calendarView.render(); if (window.__tsypa) window.__tsypa.refresh(); }
 });
-const chatView = createChatView({ bot: bot });
+const chatView = createChatView({ bot });
 
-/* --- каталог растений --- */
 const plantsView = createPlantsView({
-  plants: plants,
-  compat: compat,
+  plants, compat,
   onAddToScheme: function(plantName, plantType){
     schemeView.addNewObjectForPlant(plantName, plantType);
     showScreen('screen-scheme');
   }
 });
 schemeView.onOpenPlantCard = function(plantName){
-  // 2.121: надёжное открытие карточки растения — симулируем клик по карточке каталога
-  // (тот же путь, которым карточка открывается вручную в «Каталоге»)
   var norm = function(s){ return (s || '').toLowerCase().trim(); };
   function forceShowOverlays(){
     var ovs = document.querySelectorAll('.plant-detail-overlay');
@@ -247,20 +211,14 @@ schemeView.onOpenPlantCard = function(plantName){
       return n && norm(n.textContent) === norm(name);
     });
     if (!target) target = cards.find(function(c){ return norm(c.textContent).indexOf(norm(name)) !== -1; });
-    if (target) {
-      (target.querySelector('.plant-detail-btn') || target).click();
-      return true;
-    }
+    if (target) { (target.querySelector('.plant-detail-btn') || target).click(); return true; }
     return false;
   }
-  try { plantsView.render(); fixRelativeImages(document); } catch(e){}  // гарантируем DOM каталога + относительные пути
+  try { plantsView.render(); fixRelativeImages(document); } catch(e){}
   var clicked = clickCatalogCard(plantName);
-  if (!clicked && typeof plantsView.openPlantCard === 'function') {
-    try { plantsView.openPlantCard(plantName); } catch(e){}
-  }
-  var found = forceShowOverlays();                  // оверлей мог создаться внутри скрытого экрана
+  if (!clicked && typeof plantsView.openPlantCard === 'function') { try { plantsView.openPlantCard(plantName); } catch(e){} }
+  var found = forceShowOverlays();
   if (!found) {
-    // последний резерв: открываем каталог и кликаем карточку там
     showScreen('screen-plants');
     try { plantsView.render(); fixRelativeImages(document); } catch(e){}
     clickCatalogCard(plantName);
@@ -270,33 +228,23 @@ schemeView.onOpenPlantCard = function(plantName){
   resetViewOffset();
 };
 
-/* --- обзор (2.85: с planting) --- */
 const homeView = createHomeView({
-  scheme: scheme,
-  phases: phases,
-  plants: plants,
-  planting: planting,
-  buildCalendar: buildCalendar,
+  scheme, phases, plants, planting, buildCalendar,
   onSelectObject: function(objId){ showScreen('screen-scheme'); schemeView.selectAndShow(objId); },
   onGoToCalendar: function(){ showScreen('screen-calendar'); }
 });
+const analyticsView = createAnalyticsView({ scheme, plants, phases, compat, buildCalendar, planting });
 
-/* --- аналитика --- */
-const analyticsView = createAnalyticsView({ scheme: scheme, plants: plants, phases: phases, compat: compat, buildCalendar: buildCalendar, planting: planting });
-
-/* --- 2.128/2.129/2.131: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней» --- */
+/* --- 2.128/2.129/2.131: Обзор --- */
 function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function addDaysISO2(iso,n){ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
-/* 2.131: тот же ключ задачи, что используется в Календаре */
 function taskKeyOf(t){ return t.date + '|' + t.bed_id + '|' + t.name; }
-
 function rowPlanted(culture, objName, phase, objId){
   const pm = (phase && PHASE_META[phase]) || null;
   return '<div class="hm-row">' +
     '<div class="hm-line">' + esc(culture) + ' · ' + esc(objName) + '</div>' +
     '<div class="hm-line hm-phase">' + (pm ? ((pm.icon||'') + ' ' + (pm.label||phase)) : (phase ? esc(String(phase)) : 'фаза не указана')) + '</div>' +
-    '<button type="button" class="btn hm-btn" data-obj-id="' + objId + '">На схему</button>' +
-    '</div>';
+    '<button type="button" class="btn hm-btn" data-obj-id="' + objId + '">На схему</button></div>';
 }
 function plantedRowsHTML(){
   const rows = [];
@@ -314,7 +262,6 @@ function plantedRowsHTML(){
   if (!rows.length) return '<div class="hm-line" style="color:var(--ink-soft)">Пока ничего не посажено — добавьте культуры на «Схеме».</div>';
   return rows.join('');
 }
-/* 2.131: строки задач с чекбоксом выполнения, синхронным с Календарём */
 function tasksRowsHTML(){
   const today = todayISO();
   const horizon = addDaysISO2(today, 7);
@@ -327,18 +274,14 @@ function tasksRowsHTML(){
       const key = taskKeyOf(t);
       const done = !!(scheme.completedTasks||{})[key];
       rows.push('<div class="hm-row' + (done ? ' hm-done' : '') + '">' +
-        '<label class="hm-line hm-check">' +
-          '<input type="checkbox" data-task-key="' + esc(key) + '"' + (done ? ' checked' : '') + ' />' +
-          '<span class="hm-task-text">' + esc(t.name||'') + (t.crop ? ' · ' + esc(t.crop) : '') + ' · ' + d.slice(8,10) + '.' + d.slice(5,7) + '</span>' +
-        '</label>' +
-        '<button type="button" class="btn hm-btn" data-go-cal="1">К календарю</button>' +
-        '</div>');
+        '<label class="hm-line hm-check"><input type="checkbox" data-task-key="' + esc(key) + '"' + (done ? ' checked' : '') + ' />' +
+        '<span class="hm-task-text">' + esc(t.name||'') + (t.crop ? ' · ' + esc(t.crop) : '') + ' · ' + d.slice(8,10) + '.' + d.slice(5,7) + '</span></label>' +
+        '<button type="button" class="btn hm-btn" data-go-cal="1">К календарю</button></div>');
     });
   });
   if (!rows.length) return '<div class="hm-line" style="color:var(--ink-soft)">Задач на ближайшие 7 дней нет.</div>';
   return rows.join('');
 }
-/* ищем блок по заголовку независимо от классов разметки homeView */
 function findBlock(root, re){
   const titleEl = Array.from(root.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,b,strong'))
     .find(el => el.children.length === 0 && re.test((el.textContent||'').trim()));
@@ -354,13 +297,10 @@ function findBlock(root, re){
 function restyleHomeBlocks(){
   const root = document.getElementById('screen-home-body');
   if (!root) return;
-  [ [/Посаженные культуры/i, plantedRowsHTML()],
-    [/Задачи на ближайшие/i, tasksRowsHTML()] ].forEach(function(pair){
+  [ [/Посаженные культуры/i, plantedRowsHTML()], [/Задачи на ближайшие/i, tasksRowsHTML()] ].forEach(function(pair){
     const b = findBlock(root, pair[0]);
     if (!b) return;
     const c = b.container;
-    // 2.129: нормализуем контейнер блока напрямую (он может быть вне .an-section
-    // и иметь inline-стили ширины/flex, распирающие экран)
     c.removeAttribute('style');
     c.classList.add('hm-block');
     b.titleEl.classList.add('hm-title');
@@ -375,37 +315,29 @@ function restyleHomeBlocks(){
     c.appendChild(box);
   });
 }
-
-/* --- 2.129: пустая схема — Обзор с подсказками и навигацией в принятом стиле --- */
 function emptyHomeHTML(){
-  return '<div class="empty-state">' +
-    '<div class="empty-state-icon">🏡</div>' +
+  return '<div class="empty-state"><div class="empty-state-icon">🏡</div>' +
     '<div class="empty-state-title">Участок пока пуст</div>' +
     '<div class="empty-state-text">Добавьте грядки, теплицы, деревья и кустарники на «Схеме» — и здесь появится обзор сезона: посаженные культуры, задачи на неделю, прогноз урожая и подсказки Цыпы.</div>' +
     '<button type="button" class="btn btn-olive empty-state-action" data-goto="screen-scheme">🏠 Перейти к Схеме</button>' +
     '<button type="button" class="btn empty-state-action" data-goto="screen-plants">🌱 Открыть Каталог растений</button>' +
-    '<button type="button" class="btn empty-state-action" data-goto="screen-calendar">🗓 Посмотреть Календарь</button>' +
-    '</div>';
+    '<button type="button" class="btn empty-state-action" data-goto="screen-calendar">🗓 Посмотреть Календарь</button></div>';
 }
-/* 2.131: десктоп — родной Обзор homeView без изменений; мобильный — перестройка строк */
 function renderHomeBody(){
   const body = document.getElementById('screen-home-body');
   const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches;
-  if (!(scheme.objects||[]).length) {
-    if (body) body.innerHTML = emptyHomeHTML();
-    return;
-  }
-  homeView.render();                // десктоп: родной Обзор с отметкой выполнения
-  if (isMob) restyleHomeBlocks();   // мобильный: строки по ширине экрана + чекбоксы
+  if (!(scheme.objects||[]).length) { if (body) body.innerHTML = emptyHomeHTML(); return; }
+  homeView.render();
+  if (isMob) restyleHomeBlocks();
 }
 
-/* --- 2.95: undo/redo схемы --- */
+/* --- 2.95: undo/redo --- */
 function refreshAfterHistory(){
   schemeView.render();
   calendarView.render();
   const active = document.querySelector('.screen.active');
   if (active) {
-    if (active.id === 'screen-home') renderHomeBody();   // 2.131
+    if (active.id === 'screen-home') renderHomeBody();
     if (active.id === 'screen-analytics') analyticsView.render();
   }
   if (window.__tsypa) window.__tsypa.refresh();
@@ -423,7 +355,6 @@ function updateHistoryButtons(){
   if (r) r.disabled = !history.canRedo();
 }
 history.onStacksChange(updateHistoryButtons);
-// фиксация состояния после потенциально изменяющих взаимодействий
 document.addEventListener('click', ()=>history.commit());
 document.addEventListener('change', ()=>history.commit());
 document.addEventListener('pointerup', ()=>history.commit());
@@ -431,26 +362,24 @@ let __inputCommitTimer = null;
 document.addEventListener('input', ()=>{ clearTimeout(__inputCommitTimer); __inputCommitTimer = setTimeout(()=>history.commit(), 500); });
 updateHistoryButtons();
 
-/* --- 2.100: авто-подсказки (погода, прогноз, истечение режима) --- */
+/* --- 2.100: авто-подсказки --- */
 const reminders = createReminders({
   scheme,
   notify: function(msg){ showToast(msg); },
   refreshTsypa: function(){ if (window.__tsypa) window.__tsypa.refresh(); }
 });
-
-/* --- Цыпа — маскот-агроном (2.100: с авто-подсказками) --- */
 const tsypa = createTsypa({ scheme, phases, plants, buildCalendar, getReminders: ()=>reminders.list() });
 window.__tsypa = tsypa;
 reminders.start();
 
-/* --- 2.86: Обучение (слайды Садовода и Цыпы) --- */
+/* --- 2.86: Обучение --- */
 const tutorialView = createTutorialView({ slides: tutorialSlides });
 on('tutorialBtn', function(){
   if (!tutorialSlides.length) { showToast('Обучение не загрузилось — проверьте data/tutorial.json'); return; }
   tutorialView.open(0);
 });
 
-/* --- 2.101: Книга отзывов и предложений --- */
+/* --- 2.101: Книга отзывов --- */
 const guestbookView = createGuestbookView({
   overlay: document.getElementById('guestbookOverlay'),
   panel: document.getElementById('gbPanel'),
@@ -462,7 +391,6 @@ const guestbookView = createGuestbookView({
 on('guestbookBtn', function(){ guestbookView.open(); });
 on('gbClose', function(){ guestbookView.close(); });
 
-/* --- 2.121: на мобильном не грузим тяжёлый gb.png; на десктопе подключаем фоном --- */
 const gbBg = document.getElementById('guestbookBg');
 function applyGbBg(){
   if (!gbBg) return;
@@ -472,7 +400,7 @@ function applyGbBg(){
 }
 applyGbBg();
 
-/* --- 2.125: фикс абсолютных путей картинок (в подпапке Pages «/assets/…» = 404) --- */
+/* --- 2.125: фикс абсолютных путей картинок --- */
 function fixRelativeImages(root){
   (root || document).querySelectorAll('img[src^="/"]').forEach(function(im){
     im.setAttribute('src', im.getAttribute('src').replace(/^\//, ''));
@@ -480,14 +408,14 @@ function fixRelativeImages(root){
 }
 fixRelativeImages(document);
 
-/* --- 2.126: цыплёнок не пропадает при смене фильтров: фиксим пути после каждой перерисовки каталога --- */
+/* --- 2.126: цыплёнок не пропадает при смене фильтров --- */
 const plantsBody = document.getElementById('screen-plants-body');
 if (plantsBody && window.MutationObserver) {
   const plantsMo = new MutationObserver(()=>{ fixRelativeImages(plantsBody); });
   plantsMo.observe(plantsBody, { childList:true, subtree:true });
 }
 
-/* --- 2.117: мобильный каркас: меню-лист, лист добавления, FAB, плавающие undo/redo --- */
+/* --- 2.117: мобильный каркас --- */
 const mMenuSheet = document.getElementById('mMenuSheet');
 const mAddSheet = document.getElementById('mAddSheet');
 function mCloseSheets(){
@@ -504,9 +432,8 @@ if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{
   if (!item) return;
   mCloseSheets();
   const target = document.getElementById(item.dataset.mact);
-  if (target) setTimeout(()=>target.click(), 60); // переиспользуем десктопные обработчики
+  if (target) setTimeout(()=>target.click(), 60);
 });
-// Цыпа: переключатель видимости с запоминанием
 const tsypaToggle = document.getElementById('tsypaToggle');
 function applyTsypaVisibility(){
   const elTs = document.getElementById('tsypa');
@@ -522,7 +449,6 @@ if (tsypaToggle) tsypaToggle.addEventListener('change', ()=>{
 });
 applyTsypaVisibility();
 const mVer = document.getElementById('mVersion'); if (mVer) mVer.textContent = APP_VERSION;
-// FAB: лист добавления -> клик по настоящей кнопке палитры
 on('addFab', function(){ if (mAddSheet) mAddSheet.classList.remove('hidden'); });
 if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
   const b = e.target.closest('[data-addfab]');
@@ -531,7 +457,6 @@ if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{
   const real = document.querySelector('.palette-left [data-add="' + b.dataset.addfab + '"]');
   if (real) setTimeout(()=>real.click(), 60);
 });
-// плавающие undo/redo дублируют десктопные кнопки
 on('undoFab', function(){ const u = document.getElementById('undoBtn'); if (u) u.click(); });
 on('redoFab', function(){ const r = document.getElementById('redoBtn'); if (r) r.click(); });
 function syncFabs(){
@@ -542,22 +467,16 @@ function syncFabs(){
 history.onStacksChange(syncFabs);
 syncFabs();
 
-/* --- поощрение за закрытие задачи --- */
+/* --- поощрение --- */
 const ENCOURAGEMENTS = [
-  'Так держать! Ты молодец! 🌟',
-  'Отличная работа! Так и дальше! 💪',
-  'Здорово! Участок скажет спасибо! 🌱',
-  'Молодец! Ещё одна задача закрыта! ✅',
-  'Супер! Цыпа гордится тобой! 🐤',
-  'Прекрасно! Урожай будет что надо! 🧺',
+  'Так держать! Ты молодец! 🌟','Отличная работа! Так и дальше! 💪','Здорово! Участок скажет спасибо! 🌱',
+  'Молодец! Ещё одна задача закрыта! ✅','Супер! Цыпа гордится тобой! 🐤','Прекрасно! Урожай будет что надо! 🧺',
   'Есть! Такими темпами весь участок в порядке! 🎉'
 ];
 window.addEventListener('sg-task-done', () => {
   showToast(ENCOURAGEMENTS[Math.floor(Math.random()*ENCOURAGEMENTS.length)]);
   if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
 });
-
-/* --- массовое отметание просроченных задач --- */
 window.addEventListener('sg-tasks-bulk-done', (e) => {
   const n = (e.detail && e.detail.count) || 0;
   showToast(`Отмечено выполненными: ${n} просроченных задач ✓`);
@@ -566,9 +485,9 @@ window.addEventListener('sg-tasks-bulk-done', (e) => {
 
 /* --- псевдо-3D --- */
 let isoOn = false;
-const isoView = createIsoView({ scheme: scheme, plants: plants, onSelect: function(id){ schemeView.selectAndShow(id); } });
+const isoView = createIsoView({ scheme, plants, onSelect: function(id){ schemeView.selectAndShow(id); } });
 const _schemeRender = schemeView.render.bind(schemeView);
-schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); };  // 2.135: минимальная обёртка, хуки вне пути рендера
+schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); fixBadges(); };  // 2.151: бейджи актуальны на каждом кадре
 
 const isoBtn = document.getElementById('isoBtn');
 const plotWrap = document.getElementById('plotWrap');
@@ -583,10 +502,8 @@ if (isoBtn) isoBtn.addEventListener('click', function(){
   if (isoOn) isoView.render();
 });
 
-/* --- 2.132/2.137: Схема на мобильном: bottom-sheet настроек, умные бейджи фаз --- */
+/* --- 2.132/2.137: bottom-sheet + умные бейджи --- */
 const isMobileNow = () => window.matchMedia && window.matchMedia('(max-width:900px)').matches;
-
-/* bottom-sheet: шапка с кнопкой закрытия внутри панели настроек объекта */
 (function injectOpsHead(){
   const panel = document.getElementById('objPanel');
   if (!panel || panel.querySelector('.ops-head')) return;
@@ -596,15 +513,11 @@ const isMobileNow = () => window.matchMedia && window.matchMedia('(max-width:900
   panel.prepend(head);
   head.addEventListener('click', (e)=>{
     if (e.target.closest('#opClose')) {
-      // 2.139: корректно закрываем bottom-sheet (closePanel есть в schemeView 2.139; фолбэк для старых)
       if (typeof schemeView.closePanel === 'function') schemeView.closePanel();
       else panel.classList.add('hidden');
     }
   });
 })();
-
-/* 2.137: маленькие объекты -> уплотнённые значки фаз (видны всегда);
-   сверхомальные (<20px) -> угловая метка вместо значков */
 function fixBadges(){
   const box = document.getElementById('plotBox');
   if (!box) return;
@@ -616,10 +529,6 @@ function fixBadges(){
     o.classList.toggle('obj-ultra', ultra);
   });
 }
-
-/* 2.135/2.136/2.137: хуки (бейджи) выполняются через rAF-планировщик, запускаемый
-   только действиями пользователя (клик/pointerup/смена экрана), НЕ из рендера —
-   добавление объекта не может зависнуть; зум убран, остаются бейджи */
 let schemeHooksRaf = 0;
 function scheduleSchemeHooks(){
   if (schemeHooksRaf) return;
@@ -631,22 +540,8 @@ function scheduleSchemeHooks(){
 document.addEventListener('click', scheduleSchemeHooks);
 document.addEventListener('pointerup', scheduleSchemeHooks);
 
-/* 2.138: при смене культуры/фазы/урожая в настройках объекта (в т.ч. грядки теплицы)
-   принудительно перерисовываем панель и бейджи, чтобы фазы и урожай отобразились.
-   Безопасно: рендер обёрнут минимально, хуки идут через rAF, зависание исключено */
-const opExtraEl = document.getElementById('opExtra');
-if (opExtraEl) {
-  opExtraEl.addEventListener('change', ()=>{
-    setTimeout(()=>{
-      try { schemeView.render(); } catch(e){ console.warn('op-extra re-render:', e); }
-      scheduleSchemeHooks();
-    }, 0);
-  });
-}
-
-/* --- 2.139: защита теплицы от TypeError (нет массивов грядок у добавленной палитрой/FAB теплицы) --- */
+/* --- 2.139: защита теплицы (массивы грядок) --- */
 (function guardGreenhouse(){
-  // 1) новые объекты: гарантируем массивы грядок сразу после создания
   const _addObject = schemeView.addObject.bind(schemeView);
   schemeView.addObject = function(type){
     const obj = _addObject(type);
@@ -658,8 +553,6 @@ if (opExtraEl) {
     }
     return obj;
   };
-  // 2) уже созданные/загруженные объекты: гарантируем массивы ДО родного обработчика schemeView
-  //    (capture-фаза на #opExtra выполняется раньше listener'ов самого select)
   const guardEl = document.getElementById('opExtra');
   if (guardEl) {
     guardEl.addEventListener('change', (e)=>{
@@ -674,6 +567,17 @@ if (opExtraEl) {
   }
 })();
 
+/* --- 2.138: перерисовка панели при смене культуры/фазы/урожая --- */
+const opExtraEl = document.getElementById('opExtra');
+if (opExtraEl) {
+  opExtraEl.addEventListener('change', ()=>{
+    setTimeout(()=>{
+      try { schemeView.render(); } catch(e){ console.warn('op-extra re-render:', e); }
+      scheduleSchemeHooks();
+    }, 0);
+  });
+}
+
 /* --- экспорт постера --- */
 on('exportBtn', async function(){
   const btn = document.getElementById('exportBtn');
@@ -682,31 +586,24 @@ on('exportBtn', async function(){
     showToast('Готовим постер…');
     await exportPosterPNG({ scheme, plants, phases, planting, compat, buildCalendar });
     showToast('Постер сохранён ✓');
-  } catch (e) {
-    console.error('exportPosterPNG:', e);
-    showToast('Не удалось собрать постер');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🖼 Постер PNG'; }
-  }
+  } catch (e) { console.error('exportPosterPNG:', e); showToast('Не удалось собрать постер'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '🖼 Постер PNG'; } }
 });
 
-/* --- 2.95: кнопки undo/redo и горячие клавиши --- */
+/* --- 2.95: undo/redo клавиши --- */
 on('undoBtn', function(){ if (history.undo()) showToast('Отменено ↩'); });
 on('redoBtn', function(){ if (history.redo()) showToast('Повторено ↪'); });
 document.addEventListener('keydown', function(e){
   const tag = ((e.target && e.target.tagName) || '').toLowerCase();
-  if (tag==='input' || tag==='textarea' || tag==='select') return; // в полях ввода работает родной undo
+  if (tag==='input' || tag==='textarea' || tag==='select') return;
   if ((e.ctrlKey||e.metaKey) && !e.altKey && (e.key==='z' || e.key==='Z' || e.key==='я' || e.key==='Я')) {
-    if (e.shiftKey) { if (history.redo()) showToast('Повторено ↪'); }
-    else if (history.undo()) showToast('Отменено ↩');
+    if (e.shiftKey) { if (history.redo()) showToast('Повторено ↪'); } else if (history.undo()) showToast('Отменено ↩');
     e.preventDefault();
   } else if ((e.ctrlKey||e.metaKey) && !e.altKey && (e.key==='y' || e.key==='Y')) {
     if (history.redo()) showToast('Повторено ↪');
     e.preventDefault();
   }
 });
-
-// 2.119: перед открытием полноэкранных листов сбрасываем сдвиг/масштаб (лечит «половинки»)
 document.addEventListener('click', function(e){
   if (e.target.closest('#historyBtn,#tutorialBtn,#guestbookBtn,#advisorBtn,[data-mact],.obj-chip,.btn-card,.gh-plant-card,.obj')) resetViewOffset();
 }, true);
@@ -715,16 +612,13 @@ document.addEventListener('click', function(e){
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.toggle('active', s.id === id); });
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.goto === id); });
-  if (id === 'screen-scheme') {
-    schemeView.render();
-    scheduleSchemeHooks();   // 2.137: бейджи после смены экрана
-  }
+  if (id === 'screen-scheme') { schemeView.render(); scheduleSchemeHooks(); }
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
-  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
+  if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }
   if (id === 'screen-analytics') analyticsView.render();
   if (id === 'screen-home') {
-    renderHomeBody();   // 2.131: десктоп — родной Обзор, мобильный — перестроенные строки
+    renderHomeBody();
     const hpn = document.getElementById('homePlotName');
     if (hpn) {
       const pn = (scheme.plotName || '').trim();
@@ -733,29 +627,23 @@ function showScreen(id) {
     }
   }
   if (window.__tsypa) window.__tsypa.refresh();
-  // 2.118: FAB «+» и плавающие undo/redo — только на листе «Схема»
   const fab = document.getElementById('addFab');
   const ur = document.getElementById('mUndoRedo');
   const onlyScheme = (id === 'screen-scheme');
   if (fab) fab.style.display = onlyScheme ? '' : 'none';
   if (ur) ur.style.display = onlyScheme ? '' : 'none';
-  // 2.119: сброс горизонтального сдвига/масштаба при смене экрана
   resetViewOffset();
 }
 document.addEventListener('click', function(e){
   const g = e.target.closest('[data-goto]');
   if (g) showScreen(g.dataset.goto);
 });
-
-/* --- делегирование кнопок «Обзора» --- */
 document.addEventListener('click', function(e){
   const objBtn = e.target.closest('button[data-obj-id]');
   if (objBtn) { showScreen('screen-scheme'); schemeView.selectAndShow(parseInt(objBtn.dataset.objId, 10)); return; }
   const calBtn = e.target.closest('button[data-go-cal]');
   if (calBtn) { showScreen('screen-calendar'); return; }
 });
-
-/* --- 2.131: отметка выполнения задачи в Обзоре — синхронно с Календарём в обе стороны --- */
 document.addEventListener('change', function(e){
   const cb = e.target.closest('#screen-home-body input[data-task-key]');
   if (!cb) return;
@@ -763,16 +651,14 @@ document.addEventListener('change', function(e){
   if (!scheme.completedTasks) scheme.completedTasks = {};
   if (cb.checked) {
     scheme.completedTasks[key] = { at: todayISO() };
-    window.dispatchEvent(new CustomEvent('sg-task-done', { detail:{} })); // поощрение Цыпы
-  } else {
-    delete scheme.completedTasks[key];
-  }
-  calendarView.render();          // Календарь сразу видит отметку
-  renderHomeBody();               // Обзор перерисовывает строки с актуальными галочками
+    window.dispatchEvent(new CustomEvent('sg-task-done', { detail:{} }));
+  } else { delete scheme.completedTasks[key]; }
+  calendarView.render();
+  renderHomeBody();
   if (window.__tsypa) window.__tsypa.refresh();
 });
 
-/* --- кнопки шапки (с toast) --- */
+/* --- кнопки шапки --- */
 on('saveBtn', function(){
   storage.save(scheme);
   const pn = (scheme.plotName || '').trim();
@@ -781,16 +667,13 @@ on('saveBtn', function(){
 on('loadBtn', function(){
   storage.load(scheme, function(){
     const setVal = function(id, val){ const el = document.getElementById(id); if (el) el.value = val; };
-    setVal('plotW', scheme.widthM);
-    setVal('plotL', scheme.lengthM);
-    setVal('gridStep', String(scheme.gridStepM));
-    setVal('sunDir', scheme.sunDir || 'S');
+    setVal('plotW', scheme.widthM); setVal('plotL', scheme.lengthM);
+    setVal('gridStep', String(scheme.gridStepM)); setVal('sunDir', scheme.sunDir || 'S');
     setVal('plotNameInput', scheme.plotName || '');
-    schemeView.render();
-    calendarView.render();
+    schemeView.render(); calendarView.render();
     if (window.__tsypa) window.__tsypa.refresh();
     showToast('План загружен ✓');
-    history.commit(); // 2.95: загрузка файла асинхронная — фиксируем вручную
+    history.commit();
   });
 });
 on('gridStep', function(){
@@ -800,8 +683,7 @@ on('gridStep', function(){
 }, 'change');
 on('resetBtn', function(){
   if (!confirm('Очистить схему участка?')) return;
-  scheme.objects = [];
-  scheme.plotName = '';
+  scheme.objects = []; scheme.plotName = '';
   const pn = document.getElementById('plotNameInput');
   if (pn) pn.value = '';
   schemeView.render();
@@ -827,15 +709,13 @@ const SEASON_ADVICE = {
 };
 function groupByType(list) {
   const groups = { 'дерево': [], 'кустарник': [], 'овощ': [], 'зелень': [], 'ягода': [] };
-  const labels = { 'дерево': '🌳 Деревья', 'кустарник': '🌿 Кустарники', 'овощ': '🥕 Овощи', 'зелень': '🌱 Зелень', 'ягода': '🍓 Ягоды' };
+  const labels = { 'дерево':'🌳 Деревья','кустарник':'🌿 Кустарники','овощ':'🥕 Овощи','зелень':'🌱 Зелень','ягода':'🍓 Ягоды' };
   list.forEach(function(p){
     const t = (p.type || '').toLowerCase();
-    for (const k of Object.keys(groups)) {
-      if (t.includes(k)) { groups[k].push(p.name); return; }
-    }
+    for (const k of Object.keys(groups)) { if (t.includes(k)) { groups[k].push(p.name); return; } }
   });
-  return Object.keys(groups).filter(function(k){ return groups[k].length; })
-    .map(function(k){ return '<div class="tip-group"><b>' + labels[k] + ':</b> ' + groups[k].join(', ') + '</div>'; }).join('');
+  return Object.keys(groups).filter(k=>groups[k].length)
+    .map(k=>'<div class="tip-group"><b>'+labels[k]+':</b> '+groups[k].join(', ')+'</div>').join('');
 }
 on('advisorBtn', function(){
   const bubble = document.getElementById('tipBubble');
@@ -843,44 +723,39 @@ on('advisorBtn', function(){
   if (!bubble.classList.contains('hidden')) { bubble.classList.add('hidden'); return; }
   const now = new Date();
   const m = MONTHS_LOW[now.getMonth()];
-  const sowP = plants.filter(function(p){ return ((p.sowing_timing || p.sowing) || '').toLowerCase().includes(m); });
-  const harP = plants.filter(function(p){ return ((p.harvest_timing || p.harvest) || '').toLowerCase().includes(m); });
-
+  const sowP = plants.filter(p=>((p.sowing_timing||p.sowing)||'').toLowerCase().includes(m));
+  const harP = plants.filter(p=>((p.harvest_timing||p.harvest)||'').toLowerCase().includes(m));
   let body;
   if(!sowP.length && !harP.length){
     body = '<div class="m-row">В этом месяце в открытом грунте обычно не сажают и не собирают — загляните в «Календарь», там актуальные задачи по фазам.</div>';
   } else {
-    body = '<b>Сейчас можно посадить:</b>' + (sowP.length ? groupByType(sowP) : '—') + '<br>' +
-           '<b>Пора собирать:</b>' + (harP.length ? groupByType(harP) : '—') + '<br>';
+    body = '<b>Сейчас можно посадить:</b>'+(sowP.length?groupByType(sowP):'—')+'<br>'+
+           '<b>Пора собирать:</b>'+(harP.length?groupByType(harP):'—')+'<br>';
   }
-
   bubble.innerHTML =
-    '<button type="button" class="tip-close" id="tipClose" aria-label="Закрыть">✕</button>' +
-    '<strong style="font-family:\'Neucha\';font-size:19px;display:inline-flex;align-items:center;gap:6px"><img src="assets/chick.svg" alt="" style="width:28px;height:28px" />Советчик · ' + MONTHS_NOM[now.getMonth()].toLowerCase() + '</strong>' +
-    '<div class="tip-season"><b>Совет сезона</b>' + (SEASON_ADVICE[now.getMonth()] || '') + '</div>' +
-    '<span class="tip-count">посадить сейчас: ' + sowP.length + ' · собрать: ' + harP.length + '</span><br><br>' +
-    body +
-    'В засуху — полив и мульча! 🌿';
+    '<button type="button" class="tip-close" id="tipClose" aria-label="Закрыть">✕</button>'+
+    '<strong style="font-family:\'Neucha\';font-size:19px;display:inline-flex;align-items:center;gap:6px"><img src="assets/chick.svg" alt="" style="width:28px;height:28px" />Советчик · '+MONTHS_NOM[now.getMonth()].toLowerCase()+'</strong>'+
+    '<div class="tip-season"><b>Совет сезона</b>'+(SEASON_ADVICE[now.getMonth()]||'')+'</div>'+
+    '<span class="tip-count">посадить сейчас: '+sowP.length+' · собрать: '+harP.length+'</span><br><br>'+
+    body+'В засуху — полив и мульча! 🌿';
   const tc = bubble.querySelector('#tipClose');
   if (tc) tc.addEventListener('click', function(e){ e.stopPropagation(); bubble.classList.add('hidden'); });
   bubble.classList.remove('hidden');
-  fixRelativeImages(bubble); // 2.125: относительные пути в пузыре Советчика
+  fixRelativeImages(bubble);
 });
 document.addEventListener('pointerdown', function(e){
   const bubble = document.getElementById('tipBubble');
-  if (bubble && !bubble.classList.contains('hidden') && !e.target.closest('#tipBubble') && !e.target.closest('#advisorBtn')) {
-    bubble.classList.add('hidden');
-  }
+  if (bubble && !bubble.classList.contains('hidden') && !e.target.closest('#tipBubble') && !e.target.closest('#advisorBtn')) bubble.classList.add('hidden');
 });
 
 /* --- История ревизий --- */
 on('historyBtn', function(){
   const modal=document.getElementById('historyModal');
   if(!modal) return;
-  let html = '<div class="modal-head"><h2>🕘 История ревизий</h2><button type="button" class="m-close" id="historyClose">✕</button></div>' +
+  let html = '<div class="modal-head"><h2>🕘 История ревизий</h2><button type="button" class="m-close" id="historyClose">✕</button></div>'+
              '<p class="m-row">Текущая версия: <b>v'+APP_VERSION+'</b></p>';
   html += CHANGELOG.map(function(e){
-    const notes=(e.notes||[]).filter(Boolean).map(function(n){ return '<li>'+n+'</li>'; }).join('');
+    const notes=(e.notes||[]).filter(Boolean).map(n=>'<li>'+n+'</li>').join('');
     return '<div class="history-item"><div class="history-head">v'+e.v+' · '+e.date+' — <b>'+e.title+'</b></div><ul>'+notes+'</ul></div>';
   }).join('');
   modal.innerHTML = html;
@@ -890,9 +765,7 @@ on('historyBtn', function(){
 });
 on('historyOverlay', function(e){ if(e.target===document.getElementById('historyOverlay')) document.getElementById('historyOverlay').classList.add('hidden'); }, 'pointerdown');
 
-/* --- подсказки «4 шага» --- */
 on('closeHintBtn', function(){ const h=document.getElementById('hintBar'); if(h) h.remove(); });
-
 const av=document.getElementById('appVersion'); if(av) av.textContent='v'+APP_VERSION;
 
 /* --- самопроверка --- */
@@ -920,10 +793,7 @@ window.__sgSelfTest = function(){
 };
 console.info('Умный садовод: самопроверка доступна в консоли — __sgSelfTest()');
 
-/* --- первичный рендер --- */
 schemeView.render();
-
-/* --- 2.88: автозапуск обучения при первом визите (пока не пройдено до конца) --- */
 try {
   if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) {
     setTimeout(function(){ tutorialView.open(0); }, 600);
