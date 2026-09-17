@@ -39,9 +39,21 @@ export function isRainExcused(scheme, task, today){
   if (!w || w.mode !== 'rain') return false;
   if (task.category !== 'watering') return false;
   if (task.date < w.from || task.date > w.to) return false;
-  const obj = (scheme.objects||[]).find(o => o.id === task.bed_id);
-  if (obj && obj.type === 'greenhouse') return false; // под крышу дождь не попадает
-  return true;
+  // 2.149: теплица определяется по ЛЮБОМУ признаку задачи/объекта — под крышу дождь не попадает
+  if (task.greenhouse === true || task.inGreenhouse === true) return false;
+  if (task.bedIndex != null || task.gh != null || task.greenhouseId != null) return false;
+  if (/теплиц/i.test(task.name || '')) return false;
+  const objs = scheme.objects || [];
+  const obj = objs.find(o => o.id === task.bed_id || o.id === task.greenhouseId);
+  if (obj && obj.type === 'greenhouse') return false;
+  // если bed_id не привязан: культура растёт ТОЛЬКО в теплице -> полив не отменяем
+  const crop = task.crop || task.culture || '';
+  if (crop) {
+    const inOpen = objs.some(o => (o.type === 'bed' || o.type === 'tree' || o.type === 'bush') && (o.culture === crop));
+    const inGh = objs.some(o => o.type === 'greenhouse' && (o.greenhouseBedCultures || []).includes(crop));
+    if (inGh && !inOpen) return false;
+  }
+  return true;   // открытый грунт: при дождях полив можно пропустить
 }
 
 export function weatherAdvisoryTasks(beds, scheme, today){
