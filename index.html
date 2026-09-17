@@ -84,6 +84,9 @@
   .palette-right { margin-left:auto; }
   .scheme-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 14px; }
   .plot-wrap { background:linear-gradient(135deg,#F5FBEC,#EDF7DD); border-radius:var(--radius); box-shadow:var(--shadow-s); padding:28px 16px 16px; overflow:auto; }
+  /* 2.150: кнопки масштаба схемы (видны только на мобильном внутри экрана «Схема») */
+  .zoom-controls { display:none; position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; flex-direction:column; gap:8px; }
+  .zoom-controls button { width:44px; height:44px; border:none; border-radius:50%; background:#fff; box-shadow:var(--shadow-s); font:700 18px Manrope,sans-serif; color:var(--ink); }
   #plotBox { position:relative; margin:auto; }
   .plot { position:relative; width:100%; height:100%; background:#fff; border-radius:14px; box-shadow:inset 0 0 0 1px rgba(120,160,120,.15); touch-action:none; }
   #shadeCanvas { position:absolute; left:0; top:0; z-index:3; pointer-events:none; border-radius:14px; }
@@ -91,9 +94,10 @@
   .obj { position:absolute; display:grid; place-items:center; z-index:2; border:2px solid rgba(63,62,58,.15); border-radius:12px; cursor:grab; user-select:none; touch-action:none; overflow:hidden; }
   .obj:active { cursor:grabbing; } .obj.selected { outline:3px solid rgba(138,155,110,.5); }
   .obj.invalid { border-color:var(--rose-dark); background:rgba(217,165,160,.2) !important; }
-  .phase-badge { position:absolute; left:4px; top:4px; z-index:3; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; box-shadow:var(--shadow-s); }
+  /* 2.150: значки фаз масштабируются вместе с объектами через --zoom на #plotBox */
+  .phase-badge { position:absolute; left:calc(4px * var(--zoom,1)); top:calc(4px * var(--zoom,1)); z-index:3; width:calc(22px * var(--zoom,1)); height:calc(22px * var(--zoom,1)); border-radius:50%; display:grid; place-items:center; font-size:calc(12px * var(--zoom,1)); box-shadow:var(--shadow-s); }
   .greenhouse-plants { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:2px; width:100%; height:100%; overflow:hidden; }
-  .gh-phases { position:absolute; left:4px; top:4px; display:flex; gap:2px; flex-wrap:wrap; max-width:70%; z-index:3; }
+  .gh-phases { position:absolute; left:calc(4px * var(--zoom,1)); top:calc(4px * var(--zoom,1)); display:flex; gap:calc(2px * var(--zoom,1)); flex-wrap:wrap; max-width:70%; z-index:3; }
   .gh-phase-badge { position:static !important; left:auto; top:auto; }
   .o-building { background:linear-gradient(180deg,#FFF7EF,#F9E8D4); border-color:#D9B48F; }
   .o-greenhouse { background:linear-gradient(180deg,#F3FFF5,#DCF2E0); border-color:#9CCFA8; }
@@ -509,16 +513,14 @@
     .calendar-stage { overflow:hidden; }
     .an-weeks { overflow-x:hidden; }
     .an-kpi-grid > *, .an-gantt-row > * { min-width:0; }
-    /* --- 2.132/2.137: умные бейджи фаз на мобильном --- */
-    .ops-head { display:flex; align-items:center; justify-content:space-between; margin:-4px 0 10px; }
-    .ops-head span { font:700 15px Manrope,sans-serif; color:var(--olive-dark); }
-    #opClose { width:40px; height:40px; border:none; border-radius:10px; background:#fff; box-shadow:var(--shadow-s); font-size:16px; }
-    #objPanel:not(.hidden) { position:fixed; left:0; right:0; bottom:0; top:auto; margin:0; max-height:72vh; overflow:auto; border-radius:16px 16px 0 0; z-index:56; box-shadow:0 -12px 30px rgba(0,0,0,.28); padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
-    /* 2.137: маленькие объекты -> уплотнённые значки фаз (видны всегда); сверхомальные -> угловая метка */
-    .obj-tiny .phase-badge, .obj-tiny .gh-phase-badge { width:14px; height:14px; font-size:8px; left:2px; top:2px; }
-    .obj-tiny .gh-phases { gap:1px; max-width:90%; }
+    /* --- 2.132/2.137: умные бейджи фаз на мобильном (масштабируются через --zoom, 2.150) --- */
+    .obj-tiny .phase-badge, .obj-tiny .gh-phase-badge { width:calc(14px * var(--zoom,1)); height:calc(14px * var(--zoom,1)); font-size:calc(8px * var(--zoom,1)); left:calc(2px * var(--zoom,1)); top:calc(2px * var(--zoom,1)); }
+    .obj-tiny .gh-phases { gap:calc(1px * var(--zoom,1)); max-width:90%; }
     .obj-ultra .phase-badge, .obj-ultra .gh-phases { display:none; }
     .obj-ultra::after { content:''; position:absolute; right:2px; top:2px; width:8px; height:8px; border-radius:50%; background:var(--olive); box-shadow:0 0 0 1.5px #fff; }
+    /* 2.150: панорама пальцем по полотну при зуме; кнопки зума видны */
+    .plot { touch-action:pan-x pan-y; }
+    .zoom-controls { display:flex; }
     /* --- шрифты инпутов 16px: iOS не zoom'ит при фокусе --- */
     input, select, textarea { font-size:16px !important; }
 
