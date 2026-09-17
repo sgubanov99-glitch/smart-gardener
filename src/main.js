@@ -1,18 +1,20 @@
-// src/main.js — точка входа ревизии 2.137. Связывает слои каркаса.
-// 2.137: убран собственный canvas-zoom (проба/кнопки/pinch) — масштабирование отдано нативному
-//        pinch-zoom браузера: значки фаз масштабируются вместе с объектом и не выходят за пределы;
-//        .obj-tiny уплотняет значки фаз (видны всегда), сверхомальные (<20px) -> угловая метка
+// src/main.js — точка входа ревизии 2.139. Связывает слои каркаса.
+// 2.139: защита теплицы от TypeError: теплица, добавленная палитрой/FAB, не имела массивов
+//        greenhouseBedCultures/PlantingDates/Phases -> выбор культуры падал и фазы/урожай не рисовались;
+//        патч addObject + capture-слушатель на #opExtra гарантируют массивы до родного обработчика
+// 2.138: принудительное обновление панели при смене культуры/фазы/урожая в #opExtra
+// 2.137: убран собственный canvas-zoom (нативный pinch), умные бейджи фаз (obj-tiny/obj-ultra)
 // 2.136: удалена внедрённая надстройка «Урожая» — урожай полностью родной в schemeView
-// 2.135: хуки (бейджи) сняты с пути рендера — rAF-планировщик scheduleSchemeHooks
-// 2.132: Схема на мобильном — bottom-sheet настроек объекта, умные бейджи фаз
-// 2.131: десктоп — родной Обзор homeView с отметкой выполнения; мобильные строки Обзора с чекбоксами
+// 2.135: хуки сняты с пути рендера — rAF-планировщик scheduleSchemeHooks
+// 2.132: bottom-sheet настроек объекта на мобильном, умные бейджи фаз
+// 2.131: десктоп — родной Обзор homeView; мобильные строки Обзора с чекбоксами
 // 2.130: силовая нормализация ширины Обзора на мобильном (CSS)
-// 2.129: пустая схема — подсказки и навигация в Обзоре; нормализация контейнеров блоков
+// 2.129: пустая схема — подсказки и навигация в Обзоре
 // 2.128: блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных схемы
 // 2.126: MutationObserver на #screen-plants-body — цыплёнок не пропадает при смене фильтров
 // 2.125: фиксатор абсолютных путей картинок (в подпапке Pages «/assets/…» = 404)
 // 2.121: карточка растения открывается надёжно (симуляция клика по карточке каталога)
-// 2.119: ПК-режим с пилюлей возврата «📱 Мобильная версия»; resetViewOffset() перед листами
+// 2.119: ПК-режим с пилюлей возврата; resetViewOffset() перед листами
 // 2.118: FAB/undo только на Схеме; переключатель «Мобильная версия»
 // 2.117: мобильный каркас — ☰-меню-лист, лист добавления, FAB, плавающие undo/redo
 // 2.116: глобальный сброс мобильного масштаба после завершения ввода
@@ -625,6 +627,49 @@ function scheduleSchemeHooks(){
 }
 document.addEventListener('click', scheduleSchemeHooks);
 document.addEventListener('pointerup', scheduleSchemeHooks);
+
+/* 2.138: при смене культуры/фазы/урожая в настройках объекта (в т.ч. грядки теплицы)
+   принудительно перерисовываем панель и бейджи, чтобы фазы и урожай отобразились.
+   Безопасно: рендер обёрнут минимально, хуки идут через rAF, зависание исключено */
+const opExtraEl = document.getElementById('opExtra');
+if (opExtraEl) {
+  opExtraEl.addEventListener('change', ()=>{
+    setTimeout(()=>{
+      try { schemeView.render(); } catch(e){ console.warn('op-extra re-render:', e); }
+      scheduleSchemeHooks();
+    }, 0);
+  });
+}
+
+/* --- 2.139: защита теплицы от TypeError (нет массивов грядок у добавленной палитрой/FAB теплицы) --- */
+(function guardGreenhouse(){
+  // 1) новые объекты: гарантируем массивы грядок сразу после создания
+  const _addObject = schemeView.addObject.bind(schemeView);
+  schemeView.addObject = function(type){
+    const obj = _addObject(type);
+    if (obj && type === 'greenhouse') {
+      if (!obj.greenhouseBedCount) obj.greenhouseBedCount = 1;
+      if (!Array.isArray(obj.greenhouseBedCultures)) obj.greenhouseBedCultures = [null];
+      if (!Array.isArray(obj.greenhouseBedPlantingDates)) obj.greenhouseBedPlantingDates = [null];
+      if (!Array.isArray(obj.greenhouseBedPhases)) obj.greenhouseBedPhases = [null];
+    }
+    return obj;
+  };
+  // 2) уже созданные/загруженные объекты: гарантируем массивы ДО родного обработчика schemeView
+  //    (capture-фаза на #opExtra выполняется раньше listener'ов самого select)
+  const guardEl = document.getElementById('opExtra');
+  if (guardEl) {
+    guardEl.addEventListener('change', (e)=>{
+      const t = e.target;
+      if (!t || !t.classList || !t.classList.contains('opGhCulture')) return;
+      const obj = (scheme.objects||[]).find(o=>o.id===schemeView.selectedObjId);
+      if (!obj || obj.type !== 'greenhouse') return;
+      if (!Array.isArray(obj.greenhouseBedCultures)) obj.greenhouseBedCultures = [];
+      if (!Array.isArray(obj.greenhouseBedPlantingDates)) obj.greenhouseBedPlantingDates = [];
+      if (!Array.isArray(obj.greenhouseBedPhases)) obj.greenhouseBedPhases = [];
+    }, true);
+  }
+})();
 
 /* --- экспорт постера --- */
 on('exportBtn', async function(){
