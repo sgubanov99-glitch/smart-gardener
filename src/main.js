@@ -1,6 +1,11 @@
-// src/main.js — точка входа ревизии 2.132. Связывает слои каркаса.
+// src/main.js — точка входа ревизии 2.136. Связывает слои каркаса.
+// 2.136: удалена внедрённая надстройка «Урожая» (2.133/2.134) — совпадающие id затирали родные
+//        значения расчётного числа растений и урожая schemeView (в т.ч. по грядкам теплиц);
+//        урожай полностью отдан родной логике schemeView
+// 2.135: хуки (бейджи/зум) сняты с пути рендера и с MutationObserver — rAF-планировщик
+//        scheduleSchemeHooks по действиям пользователя; добавление объекта не зависает
 // 2.132: Схема на мобильном — панорама пальцем, pinch-zoom + кнопки +/−/1:1 (runtime-проба),
-//        bottom-sheet настроек объекта, умные бейджи фаз (угловая метка на маленьких объектах)
+//        bottom-sheet настроек объекта, умные бейджи фаз
 // 2.131: десктоп — родной Обзор homeView с отметкой выполнения; мобильные строки Обзора с чекбоксами
 // 2.130: силовая нормализация ширины Обзора на мобильном (CSS)
 // 2.129: пустая схема — подсказки и навигация в Обзоре; нормализация контейнеров блоков
@@ -163,7 +168,7 @@ try {
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
-  if (pres.ok) planting = deepTrim(await res.json());
+  if (pres.ok) planting = deepTrim(await pres.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
 
 /* --- 2.86: слайды обучения --- */
@@ -563,7 +568,7 @@ window.addEventListener('sg-tasks-bulk-done', (e) => {
 let isoOn = false;
 const isoView = createIsoView({ scheme: scheme, plants: plants, onSelect: function(id){ schemeView.selectAndShow(id); } });
 const _schemeRender = schemeView.render.bind(schemeView);
-schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); fixBadges(); syncZoomCtl(); };  // 2.132
+schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); };  // 2.135: минимальная обёртка, хуки вне пути рендера
 
 const isoBtn = document.getElementById('isoBtn');
 const plotWrap = document.getElementById('plotWrap');
@@ -603,12 +608,21 @@ function fixBadges(){
     o.classList.toggle('obj-tiny', tiny);
   });
 }
-let badgeTimer = null;
-const plotElForBadges = document.getElementById('plot');
-if (plotElForBadges && window.MutationObserver) {
-  new MutationObserver(()=>{ clearTimeout(badgeTimer); badgeTimer = setTimeout(fixBadges, 80); })
-    .observe(plotElForBadges, { childList:true, subtree:true, attributes:true });
+
+/* 2.135/2.136: хуки (бейджи/зум) выполняются через rAF-планировщик, запускаемый
+   только действиями пользователя (клик/pointerup/смена экрана), НЕ из рендера
+   и НЕ через MutationObserver — добавление объекта не может зависнуть.
+   Урожай не трогаем — он родной в schemeView (2.136) */
+let schemeHooksRaf = 0;
+function scheduleSchemeHooks(){
+  if (schemeHooksRaf) return;
+  schemeHooksRaf = requestAnimationFrame(()=>{
+    schemeHooksRaf = 0;
+    try { fixBadges(); syncZoomCtl(); } catch(e){ console.warn('scheme hooks:', e); }
+  });
 }
+document.addEventListener('click', scheduleSchemeHooks);
+document.addEventListener('pointerup', scheduleSchemeHooks);
 
 /* масштаб: проба — масштабирует ли schemeView от ширины #plotBox */
 let plotZoom = 1, plotZoomOK = false, plotZoomProbed = false, plotBaseW = 0;
@@ -738,6 +752,7 @@ function showScreen(id) {
   if (id === 'screen-scheme') {
     if (isMobileNow() && !plotZoomProbed) { plotZoomProbed = true; probePlotZoom(); }  // 2.132: проба масштабирования
     schemeView.render();
+    scheduleSchemeHooks();   // 2.135: бейджи/зум после смены экрана
   }
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
