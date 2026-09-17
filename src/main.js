@@ -1,6 +1,7 @@
-// src/main.js — точка входа ревизии 2.131. Связывает слои каркаса.
-// 2.131: перестройка строк Обзора только на мобильном (десктоп — родной Обзор homeView с отметкой выполнения);
-//        мобильные строки «Задачи на 7 дней» получили чекбокс выполнения, синхронный с Календарём в обе стороны
+// src/main.js — точка входа ревизии 2.132. Связывает слои каркаса.
+// 2.132: Схема на мобильном — панорама пальцем, pinch-zoom + кнопки +/−/1:1 (runtime-проба),
+//        bottom-sheet настроек объекта, умные бейджи фаз (угловая метка на маленьких объектах)
+// 2.131: десктоп — родной Обзор homeView с отметкой выполнения; мобильные строки Обзора с чекбоксами
 // 2.130: силовая нормализация ширины Обзора на мобильном (CSS)
 // 2.129: пустая схема — подсказки и навигация в Обзоре; нормализация контейнеров блоков
 // 2.128: блоки «Посаженные культуры» и «Задачи на 7 дней» перестраиваются из данных схемы
@@ -162,7 +163,7 @@ try {
 let planting = {};
 try {
   const pres = await fetch('data/planting.json');
-  if (pres.ok) planting = deepTrim(await pres.json());
+  if (pres.ok) planting = deepTrim(await res.json());
 } catch (e) { console.warn('planting.json не загрузился', e); }
 
 /* --- 2.86: слайды обучения --- */
@@ -562,7 +563,7 @@ window.addEventListener('sg-tasks-bulk-done', (e) => {
 let isoOn = false;
 const isoView = createIsoView({ scheme: scheme, plants: plants, onSelect: function(id){ schemeView.selectAndShow(id); } });
 const _schemeRender = schemeView.render.bind(schemeView);
-schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); };
+schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); fixBadges(); syncZoomCtl(); };  // 2.132
 
 const isoBtn = document.getElementById('isoBtn');
 const plotWrap = document.getElementById('plotWrap');
@@ -576,6 +577,122 @@ if (isoBtn) isoBtn.addEventListener('click', function(){
   setIsoLabel();
   if (isoOn) isoView.render();
 });
+
+/* --- 2.132: Схема на мобильном: масштаб/панорама, bottom-sheet настроек, умные бейджи фаз --- */
+const isMobileNow = () => window.matchMedia && window.matchMedia('(max-width:900px)').matches;
+
+/* bottom-sheet: шапка с кнопкой закрытия внутри панели настроек объекта */
+(function injectOpsHead(){
+  const panel = document.getElementById('objPanel');
+  if (!panel || panel.querySelector('.ops-head')) return;
+  const head = document.createElement('div');
+  head.className = 'ops-head';
+  head.innerHTML = '<span>Настройки объекта</span><button type="button" id="opClose" aria-label="Закрыть настройки">✕</button>';
+  panel.prepend(head);
+  head.addEventListener('click', (e)=>{
+    if (e.target.closest('#opClose')) panel.classList.add('hidden');
+  });
+})();
+
+/* умные бейджи фаз: слишком маленький объект -> угловая метка вместо бейджа */
+function fixBadges(){
+  const box = document.getElementById('plotBox');
+  if (!box) return;
+  box.querySelectorAll('.obj').forEach(o=>{
+    const tiny = o.offsetWidth < 34 || o.offsetHeight < 34;
+    o.classList.toggle('obj-tiny', tiny);
+  });
+}
+let badgeTimer = null;
+const plotElForBadges = document.getElementById('plot');
+if (plotElForBadges && window.MutationObserver) {
+  new MutationObserver(()=>{ clearTimeout(badgeTimer); badgeTimer = setTimeout(fixBadges, 80); })
+    .observe(plotElForBadges, { childList:true, subtree:true, attributes:true });
+}
+
+/* масштаб: проба — масштабирует ли schemeView от ширины #plotBox */
+let plotZoom = 1, plotZoomOK = false, plotZoomProbed = false, plotBaseW = 0;
+function plotWrapEl(){ return document.getElementById('plotWrap'); }
+function plotBoxEl(){ return document.getElementById('plotBox'); }
+function measureBase(){
+  const wrap = plotWrapEl();
+  if (!wrap) return 0;
+  const cs = getComputedStyle(wrap);
+  return wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+}
+function probePlotZoom(){
+  const box = plotBoxEl();
+  if (!box) return;
+  plotBaseW = measureBase();
+  const obj0 = box.querySelector('.obj');
+  const w0 = obj0 ? obj0.offsetWidth : 0;
+  const keepW = box.style.width;
+  box.style.width = (plotBaseW*2)+'px';
+  schemeView.render();
+  const obj1 = box.querySelector('.obj');
+  const w1 = obj1 ? obj1.offsetWidth : 0;
+  plotZoomOK = !!(w0 && w1 >= w0*1.5);
+  box.style.width = keepW || '';
+  schemeView.render();
+  fixBadges();
+}
+function applyPlotZoom(){
+  const box = plotBoxEl();
+  if (!box || !plotZoomOK) return;
+  box.style.width = Math.round(plotBaseW*plotZoom)+'px';
+  schemeView.render();
+  fixBadges();
+}
+/* кнопки зума (мобильные, только на Схеме) */
+const zoomCtl = document.createElement('div');
+zoomCtl.className = 'zoom-controls';
+zoomCtl.innerHTML = '<button type="button" data-z="in" aria-label="Приблизить">+</button>' +
+                    '<button type="button" data-z="out" aria-label="Отдалить">−</button>' +
+                    '<button type="button" data-z="reset" aria-label="Масштаб 1:1">1:1</button>';
+document.body.appendChild(zoomCtl);
+zoomCtl.addEventListener('click', (e)=>{
+  const b = e.target.closest('[data-z]');
+  if (!b) return;
+  const z = b.dataset.z;
+  if (z==='in') plotZoom = Math.min(4, plotZoom*1.25);
+  else if (z==='out') plotZoom = Math.max(1, plotZoom/1.25);
+  else plotZoom = 1;
+  applyPlotZoom();
+});
+function syncZoomCtl(){
+  const scr = document.getElementById('screen-scheme');
+  const show = isMobileNow() && plotZoomOK && scr && scr.classList.contains('active');
+  zoomCtl.style.display = show ? 'flex' : 'none';
+}
+/* pinch: два пальца по полотну */
+const pinch = { pts:new Map(), d0:0, z0:1, raf:0 };
+function pinchDist(){
+  const p = Array.from(pinch.pts.values());
+  if (p.length<2) return 0;
+  return Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y);
+}
+const wrapForPinch = plotWrapEl();
+if (wrapForPinch) {
+  wrapForPinch.addEventListener('pointerdown', (e)=>{
+    if (!plotZoomOK) return;
+    pinch.pts.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    if (pinch.pts.size===2){ pinch.d0 = pinchDist(); pinch.z0 = plotZoom; }
+  });
+  wrapForPinch.addEventListener('pointermove', (e)=>{
+    if (!pinch.pts.has(e.pointerId)) return;
+    pinch.pts.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    if (pinch.pts.size===2 && pinch.d0>10){
+      const z = Math.max(1, Math.min(4, pinch.z0 * pinchDist()/pinch.d0));
+      if (Math.abs(z-plotZoom)>0.02){
+        plotZoom = z;
+        if (!pinch.raf) pinch.raf = requestAnimationFrame(()=>{ pinch.raf=0; applyPlotZoom(); });
+      }
+    }
+  });
+  const endPinch = (e)=>{ pinch.pts.delete(e.pointerId); if (pinch.pts.size<2) pinch.d0=0; };
+  wrapForPinch.addEventListener('pointerup', endPinch);
+  wrapForPinch.addEventListener('pointercancel', endPinch);
+}
 
 /* --- экспорт постера --- */
 on('exportBtn', async function(){
@@ -618,7 +735,10 @@ document.addEventListener('click', function(e){
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.toggle('active', s.id === id); });
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.goto === id); });
-  if (id === 'screen-scheme') schemeView.render();
+  if (id === 'screen-scheme') {
+    if (isMobileNow() && !plotZoomProbed) { plotZoomProbed = true; probePlotZoom(); }  // 2.132: проба масштабирования
+    schemeView.render();
+  }
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
   if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }  // 2.125: цыплёнок на карточках виден
