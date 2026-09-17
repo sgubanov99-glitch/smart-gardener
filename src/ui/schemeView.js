@@ -1,7 +1,8 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.140)
-// 2.140: чистая пересборка файла (устранён SyntaxError после повреждённого копирования);
-//        встроено: одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
-//        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
+// src/ui/schemeView.js — представление схемы (ревизия 2.148)
+// 2.148: чистая пересборка от РАБОЧЕГО файла 2.66 + мобильные правки:
+//        одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
+//        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы;
+//        защитные инициализации массивов в обработчике выбора культуры теплицы
 // 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
 // 2.64: блок «Схема посадки» с расчётом растений, оценкой урожая и полем «Фактический урожай»
 // 2.57: иконки культур +20%; 2.56: SVG-иконки (фолбэк эмодзи); 2.52: справка у меню фаз
@@ -53,7 +54,7 @@ export class SchemeView {
     this.onOpenPlantCard = null;
     this.lastTapId = null;
     this.lastTapTime = 0;
-    this._panelOpen = false;   // 2.140: открыта ли панель настроек (мобильный: только двойной тап)
+    this._panelOpen = false;   // 2.148: открыта ли панель настроек (мобильный: только двойной тап)
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -67,7 +68,7 @@ export class SchemeView {
     this._bindPlotName();   // 2.66: имя участка
   }
 
-  /* ---------- 2.140: мобильность панели настроек ---------- */
+  /* ---------- 2.148: мобильность панели настроек ---------- */
   _isMobile() { return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches); }
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
@@ -436,7 +437,7 @@ export class SchemeView {
   _renderPanel() {
     const obj = this.scheme.objects.find(o => o.id === this.selectedObjId);
     const panel = document.getElementById('objPanel');
-    // 2.140: на мобильном панель открыта только если _panelOpen (двойной тап / чип / selectAndShow);
+    // 2.148: на мобильном панель открыта только если _panelOpen (двойной тап / чип / selectAndShow);
     //        на десктопе — как прежде (при выбранном объекте)
     const show = !!obj && (!this._isMobile() || this._panelOpen);
     panel.classList.toggle('hidden', !show);
@@ -596,6 +597,7 @@ export class SchemeView {
       opExtra.querySelectorAll('.opGhCulture').forEach(sel => sel.addEventListener('change', () => {
         const i = parseInt(sel.dataset.i, 10);
         const newCulture = sel.value || null;
+        // 2.148: защита от TypeError на старых объектах без массивов
         obj.greenhouseBedCultures = obj.greenhouseBedCultures || [];
         obj.greenhouseBedPhases = obj.greenhouseBedPhases || [];
         obj.greenhouseBedPlantingDates = obj.greenhouseBedPlantingDates || [];
@@ -719,7 +721,7 @@ export class SchemeView {
     const obj = this.scheme.objects.find(o => o.id === objId);
     if (!obj) return;
     this.selectedObjId = objId;
-    this._panelOpen = true;   // 2.140: переход из списка/обзора открывает настройки
+    this._panelOpen = true;   // 2.148: переход из списка/обзора открывает настройки
     this.render();
     const panel = document.getElementById('objPanel');
     if (panel && !panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -774,7 +776,7 @@ export class SchemeView {
         }
       }
       this.selectedObjId = obj.id;
-      this._panelOpen = true;   // 2.140: после добавления из каталога показать настройки
+      this._panelOpen = true;   // 2.148: после добавления из каталога показать настройки
       this.render();
       if (this.onPhaseChange) this.onPhaseChange();
     }
@@ -792,7 +794,7 @@ export class SchemeView {
         if (first) obj.greenhouseBedPhases[0] = { phase: first, phase_started: toDateStrLocal(new Date()), phase_history: [{ phase: first, started: toDateStrLocal(new Date()), ended: null }] };
       }
       this.selectedObjId = obj.id;
-      this._panelOpen = true;   // 2.140: после добавления из каталога показать настройки
+      this._panelOpen = true;   // 2.148: после добавления из каталога показать настройки
       this.render();
       if (this.onPhaseChange) this.onPhaseChange();
     }
@@ -859,7 +861,7 @@ export class SchemeView {
       const chip = e.target.closest('.obj-chip');
       if (!chip) return;
       this.selectedObjId = Number(chip.dataset.id);
-      this._panelOpen = true;   // 2.140: клик по чипу открывает настройки
+      this._panelOpen = true;   // 2.148: клик по чипу открывает настройки
       this.render();
     });
     this.plotEl.addEventListener('pointerdown', e => this._onPointerDown(e));
@@ -872,7 +874,7 @@ export class SchemeView {
     if (!el) { this.selectedObjId = null; this._panelOpen = false; this.render(); return; }
     const id = Number(el.dataset.id);
     const now = Date.now();
-    // 2.140: двойной тап по тому же объекту (<400 мс) = открыть настройки
+    // 2.148: двойной тап по тому же объекту (<400 мс) = открыть настройки
     const isDouble = (this.lastTapId === id && (now - this.lastTapTime) < 400);
     this.lastTapId = id; this.lastTapTime = now;
     this.selectedObjId = id;
@@ -898,7 +900,7 @@ export class SchemeView {
     if (!t) return;
     const obj = { id: this.scheme.nextId++, type, name: this.nextUniqueName(this.scheme, t.label), culture: null, plantingDate: null, w: Math.min(t.w, this.scheme.widthM), l: Math.min(t.l, this.scheme.lengthM), x: 0, y: 0 };
     if (t.h) obj.height_m = t.h;
-    // 2.140: теплица сразу получает массивы грядок — выбор культуры не падает
+    // 2.148: теплица сразу получает массивы грядок — выбор культуры не падает
     if (type === 'greenhouse') {
       obj.greenhouseBedCount = 1;
       obj.greenhouseBedCultures = [null];
@@ -908,7 +910,7 @@ export class SchemeView {
     this._findSpot(obj);
     this.scheme.objects.push(obj);
     this.selectedObjId = obj.id;
-    this._panelOpen = !this._isMobile();   // 2.140: на мобильном не раскрывать панель сразу
+    this._panelOpen = !this._isMobile();   // 2.148: на мобильном не раскрывать панель сразу
     this.render();
     return obj;
   }
