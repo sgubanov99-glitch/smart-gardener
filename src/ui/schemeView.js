@@ -1,8 +1,10 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.148)
-// 2.148: чистая пересборка от РАБОЧЕГО файла 2.66 + мобильные правки:
-//        одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
-//        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы;
-//        защитные инициализации массивов в обработчике выбора культуры теплицы
+// src/ui/schemeView.js — представление схемы (ревизия 2.150)
+// 2.150: зум и панорама схемы внутри view: множитель this.zoom (1..4) умножает базовый ppm;
+//        CSS-переменная --zoom на #plotBox масштабирует значки фаз вместе с объектами;
+//        при zoom>1 полотно прижато к левому краю и панорамируется скроллом plot-wrap;
+//        кнопки +/−/1:1 и pinch двумя пальцами (мобильные); десктоп без изменений
+// 2.148/2.140: одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
+//        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
 // 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
 // 2.64: блок «Схема посадки» с расчётом растений, оценкой урожая и полем «Фактический урожай»
 // 2.57: иконки культур +20%; 2.56: SVG-иконки (фолбэк эмодзи); 2.52: справка у меню фаз
@@ -55,6 +57,8 @@ export class SchemeView {
     this.lastTapId = null;
     this.lastTapTime = 0;
     this._panelOpen = false;   // 2.148: открыта ли панель настроек (мобильный: только двойной тап)
+    this.zoom = 1;             // 2.150: множитель масштаба схемы (1..4)
+    this._zoomRaf = 0;
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -66,12 +70,63 @@ export class SchemeView {
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind();
     this._bindPlotName();   // 2.66: имя участка
+    this._initZoom();       // 2.150: кнопки зума и pinch
   }
 
   /* ---------- 2.148: мобильность панели настроек ---------- */
   _isMobile() { return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches); }
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
+
+  /* ---------- 2.150: масштаб и панорама схемы ---------- */
+  setZoom(z) {
+    this.zoom = Math.max(1, Math.min(4, z || 1));
+    this.render();
+  }
+  _initZoom() {
+    const scr = document.getElementById('screen-scheme');
+    if (scr && !scr.querySelector('.zoom-controls')) {
+      const zc = document.createElement('div');
+      zc.className = 'zoom-controls';
+      zc.innerHTML = '<button type="button" data-z="in" aria-label="Приблизить">+</button>' +
+                     '<button type="button" data-z="out" aria-label="Отдалить">−</button>' +
+                     '<button type="button" data-z="reset" aria-label="Масштаб 1:1">1:1</button>';
+      scr.appendChild(zc);
+      zc.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-z]');
+        if (!b) return;
+        if (b.dataset.z === 'in') this.setZoom(this.zoom * 1.25);
+        else if (b.dataset.z === 'out') this.setZoom(this.zoom / 1.25);
+        else this.setZoom(1);
+      });
+    }
+    const wrap = this.plotBox ? this.plotBox.parentElement : null;
+    if (!wrap) return;
+    const pts = new Map();
+    let d0 = 0, z0 = 1;
+    const dist = () => {
+      const p = Array.from(pts.values());
+      return p.length < 2 ? 0 : Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+    };
+    wrap.addEventListener('pointerdown', (e) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) { d0 = dist(); z0 = this.zoom; this.drag = null; }
+    });
+    wrap.addEventListener('pointermove', (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2 && d0 > 10) {
+        const z = Math.max(1, Math.min(4, z0 * dist() / d0));
+        if (Math.abs(z - this.zoom) > 0.02) {
+          this.zoom = z;
+          if (!this._zoomRaf) this._zoomRaf = requestAnimationFrame(() => { this._zoomRaf = 0; this.render(); });
+        }
+      }
+    });
+    const end = (e) => { pts.delete(e.pointerId); if (pts.size < 2) d0 = 0; };
+    wrap.addEventListener('pointerup', end);
+    wrap.addEventListener('pointercancel', end);
+  }
 
   /* ---------- 2.66: имя участка ---------- */
   _bindPlotName() {
@@ -354,7 +409,10 @@ export class SchemeView {
     lightViol.forEach(v => this._lightNotes.set(v.obj.id, `зона: ${v.zoneText}, требует: ${v.reqText}`));
     const wrap = this.plotBox.parentElement;
     const avail = Math.max(120, wrap.clientWidth - 40);
-    this.ppm = Math.max(14, Math.min(avail / this.scheme.widthM, 420 / this.scheme.lengthM));
+    const basePpm = Math.max(14, Math.min(avail / this.scheme.widthM, 420 / this.scheme.lengthM));
+    this.ppm = basePpm * (this.zoom || 1);   // 2.150: масштаб
+    this.plotBox.style.setProperty('--zoom', String(this.zoom || 1));   // 2.150: значки фаз масштабируются вместе с объектами
+    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';          // 2.150: при зуме полотно прижато к левому краю и полностью доступно для панорамы
     this.plotBox.style.width = Math.round(this.scheme.widthM * this.ppm) + 'px';
     this.plotBox.style.height = Math.round(this.scheme.lengthM * this.ppm) + 'px';
     this.plotEl.innerHTML = this.scheme.objects.map(o => {
