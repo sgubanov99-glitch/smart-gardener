@@ -1,8 +1,7 @@
 // src/main.js — точка входа ревизии 2.139. Связывает слои каркаса.
-// 2.139: защита теплицы от TypeError: теплица, добавленная палитрой/FAB, не имела массивов
-//        greenhouseBedCultures/PlantingDates/Phases -> выбор культуры падал и фазы/урожай не рисовались;
-//        патч addObject + capture-слушатель на #opExtra гарантируют массивы до родного обработчика
-// 2.138: принудительное обновление панели при смене культуры/фазы/урожая в #opExtra
+// 2.139: защита теплицы от TypeError (массивы грядок гарантируются до обработчика schemeView);
+//        закрытие bottom-sheet через schemeView.closePanel() с фолбэком для старых schemeView
+// 2.138: принудительная перерисовка панели при смене культуры/фазы/урожая в #opExtra
 // 2.137: убран собственный canvas-zoom (нативный pinch), умные бейджи фаз (obj-tiny/obj-ultra)
 // 2.136: удалена внедрённая надстройка «Урожая» — урожай полностью родной в schemeView
 // 2.135: хуки сняты с пути рендера — rAF-планировщик scheduleSchemeHooks
@@ -596,7 +595,11 @@ const isMobileNow = () => window.matchMedia && window.matchMedia('(max-width:900
   head.innerHTML = '<span>Настройки объекта</span><button type="button" id="opClose" aria-label="Закрыть настройки">✕</button>';
   panel.prepend(head);
   head.addEventListener('click', (e)=>{
-    if (e.target.closest('#opClose')) panel.classList.add('hidden');
+    if (e.target.closest('#opClose')) {
+      // 2.139: корректно закрываем bottom-sheet (closePanel есть в schemeView 2.139; фолбэк для старых)
+      if (typeof schemeView.closePanel === 'function') schemeView.closePanel();
+      else panel.classList.add('hidden');
+    }
   });
 })();
 
