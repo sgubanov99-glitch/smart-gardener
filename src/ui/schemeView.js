@@ -1,9 +1,8 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.152)
-// 2.152: встроен зум целиком: this.zoom (1..4), pinch двумя пальцами (_initZoom),
-//        панорама скроллом plot-wrap при zoom>1, двойной тап по СВОБОДНОМУ месту = сброс к 1:1
-//        (окно двойного тапа 500 мс + сброс прокрутки полотна); двойной тап по объекту = настройки
-// 2.140: одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
-//        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
+// src/ui/schemeView.js — представление схемы (ревизия 2.153)
+// 2.153: ВСТРОЕН зум схемы: this.zoom (1..4), pinch двумя пальцами (_initZoom), панорама скроллом
+//        plot-wrap при zoom>1, двойной тап по СВОБОДНОМУ месту = сброс к 1:1 (окно 500 мс + сброс прокрутки);
+//        двойной тап по объекту = настройки; одиночный тап = выделение+перетаскивание
+// 2.140: closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
 // 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
 // 2.64: блок «Схема посадки» с расчётом растений, оценкой урожая и полем «Фактический урожай»
 // 2.57: иконки культур +20%; 2.56: SVG-иконки (фолбэк эмодзи); 2.52: справка у меню фаз
@@ -56,9 +55,9 @@ export class SchemeView {
     this.lastTapId = null;
     this.lastTapTime = 0;
     this._panelOpen = false;   // 2.140: открыта ли панель настроек (мобильный: только двойной тап)
-    this.zoom = 1;             // 2.152: множитель масштаба схемы (1..4)
+    this.zoom = 1;             // 2.153: множитель масштаба схемы (1..4)
     this._zoomRaf = 0;
-    this._lastEmptyTap = 0;    // 2.152: метка времени тапа по свободному месту (для сброса 1:1)
+    this._lastEmptyTap = 0;    // 2.153: метка тапа по свободному месту (для сброса 1:1)
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -70,7 +69,7 @@ export class SchemeView {
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind();
     this._bindPlotName();   // 2.66: имя участка
-    this._initZoom();       // 2.152: pinch-зум и панорама
+    this._initZoom();       // 2.153: pinch-зум и панорама
   }
 
   /* ---------- 2.140: мобильность панели настроек ---------- */
@@ -78,7 +77,7 @@ export class SchemeView {
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
 
-  /* ---------- 2.152: масштаб и панорама схемы (pinch) ---------- */
+  /* ---------- 2.153: масштаб и панорама схемы (pinch) ---------- */
   setZoom(z) {
     this.zoom = Math.max(1, Math.min(4, z || 1));
     this.render();
@@ -394,8 +393,8 @@ export class SchemeView {
     const wrap = this.plotBox.parentElement;
     const avail = Math.max(120, wrap.clientWidth - 40);
     const basePpm = Math.max(14, Math.min(avail / this.scheme.widthM, 420 / this.scheme.lengthM));
-    this.ppm = basePpm * (this.zoom || 1);   // 2.152: масштаб
-    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';   // 2.152: при зуме полотно прижато и панорамируется
+    this.ppm = basePpm * (this.zoom || 1);   // 2.153: масштаб схемы
+    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';   // 2.153: при зуме полотно прижато и панорамируется
     this.plotBox.style.width = Math.round(this.scheme.widthM * this.ppm) + 'px';
     this.plotBox.style.height = Math.round(this.scheme.lengthM * this.ppm) + 'px';
     this.plotEl.innerHTML = this.scheme.objects.map(o => {
@@ -913,7 +912,7 @@ export class SchemeView {
   _onPointerDown(e) {
     const el = e.target.closest('.obj');
     if (!el) {
-      // 2.152: двойной тап по СВОБОДНОМУ месту = быстрый сброс зума к 1:1 (окно 500 мс)
+      // 2.153: двойной тап по СВОБОДНОМУ месту = быстрый сброс зума к 1:1 (окно 500 мс)
       const nowEmpty = Date.now();
       if (this._lastEmptyTap && (nowEmpty - this._lastEmptyTap) < 500) {
         this._lastEmptyTap = 0;
