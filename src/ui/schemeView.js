@@ -1,7 +1,7 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.151)
-// 2.151: зум остаётся pinch-жестом; кнопки +/−/1:1 убраны; быстрый сброс зума к 1:1 —
-//        двойной тап по свободной части полотна; значки фаз фиксированного размера (внутри границ)
-// 2.150: множитель this.zoom (1..4) умножает базовый ppm; панорама скроллом plot-wrap при zoom>1
+// src/ui/schemeView.js — представление схемы (ревизия 2.152)
+// 2.152: встроен зум целиком: this.zoom (1..4), pinch двумя пальцами (_initZoom),
+//        панорама скроллом plot-wrap при zoom>1, двойной тап по СВОБОДНОМУ месту = сброс к 1:1
+//        (окно двойного тапа 500 мс + сброс прокрутки полотна); двойной тап по объекту = настройки
 // 2.140: одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
 //        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
 // 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
@@ -56,9 +56,9 @@ export class SchemeView {
     this.lastTapId = null;
     this.lastTapTime = 0;
     this._panelOpen = false;   // 2.140: открыта ли панель настроек (мобильный: только двойной тап)
-    this.zoom = 1;             // 2.150: множитель масштаба схемы (1..4)
+    this.zoom = 1;             // 2.152: множитель масштаба схемы (1..4)
     this._zoomRaf = 0;
-    this._lastEmptyTap = 0;    // 2.151: для двойного тапа по свободной части (сброс зума)
+    this._lastEmptyTap = 0;    // 2.152: метка времени тапа по свободному месту (для сброса 1:1)
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -70,7 +70,7 @@ export class SchemeView {
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind();
     this._bindPlotName();   // 2.66: имя участка
-    this._initZoom();       // 2.150/2.151: pinch-зум
+    this._initZoom();       // 2.152: pinch-зум и панорама
   }
 
   /* ---------- 2.140: мобильность панели настроек ---------- */
@@ -78,7 +78,7 @@ export class SchemeView {
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
 
-  /* ---------- 2.150/2.151: масштаб и панорама схемы (pinch) ---------- */
+  /* ---------- 2.152: масштаб и панорама схемы (pinch) ---------- */
   setZoom(z) {
     this.zoom = Math.max(1, Math.min(4, z || 1));
     this.render();
@@ -394,8 +394,8 @@ export class SchemeView {
     const wrap = this.plotBox.parentElement;
     const avail = Math.max(120, wrap.clientWidth - 40);
     const basePpm = Math.max(14, Math.min(avail / this.scheme.widthM, 420 / this.scheme.lengthM));
-    this.ppm = basePpm * (this.zoom || 1);   // 2.150: масштаб
-    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';   // 2.150: при зуме полотно прижато и панорамируется
+    this.ppm = basePpm * (this.zoom || 1);   // 2.152: масштаб
+    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';   // 2.152: при зуме полотно прижато и панорамируется
     this.plotBox.style.width = Math.round(this.scheme.widthM * this.ppm) + 'px';
     this.plotBox.style.height = Math.round(this.scheme.lengthM * this.ppm) + 'px';
     this.plotEl.innerHTML = this.scheme.objects.map(o => {
@@ -913,16 +913,19 @@ export class SchemeView {
   _onPointerDown(e) {
     const el = e.target.closest('.obj');
     if (!el) {
-      // 2.151: двойной тап по свободной части полотна = быстрый сброс зума к 1:1
+      // 2.152: двойной тап по СВОБОДНОМУ месту = быстрый сброс зума к 1:1 (окно 500 мс)
       const nowEmpty = Date.now();
-      if (this._lastEmptyTap && (nowEmpty - this._lastEmptyTap) < 400) {
+      if (this._lastEmptyTap && (nowEmpty - this._lastEmptyTap) < 500) {
         this._lastEmptyTap = 0;
         this.zoom = 1;
+        const wrap = this.plotBox ? this.plotBox.parentElement : null;
+        if (wrap) { wrap.scrollLeft = 0; wrap.scrollTop = 0; }   // сброс панорамы
       } else {
         this._lastEmptyTap = nowEmpty;
       }
       this.selectedObjId = null; this._panelOpen = false; this.render(); return;
     }
+    this._lastEmptyTap = 0;   // тап по объекту сбрасывает счётчик свободных тапов
     const id = Number(el.dataset.id);
     const now = Date.now();
     // 2.140: двойной тап по тому же объекту (<400 мс) = открыть настройки
