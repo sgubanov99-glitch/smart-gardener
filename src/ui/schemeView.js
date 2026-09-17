@@ -1,6 +1,7 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.153)
-// 2.153: ВСТРОЕН зум схемы: this.zoom (1..4), pinch двумя пальцами (_initZoom), панорама скроллом
-//        plot-wrap при zoom>1, двойной тап по СВОБОДНОМУ месту = сброс к 1:1 (окно 500 мс + сброс прокрутки);
+// src/ui/schemeView.js — представление схемы (ревизия 2.154)
+// 2.154: видимые кнопки масштаба [−][1:1][+] (появляются только при zoom>1) — гарантированный возврат к 1:1;
+//        двойной тап по свободному месту оставлен как дополнительный сброс
+// 2.153: зум схемы this.zoom (1..4), pinch двумя пальцами (_initZoom), панорама скроллом plot-wrap при zoom>1;
 //        двойной тап по объекту = настройки; одиночный тап = выделение+перетаскивание
 // 2.140: closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
 // 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
@@ -58,6 +59,7 @@ export class SchemeView {
     this.zoom = 1;             // 2.153: множитель масштаба схемы (1..4)
     this._zoomRaf = 0;
     this._lastEmptyTap = 0;    // 2.153: метка тапа по свободному месту (для сброса 1:1)
+    this._zoomCtl = null;      // 2.154: контейнер кнопок масштаба
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -69,7 +71,7 @@ export class SchemeView {
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind();
     this._bindPlotName();   // 2.66: имя участка
-    this._initZoom();       // 2.153: pinch-зум и панорама
+    this._initZoom();       // 2.153/2.154: pinch-зум, панорама, кнопки масштаба
   }
 
   /* ---------- 2.140: мобильность панели настроек ---------- */
@@ -77,7 +79,7 @@ export class SchemeView {
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
 
-  /* ---------- 2.153: масштаб и панорама схемы (pinch) ---------- */
+  /* ---------- 2.153/2.154: масштаб и панорама схемы (pinch + кнопки) ---------- */
   setZoom(z) {
     this.zoom = Math.max(1, Math.min(4, z || 1));
     this.render();
@@ -109,6 +111,21 @@ export class SchemeView {
     const end = (e) => { pts.delete(e.pointerId); if (pts.size < 2) d0 = 0; };
     wrap.addEventListener('pointerup', end);
     wrap.addEventListener('pointercancel', end);
+    // 2.154: видимые кнопки масштаба [−][1:1][+] — появляются только при zoom>1
+    const ctl = document.createElement('div');
+    ctl.className = 'zoom-ctl';
+    ctl.innerHTML = '<button type="button" data-z="out" aria-label="Отдалить">−</button>' +
+                    '<button type="button" data-z="reset" aria-label="Масштаб 1:1">1:1</button>' +
+                    '<button type="button" data-z="in" aria-label="Приблизить">+</button>';
+    document.body.appendChild(ctl);
+    this._zoomCtl = ctl;
+    ctl.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-z]');
+      if (!b) return;
+      if (b.dataset.z === 'in') this.setZoom(this.zoom * 1.25);
+      else if (b.dataset.z === 'out') this.setZoom(this.zoom / 1.25);
+      else { this.zoom = 1; const w2 = this.plotBox.parentElement; if (w2) { w2.scrollLeft = 0; w2.scrollTop = 0; } this.render(); }
+    });
   }
 
   /* ---------- 2.66: имя участка ---------- */
@@ -399,17 +416,15 @@ export class SchemeView {
     this.plotBox.style.height = Math.round(this.scheme.lengthM * this.ppm) + 'px';
     this.plotEl.innerHTML = this.scheme.objects.map(o => {
       const vis = this._objectVisual(o);
-      return `<div class="obj o-${o.type} ${o.id === this.selectedObjId ? 'selected' : ''}"
-           data-id="${o.id}" title="${o.name}${vis.tip ? ' • ' + vis.tip : ''}"
-           style="left:${o.x * this.ppm}px; top:${o.y * this.ppm}px; width:${o.w * this.ppm}px; height:${o.l * this.ppm}px;">
-        ${vis.html}
-      </div>`;
+      return `<div class="obj o-${o.type} ${o.id === this.selectedObjId ? 'selected' : ''}" data-id="${o.id}" title="${o.name}${vis.tip ? ' • ' + vis.tip : ''}" style="left:${o.x * this.ppm}px; top:${o.y * this.ppm}px; width:${o.w * this.ppm}px; height:${o.l * this.ppm}px;">${vis.html}</div>`;
     }).join('');
     const shade = computeShade(this.scheme);
     drawShade(this.shadeCanvas, this.scheme, shade, this.ppm, this.scheme.gridStepM);
     this._positionSunMarker();
     this._renderPanel();
     this._renderObjList();
+    // 2.154: кнопки масштаба видны только на мобильном при zoom>1 (в 1:1 скрыты, ничего не закрывают)
+    if (this._zoomCtl) this._zoomCtl.style.display = (this._isMobile() && this.zoom > 1) ? 'flex' : 'none';
   }
 
   _positionSunMarker() {
@@ -509,9 +524,7 @@ export class SchemeView {
       if (obj.culture) {
         opExtra.classList.remove('hidden');
         let extraHtml = '';
-        extraHtml += `<label style="grid-column:1/-1">Дата посадки
-          <input id="opPlantDate" type="date" value="${obj.plantingDate || ''}" />
-        </label>`;
+        extraHtml += `<label style="grid-column:1/-1">Дата посадки <input id="opPlantDate" type="date" value="${obj.plantingDate || ''}" /></label>`;
         extraHtml += `<button type="button" id="opPlantCard" class="btn-card" style="grid-column:1/-1">📖 Карточка растения: ${obj.culture}</button>`;
         if (obj.type === 'bed') {
           const fam = this._familyOf(obj.culture);
@@ -540,33 +553,29 @@ export class SchemeView {
           const detail = (est && est.rows)
             ? ` → ${est.rows} ряд(а) × ${est.perRow} = <b>${est.count}</b> раст.`
             : (est ? ` → <b>${est.count}</b> раст.` : '');
-          extraHtml += `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:12px;background:rgba(232,160,92,.10);border-radius:10px;padding:8px 10px">
-            <b>🌱 Схема посадки:</b>
-            <div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см${detail}${pRef.note ? ` · ${pRef.note}` : ''}</div>
-            <label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений
-              <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" />
-            </label>
-            <div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div>
-            <label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг
-              <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" />
-            </label>
-          </div>`;
+          extraHtml += `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:12px;background:rgba(232,160,92,.10);border-radius:10px;padding:8px 10px">` +
+            `<b>🌱 Схема посадки:</b>` +
+            `<div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см${detail}${pRef.note ? ` · ${pRef.note}` : ''}</div>` +
+            `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
+            `<div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div>` +
+            `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" /></label>` +
+            `</div>`;
         }
         const cropPhases = this._phaseDataFor(obj.culture);
         if (cropPhases) {
           const order = PHASE_ORDER.filter(ph => cropPhases[ph]);
           const curIdx = order.indexOf(obj.phase);
-          extraHtml += `<div class="phase-controls" style="grid-column:1/-1">
-            <span style="font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фаза:</span>
-            ${order.map((ph, i) => {
+          extraHtml += `<div class="phase-controls" style="grid-column:1/-1">` +
+            `<span style="font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фаза:</span>` +
+            order.map((ph, i) => {
               let cls = 'ph';
               if (curIdx >= 0 && i < curIdx) cls += ' ph-past';
               else if (i === curIdx) cls += ' ph-current';
               else cls += ' ph-next';
               return `<button type="button" class="${cls}" data-phase="${ph}" ${curIdx >= 0 && i <= curIdx ? 'disabled' : ''} title="${PHASE_META[ph].label}">${PHASE_META[ph].icon}</button>`;
-            }).join('')}
-            <span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span>
-          </div>`;
+            }).join('') +
+            `<span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span>` +
+            `</div>`;
         }
         opExtra.innerHTML = extraHtml;
         const plantDateInput = document.getElementById('opPlantDate');
@@ -592,36 +601,27 @@ export class SchemeView {
     if (obj.type === 'greenhouse') {
       opExtra.classList.remove('hidden');
       const count = obj.greenhouseBedCount || 1;
-      let bedsHtml = `
-        <label style="grid-column:1/-1">Грядок в теплице
-          <select id="opGhCount">
-            <option value="1" ${count === 1 ? 'selected' : ''}>1</option>
-            <option value="2" ${count === 2 ? 'selected' : ''}>2</option>
-            <option value="3" ${count === 3 ? 'selected' : ''}>3</option>
-            <option value="4" ${count === 4 ? 'selected' : ''}>4</option>
-          </select>
-        </label>`;
+      let bedsHtml = `<label style="grid-column:1/-1">Грядок в теплице <select id="opGhCount">` +
+        `<option value="1" ${count === 1 ? 'selected' : ''}>1</option>` +
+        `<option value="2" ${count === 2 ? 'selected' : ''}>2</option>` +
+        `<option value="3" ${count === 3 ? 'selected' : ''}>3</option>` +
+        `<option value="4" ${count === 4 ? 'selected' : ''}>4</option>` +
+        `</select></label>`;
       for (let i = 0; i < count; i++) {
         const c = (obj.greenhouseBedCultures || [])[i] || '';
         const d = (obj.greenhouseBedPlantingDates || [])[i] || '';
         const cultures = this.plants.filter(p => /овощ|зелень|ягода/.test(p.type));
-        bedsHtml += `
-          <div class="op-bed">
-            <span class="op-bed-title">Грядка ${i + 1}</span>
-            <label>Культура
-              <select class="opGhCulture" data-i="${i}">
-                <option value="">— не выбрана —</option>
-                ${cultures.map(p => `<option value="${p.name}" ${p.name === c ? 'selected' : ''}>${p.name}</option>`).join('')}
-              </select>
-            </label>
-            <label>Дата посадки
-              <input class="opGhDate" data-i="${i}" type="date" value="${d}" />
-            </label>
-            ${c ? `<button type="button" class="btn-card gh-plant-card" data-i="${i}" style="grid-column:1/-1">📖 Карточка: ${c}</button>` : ''}
-            ${c ? this._refHtml(c) : ''}
-            ${c ? this._ghPlantingHtml(obj, i, c) : ''}
-            ${c && this._phaseDataFor(c) ? this._renderGhPhaseControls(obj, i, c) : ''}
-          </div>`;
+        bedsHtml += `<div class="op-bed">` +
+          `<span class="op-bed-title">Грядка ${i + 1}</span>` +
+          `<label>Культура <select class="opGhCulture" data-i="${i}"><option value="">— не выбрана —</option>` +
+          cultures.map(p => `<option value="${p.name}" ${p.name === c ? 'selected' : ''}>${p.name}</option>`).join('') +
+          `</select></label>` +
+          `<label>Дата посадки <input class="opGhDate" data-i="${i}" type="date" value="${d}" /></label>` +
+          (c ? `<button type="button" class="btn-card gh-plant-card" data-i="${i}" style="grid-column:1/-1">📖 Карточка: ${c}</button>` : '') +
+          (c ? this._refHtml(c) : '') +
+          (c ? this._ghPlantingHtml(obj, i, c) : '') +
+          (c && this._phaseDataFor(c) ? this._renderGhPhaseControls(obj, i, c) : '') +
+          `</div>`;
       }
       const ghWarns = (this._compatNotes.get(obj.id) || []);
       if (ghWarns.length) {
