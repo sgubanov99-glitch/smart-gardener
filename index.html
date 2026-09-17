@@ -80,7 +80,6 @@
   .obj { position:absolute; display:grid; place-items:center; z-index:2; border:2px solid rgba(63,62,58,.15); border-radius:12px; cursor:grab; user-select:none; touch-action:none; overflow:hidden; }
   .obj:active { cursor:grabbing; } .obj.selected { outline:3px solid rgba(138,155,110,.5); }
   .obj.invalid { border-color:var(--rose-dark); background:rgba(217,165,160,.2) !important; }
-  /* 2.151: значки фаз фиксированного размера — гарантированно внутри границ объекта */
   .phase-badge { position:absolute; left:4px; top:4px; z-index:3; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; box-shadow:var(--shadow-s); }
   .greenhouse-plants { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:2px; width:100%; height:100%; overflow:hidden; }
   .gh-phases { position:absolute; left:4px; top:4px; display:flex; gap:2px; flex-wrap:wrap; max-width:70%; z-index:3; }
@@ -233,6 +232,9 @@
   @media (max-width:900px) { .hm-title { font-size:22px; } }
   #screen-home-body { min-height:120px; }
   .ops-head { display:none; }
+  /* 2.154: видимые кнопки масштаба (появляются при zoom>1) */
+  .zoom-ctl { position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; display:none; flex-direction:row; gap:6px; }
+  .zoom-ctl button { width:44px; height:44px; border:none; border-radius:12px; background:#fff; box-shadow:var(--shadow-s); font:700 16px Manrope,sans-serif; color:var(--ink); }
   #tsypa { position:fixed; right:16px; bottom:88px; z-index:46; display:flex; flex-direction:column; align-items:flex-end; gap:6px; cursor:pointer; max-width:260px; }
   .tsypa-bubble { background:var(--panel); border:1px solid rgba(138,155,110,.3); border-radius:14px 14px 4px 14px; padding:10px 12px; font-size:13px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow-s); }
   .tsypa-avatar { animation:tsypa-bob 3s ease-in-out infinite; }
