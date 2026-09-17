@@ -237,7 +237,6 @@
     .an-gantt-row, .an-gantt-axis { grid-template-columns:120px minmax(0,1fr); }
   }
   /* ===== 2.128/2.129: Обзор — строки блоков «Посаженные культуры» и «Задачи на 7 дней» ===== */
-  /* 2.129: контейнер блока нормализуется при перестройке — гарантированно по ширине экрана */
   .hm-block { display:block !important; width:100% !important; max-width:100% !important; overflow:hidden; margin:12px 0; }
   .hm-box { display:block; width:100%; max-width:100%; }
   .hm-title { font-family:"Neucha",cursive; font-weight:400; font-size:26px; color:var(--olive-dark); margin:0 0 8px; }
@@ -254,6 +253,23 @@
   @media (max-width:900px) { .hm-title { font-size:22px; } }
   /* 2.129: тело Обзора никогда не схлопывается в ноль */
   #screen-home-body { min-height:120px; }
+  /* ===== 2.132: Схема на мобильном — bottom-sheet настроек, умные бейджи, зум ===== */
+  .ops-head { display:none; }
+  .zoom-controls { display:none; position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; flex-direction:column; gap:8px; }
+  .zoom-controls button { width:44px; height:44px; border:none; border-radius:50%; background:#fff; box-shadow:var(--shadow-s); font:700 18px Manrope,sans-serif; color:var(--ink); }
+  @media (max-width:900px) {
+    /* настройки объекта — выдвижной нижний лист */
+    .ops-head { display:flex; align-items:center; justify-content:space-between; margin:-4px 0 10px; }
+    .ops-head span { font:700 15px Manrope,sans-serif; color:var(--olive-dark); }
+    #opClose { width:40px; height:40px; border:none; border-radius:10px; background:#fff; box-shadow:var(--shadow-s); font-size:16px; }
+    #objPanel:not(.hidden) { position:fixed; left:0; right:0; bottom:0; top:auto; margin:0; max-height:72vh; overflow:auto; border-radius:16px 16px 0 0; z-index:56; box-shadow:0 -12px 30px rgba(0,0,0,.28); padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
+    /* панорама пальцем по полотну; pinch обрабатываем сами */
+    .plot { touch-action:pan-x pan-y; }
+    .obj { touch-action:none; }
+    /* умные бейджи фаз: маленький объект -> угловая метка */
+    .obj-tiny .phase-badge, .obj-tiny .gh-phases { display:none; }
+    .obj-tiny::after { content:''; position:absolute; right:3px; top:3px; width:9px; height:9px; border-radius:50%; background:var(--olive); box-shadow:0 0 0 1.5px #fff; }
+  }
   /* 2.68: Цыпа — маскот-агроном */
   #tsypa { position:fixed; right:16px; bottom:88px; z-index:46; display:flex; flex-direction:column; align-items:flex-end; gap:6px; cursor:pointer; max-width:260px; }
   .tsypa-bubble { background:var(--panel); border:1px solid rgba(138,155,110,.3); border-radius:14px 14px 4px 14px; padding:10px 12px; font-size:13px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow-s); }
@@ -435,7 +451,7 @@
     /* --- календарь --- */
     .cal-mode-btn { min-height:40px; }
     .m-cell { min-height:52px; }
-    /* --- 2.123: Чат — фиксированная видимая область: экран чата по высоте вьюпорта, подсказка всегда видна --- */
+    /* --- 2.123: Чат — фиксированная видимая область --- */
     #screen-chat.active { display:flex; flex-direction:column; height:calc(100dvh - 168px); min-height:320px; }
     #screen-chat .screen-title { flex:0 0 auto; margin-bottom:8px; font-size:22px; }
     #screen-chat .screen-hint { flex:0 0 auto; font-size:12px; padding:6px 10px; max-height:44px; overflow-y:auto; margin-bottom:8px; }
@@ -443,26 +459,25 @@
     .chat-messages { flex:1 1 auto; min-height:0; }
     .chat-input-row { flex:0 0 auto; flex-direction:column; gap:8px; }
     .chat-input-row button { width:100%; min-height:44px; }
-    /* --- 2.124: Чат — ввод не прячется за нижним меню (высота экрана чата уменьшена) --- */
+    /* --- 2.124: Чат — ввод не прячется за нижним меню --- */
     #screen-chat.active { height:calc(100dvh - 200px); min-height:300px; }
-    /* --- 2.124: Обучение в один столбец: Садовод первой строкой, текст строками ниже --- */
+    /* --- 2.124: Обучение в один столбец --- */
     .tut-gardener { flex-direction:column; align-items:flex-start; gap:8px; }
     .tut-gardener-img { width:56px; height:56px; }
     .tut-gardener p { width:100%; }
     .tut-tips { padding-left:18px; }
-    /* --- 2.124: Обзор — блоки «Посаженные культуры» и «Задачи на 7 дней» целиком на экране --- */
+    /* --- 2.124/2.125: Обзор — блоки целиком на экране --- */
     .an-section { padding:14px 12px; }
     .an-section table { table-layout:fixed; width:100%; }
     .an-section th, .an-section td { overflow-wrap:break-word; white-space:normal; font-size:12px; }
     .an-section ul, .an-section ol { padding-left:18px; }
     .an-section li { overflow-wrap:break-word; }
-    /* --- 2.125: блоки Обзора гарантированно в ширину экрана: элементы сжимаются и переносятся --- */
     .an-section * { max-width:100% !important; min-width:0 !important; }
     .an-section button, .an-section .btn, .an-section .obj-chip { white-space:normal !important; overflow-wrap:break-word; text-align:left; }
     .an-section table td, .an-section table th { padding:6px 6px; font-size:11.5px; }
     /* --- 2.126: цыплёнок на карточках культур чуть меньше --- */
     .plant-chick { width:30px; top:-12px; left:4px; }
-    /* --- 2.126: Обзор — элементы блоков в несколько строк: кнопка под текстом задачи --- */
+    /* --- 2.126: Обзор — элементы блоков в несколько строк --- */
     #screen-home .an-section div, #screen-home .an-section li { flex-wrap:wrap !important; }
     #screen-home .an-section button { width:100%; min-height:40px; margin-top:6px; text-align:center; }
     #screen-home .an-section li > * { max-width:100%; }
@@ -475,7 +490,6 @@
     /* --- аналитика и обзор --- */
     .an-kpi-value { font-size:26px; }
     .an-gantt-label { font-size:11px; }
-    /* 2.122: Обзор не выходит за ширину экрана */
     .an-weeks { gap:2px; overflow-x:auto; }
     .an-week { min-width:3px; }
     .an-section { overflow:hidden; }
@@ -484,26 +498,24 @@
     #tsypa { max-width:170px; }
     #tsypa .tsypa-avatar img { width:44px; height:44px; }
     .tsypa-bubble { font-size:12.5px; padding:8px 10px; }
-    #tsypa.pos-2, #tsypa.pos-3 { top:118px; }   /* шапка стала выше */
+    #tsypa.pos-2, #tsypa.pos-3 { top:118px; }
     .tip-bubble { top:118px; left:8px; right:8px; width:auto; }
     .toast { bottom:calc(80px + env(safe-area-inset-bottom)); width:max-content; max-width:calc(100vw - 24px); }
     /* --- нижнее меню во всю ширину --- */
     .bottomnav { left:0; right:0; transform:none; bottom:0; border-radius:0; padding:6px 4px calc(6px + env(safe-area-inset-bottom)); justify-content:space-between; box-shadow:0 -6px 16px rgba(62,62,58,.10); }
     .nav-btn { flex:1; padding:8px 2px; font-size:11px; min-height:56px; }
     .nav-btn .ico { font-size:20px; }
-    /* --- 2.122: модальные окна той же ширины, что основные экраны (отступы 12px по бокам) --- */
+    /* --- 2.122: модальные окна той же ширины, что основные экраны --- */
     .overlay { padding:12px; display:flex; }
     .overlay .modal, .overlay .tutorial-modal { width:100%; max-width:100%; height:100%; max-height:100%; border-radius:var(--radius); margin:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); overflow:auto; }
-    /* Книга отзывов: сцена тоже с отступами и скруглёнными углами */
     .calendar-modal { padding:12px; }
     .calendar-stage { width:100%; height:100%; aspect-ratio:auto; background:linear-gradient(180deg,#F6F1E4,#EFE7D6); border-radius:var(--radius); overflow:hidden; }
     #guestbookBg { display:none; }
     .gb-panel { left:0; right:0; top:0; bottom:64px; transform:none; width:auto; max-height:none; border-radius:0; box-shadow:none; }
-    /* 2.116: выход из Книги — заметная пилюля с подписью */
     .gb-close { left:8px; right:8px; top:auto; bottom:8px; width:auto; height:48px; border-radius:999px; background:#5A4668; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; gap:8px; font:700 15px Manrope,sans-serif; color:#fff; }
     .gb-close::before { content:"✕"; font-size:18px; line-height:1; }
     .gb-close::after { content:"Закрыть книгу"; }
-    /* --- 2.123: окна без горизонтальной прокрутки — контент переносится, а не расширяется --- */
+    /* --- 2.123: окна без горизонтальной прокрутки --- */
     .overlay .modal, .overlay .tutorial-modal, .plant-detail-modal { overflow-y:auto; overflow-x:hidden; overflow-wrap:break-word; }
     .tut-nav { flex-wrap:wrap; gap:8px; }
     .tut-dots { flex-wrap:wrap; justify-content:center; }
@@ -518,15 +530,13 @@
     /* --- 2.117: мобильный каркас --- */
     .m-only { display:flex; }
     #menuBtn { align-items:center; justify-content:center; min-width:48px; }
-    .topbar-actions .btn:not(#menuBtn) { display:none; }   /* все действия шапки уходят в ☰-меню */
-    .plants-sticker, .chat-sticker, .analytics-sticker, .cal-stickers { display:none; } /* стикеры не налезают на заголовки */
-    .scheme-actions { display:none; }                      /* добавление через FAB, undo/redo плавающие */
+    .topbar-actions .btn:not(#menuBtn) { display:none; }
+    .plants-sticker, .chat-sticker, .analytics-sticker, .cal-stickers { display:none; }
+    .scheme-actions { display:none; }
     .m-fab { display:block; }
     .m-undoredo { display:flex; }
-    /* компактная Цыпа: пузырь только по тапу, аватар 44px */
     #tsypa { max-width:170px; }
     #tsypa.tsypa-quiet .tsypa-bubble { display:none; }
-    /* 2.118: карточка растения на мобильном — полноэкранный лист поверх всех слоёв */
     .plant-detail-overlay { padding:0; z-index:95; }
     .plant-detail-modal { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); }
   }
@@ -537,7 +547,6 @@
     .version { font-size:10px; padding:2px 8px; }
     .btn { padding:11px 12px; font-size:13px; }
     .screen-title { font-size:24px; }
-    /* 2.120: один столбец настроек объекта */
     .op-grid { grid-template-columns:1fr; }
     .an-gantt-row, .an-gantt-axis { grid-template-columns:120px minmax(0,1fr); }
     .an-gantt-label { font-size:10.5px; }
@@ -558,7 +567,6 @@
     .an-kpi-value { font-size:23px; }
     .m-cell { min-height:46px; }
     .m-badge { font-size:10px; }
-    /* 2.119: нижнее меню гарантированно помещается — «Аналитика» не обрезается */
     .bottomnav { gap:2px; padding:4px 2px calc(4px + env(safe-area-inset-bottom)); }
     .nav-btn { font-size:9.5px; padding:6px 1px; min-width:0; }
     .nav-btn .ico { font-size:18px; }
