@@ -1,9 +1,8 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.150)
-// 2.150: зум и панорама схемы внутри view: множитель this.zoom (1..4) умножает базовый ppm;
-//        CSS-переменная --zoom на #plotBox масштабирует значки фаз вместе с объектами;
-//        при zoom>1 полотно прижато к левому краю и панорамируется скроллом plot-wrap;
-//        кнопки +/−/1:1 и pinch двумя пальцами (мобильные); десктоп без изменений
-// 2.148/2.140: одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
+// src/ui/schemeView.js — представление схемы (ревизия 2.151)
+// 2.151: зум остаётся pinch-жестом; кнопки +/−/1:1 убраны; быстрый сброс зума к 1:1 —
+//        двойной тап по свободной части полотна; значки фаз фиксированного размера (внутри границ)
+// 2.150: множитель this.zoom (1..4) умножает базовый ppm; панорама скроллом plot-wrap при zoom>1
+// 2.140: одиночный тап = выделение+перетаскивание, двойной тап = настройки (_panelOpen),
 //        closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
 // 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
 // 2.64: блок «Схема посадки» с расчётом растений, оценкой урожая и полем «Фактический урожай»
@@ -56,9 +55,10 @@ export class SchemeView {
     this.onOpenPlantCard = null;
     this.lastTapId = null;
     this.lastTapTime = 0;
-    this._panelOpen = false;   // 2.148: открыта ли панель настроек (мобильный: только двойной тап)
+    this._panelOpen = false;   // 2.140: открыта ли панель настроек (мобильный: только двойной тап)
     this.zoom = 1;             // 2.150: множитель масштаба схемы (1..4)
     this._zoomRaf = 0;
+    this._lastEmptyTap = 0;    // 2.151: для двойного тапа по свободной части (сброс зума)
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -70,36 +70,20 @@ export class SchemeView {
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind();
     this._bindPlotName();   // 2.66: имя участка
-    this._initZoom();       // 2.150: кнопки зума и pinch
+    this._initZoom();       // 2.150/2.151: pinch-зум
   }
 
-  /* ---------- 2.148: мобильность панели настроек ---------- */
+  /* ---------- 2.140: мобильность панели настроек ---------- */
   _isMobile() { return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches); }
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
 
-  /* ---------- 2.150: масштаб и панорама схемы ---------- */
+  /* ---------- 2.150/2.151: масштаб и панорама схемы (pinch) ---------- */
   setZoom(z) {
     this.zoom = Math.max(1, Math.min(4, z || 1));
     this.render();
   }
   _initZoom() {
-    const scr = document.getElementById('screen-scheme');
-    if (scr && !scr.querySelector('.zoom-controls')) {
-      const zc = document.createElement('div');
-      zc.className = 'zoom-controls';
-      zc.innerHTML = '<button type="button" data-z="in" aria-label="Приблизить">+</button>' +
-                     '<button type="button" data-z="out" aria-label="Отдалить">−</button>' +
-                     '<button type="button" data-z="reset" aria-label="Масштаб 1:1">1:1</button>';
-      scr.appendChild(zc);
-      zc.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-z]');
-        if (!b) return;
-        if (b.dataset.z === 'in') this.setZoom(this.zoom * 1.25);
-        else if (b.dataset.z === 'out') this.setZoom(this.zoom / 1.25);
-        else this.setZoom(1);
-      });
-    }
     const wrap = this.plotBox ? this.plotBox.parentElement : null;
     if (!wrap) return;
     const pts = new Map();
@@ -411,8 +395,7 @@ export class SchemeView {
     const avail = Math.max(120, wrap.clientWidth - 40);
     const basePpm = Math.max(14, Math.min(avail / this.scheme.widthM, 420 / this.scheme.lengthM));
     this.ppm = basePpm * (this.zoom || 1);   // 2.150: масштаб
-    this.plotBox.style.setProperty('--zoom', String(this.zoom || 1));   // 2.150: значки фаз масштабируются вместе с объектами
-    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';          // 2.150: при зуме полотно прижато к левому краю и полностью доступно для панорамы
+    this.plotBox.style.margin = (this.zoom > 1) ? '0' : 'auto';   // 2.150: при зуме полотно прижато и панорамируется
     this.plotBox.style.width = Math.round(this.scheme.widthM * this.ppm) + 'px';
     this.plotBox.style.height = Math.round(this.scheme.lengthM * this.ppm) + 'px';
     this.plotEl.innerHTML = this.scheme.objects.map(o => {
@@ -495,7 +478,7 @@ export class SchemeView {
   _renderPanel() {
     const obj = this.scheme.objects.find(o => o.id === this.selectedObjId);
     const panel = document.getElementById('objPanel');
-    // 2.148: на мобильном панель открыта только если _panelOpen (двойной тап / чип / selectAndShow);
+    // 2.140: на мобильном панель открыта только если _panelOpen (двойной тап / чип / selectAndShow);
     //        на десктопе — как прежде (при выбранном объекте)
     const show = !!obj && (!this._isMobile() || this._panelOpen);
     panel.classList.toggle('hidden', !show);
@@ -655,7 +638,7 @@ export class SchemeView {
       opExtra.querySelectorAll('.opGhCulture').forEach(sel => sel.addEventListener('change', () => {
         const i = parseInt(sel.dataset.i, 10);
         const newCulture = sel.value || null;
-        // 2.148: защита от TypeError на старых объектах без массивов
+        // 2.140: защита от TypeError на старых объектах без массивов
         obj.greenhouseBedCultures = obj.greenhouseBedCultures || [];
         obj.greenhouseBedPhases = obj.greenhouseBedPhases || [];
         obj.greenhouseBedPlantingDates = obj.greenhouseBedPlantingDates || [];
@@ -779,7 +762,7 @@ export class SchemeView {
     const obj = this.scheme.objects.find(o => o.id === objId);
     if (!obj) return;
     this.selectedObjId = objId;
-    this._panelOpen = true;   // 2.148: переход из списка/обзора открывает настройки
+    this._panelOpen = true;   // 2.140: переход из списка/обзора открывает настройки
     this.render();
     const panel = document.getElementById('objPanel');
     if (panel && !panel.classList.contains('hidden')) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -834,7 +817,7 @@ export class SchemeView {
         }
       }
       this.selectedObjId = obj.id;
-      this._panelOpen = true;   // 2.148: после добавления из каталога показать настройки
+      this._panelOpen = true;   // 2.140: после добавления из каталога показать настройки
       this.render();
       if (this.onPhaseChange) this.onPhaseChange();
     }
@@ -852,7 +835,7 @@ export class SchemeView {
         if (first) obj.greenhouseBedPhases[0] = { phase: first, phase_started: toDateStrLocal(new Date()), phase_history: [{ phase: first, started: toDateStrLocal(new Date()), ended: null }] };
       }
       this.selectedObjId = obj.id;
-      this._panelOpen = true;   // 2.148: после добавления из каталога показать настройки
+      this._panelOpen = true;   // 2.140: после добавления из каталога показать настройки
       this.render();
       if (this.onPhaseChange) this.onPhaseChange();
     }
@@ -919,7 +902,7 @@ export class SchemeView {
       const chip = e.target.closest('.obj-chip');
       if (!chip) return;
       this.selectedObjId = Number(chip.dataset.id);
-      this._panelOpen = true;   // 2.148: клик по чипу открывает настройки
+      this._panelOpen = true;   // 2.140: клик по чипу открывает настройки
       this.render();
     });
     this.plotEl.addEventListener('pointerdown', e => this._onPointerDown(e));
@@ -929,10 +912,20 @@ export class SchemeView {
 
   _onPointerDown(e) {
     const el = e.target.closest('.obj');
-    if (!el) { this.selectedObjId = null; this._panelOpen = false; this.render(); return; }
+    if (!el) {
+      // 2.151: двойной тап по свободной части полотна = быстрый сброс зума к 1:1
+      const nowEmpty = Date.now();
+      if (this._lastEmptyTap && (nowEmpty - this._lastEmptyTap) < 400) {
+        this._lastEmptyTap = 0;
+        this.zoom = 1;
+      } else {
+        this._lastEmptyTap = nowEmpty;
+      }
+      this.selectedObjId = null; this._panelOpen = false; this.render(); return;
+    }
     const id = Number(el.dataset.id);
     const now = Date.now();
-    // 2.148: двойной тап по тому же объекту (<400 мс) = открыть настройки
+    // 2.140: двойной тап по тому же объекту (<400 мс) = открыть настройки
     const isDouble = (this.lastTapId === id && (now - this.lastTapTime) < 400);
     this.lastTapId = id; this.lastTapTime = now;
     this.selectedObjId = id;
@@ -958,7 +951,7 @@ export class SchemeView {
     if (!t) return;
     const obj = { id: this.scheme.nextId++, type, name: this.nextUniqueName(this.scheme, t.label), culture: null, plantingDate: null, w: Math.min(t.w, this.scheme.widthM), l: Math.min(t.l, this.scheme.lengthM), x: 0, y: 0 };
     if (t.h) obj.height_m = t.h;
-    // 2.148: теплица сразу получает массивы грядок — выбор культуры не падает
+    // 2.140: теплица сразу получает массивы грядок — выбор культуры не падает
     if (type === 'greenhouse') {
       obj.greenhouseBedCount = 1;
       obj.greenhouseBedCultures = [null];
@@ -968,7 +961,7 @@ export class SchemeView {
     this._findSpot(obj);
     this.scheme.objects.push(obj);
     this.selectedObjId = obj.id;
-    this._panelOpen = !this._isMobile();   // 2.148: на мобильном не раскрывать панель сразу
+    this._panelOpen = !this._isMobile();   // 2.140: на мобильном не раскрывать панель сразу
     this.render();
     return obj;
   }
