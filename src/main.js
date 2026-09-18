@@ -1,11 +1,9 @@
-// src/main.js — точка входа ревизии 2.155. Связывает слои каркаса.
-// 2.155: финальный мобильный регресс + UX-полировка:
-//        одноразовая подсказка жестов масштаба на Схеме (pinch / двойной тап 1:1 / двойной тап по объекту);
-//        fixBadges() в обёртке рендера — значки фаз актуальны на каждом кадре без наблюдателей;
-//        убраны лишние хуки (scheduleSchemeHooks, opExtra re-render) — меньше двойных рендеров
-// 2.153: схема: pinch-зум, двойной тап по свободному месту = 1:1, двойной тап по объекту = настройки
-// 2.139: guardGreenhouse (массивы грядок теплицы при добавлении)
-// 2.132: bottom-sheet настроек объекта (ops-head + closePanel)
+// src/main.js — точка входа ревизии 2.166. Связывает слои каркаса.
+// 2.166: PWA/offline — регистрация service worker (sw.js) + тосты «Нет сети / Снова в сети»
+// 2.155: таблица «Урожай» — первый столбец 1/3 (CSS); fixBadges в обёртке рендера (2.151)
+// 2.153: одноразовая подсказка жестов масштаба на Схеме (zoom-hint)
+// 2.139: guardGreenhouse (массивы грядок), injectOpsHead (ops-head + closePanel), fixBadges,
+//        scheduleSchemeHooks (click/pointerup), opExtra re-render hook
 // 2.131: десктоп — родной Обзор; мобильные строки Обзора с чекбоксами задач
 // 2.125: фиксатор абсолютных путей картинок; 2.121: карточка растения открывается надёжно
 // 2.119: ПК-режим с пилюлей возврата; resetViewOffset() перед листами
@@ -481,7 +479,7 @@ window.addEventListener('sg-tasks-bulk-done', (e) => {
   if (window.__tsypa) window.__tsypa.refresh();
 });
 
-/* --- псевдо-3D + обёртка рендера (2.155: fixBadges на каждом кадре) --- */
+/* --- псевдо-3D + обёртка рендера (2.151: fixBadges на каждом кадре) --- */
 let isoOn = false;
 const isoView = createIsoView({ scheme, plants, onSelect: function(id){ schemeView.selectAndShow(id); } });
 const _schemeRender = schemeView.render.bind(schemeView);
@@ -528,8 +526,18 @@ function fixBadges(){
     o.classList.toggle('obj-ultra', ultra);
   });
 }
+let schemeHooksRaf = 0;
+function scheduleSchemeHooks(){
+  if (schemeHooksRaf) return;
+  schemeHooksRaf = requestAnimationFrame(()=>{
+    schemeHooksRaf = 0;
+    try { fixBadges(); } catch(e){ console.warn('scheme hooks:', e); }
+  });
+}
+document.addEventListener('click', scheduleSchemeHooks);
+document.addEventListener('pointerup', scheduleSchemeHooks);
 
-/* --- 2.155: одноразовая подсказка жестов масштаба на Схеме (только мобильный) --- */
+/* --- 2.153: одноразовая подсказка жестов масштаба на Схеме (мобильный) --- */
 (function zoomHintOnce(){
   const isMob = !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches);
   if (!isMob) return;
@@ -539,7 +547,7 @@ function fixBadges(){
   if (!scr) return;
   const bar = document.createElement('div');
   bar.className = 'zoom-hint';
-  bar.innerHTML = '<span>🤏 Щипок — масштаб · двойной тап по свободному месту — 1:1 · двойной тап по объекту — настройки</span>' +
+  bar.innerHTML = '<span>🤏 Щипок — масштаб; двойной тап по свободному — 1:1; двойной тап по объекту — настройки</span>' +
                   '<button type="button" aria-label="Закрыть подсказку">✕</button>';
   const anchor = scr.querySelector('.plot-name-bar');
   if (anchor) scr.insertBefore(bar, anchor); else scr.appendChild(bar);
@@ -562,6 +570,17 @@ function fixBadges(){
     return obj;
   };
 })();
+
+/* --- 2.138: перерисовка панели при смене культуры/фазы/урожая --- */
+const opExtraEl = document.getElementById('opExtra');
+if (opExtraEl) {
+  opExtraEl.addEventListener('change', ()=>{
+    setTimeout(()=>{
+      try { schemeView.render(); } catch(e){ console.warn('op-extra re-render:', e); }
+      scheduleSchemeHooks();
+    }, 0);
+  });
+}
 
 /* --- экспорт постера --- */
 on('exportBtn', async function(){
@@ -597,7 +616,7 @@ document.addEventListener('click', function(e){
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.toggle('active', s.id === id); });
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.goto === id); });
-  if (id === 'screen-scheme') { schemeView.render(); }
+  if (id === 'screen-scheme') { schemeView.render(); scheduleSchemeHooks(); }
   if (id === 'screen-calendar') calendarView.render();
   if (id === 'screen-chat') chatView.render();
   if (id === 'screen-plants') { plantsView.render(); fixRelativeImages(document); }
@@ -778,6 +797,16 @@ window.__sgSelfTest = function(){
 };
 console.info('Умный садовод: самопроверка доступна в консоли — __sgSelfTest()');
 
+/* --- 2.166: PWA/offline — регистрация service worker и индикатор сети --- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register:', e));
+  });
+}
+window.addEventListener('offline', () => showToast('Нет сети — приложение работает офлайн 🌾'));
+window.addEventListener('online', () => showToast('Снова в сети ✓'));
+
+/* --- первичный рендер --- */
 schemeView.render();
 try {
   if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) {
