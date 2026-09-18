@@ -1,9 +1,9 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.153)
-// 2.153: ВСТРОЕН зум схемы: this.zoom (1..4), pinch двумя пальцами (_initZoom), панорама скроллом
-//        plot-wrap при zoom>1, двойной тап по СВОБОДНОМУ месту = сброс к 1:1 (окно 500 мс + сброс прокрутки);
-//        двойной тап по объекту = настройки; одиночный тап = выделение+перетаскивание
+// src/ui/schemeView.js — представление схемы (ревизия 2.159)
+// 2.159: легенда фаз под иконками в настройках культуры (мобильный); на десктопе скрыта CSS
+// 2.153: зум схемы this.zoom (1..4), pinch (_initZoom), панорама скроллом при zoom>1,
+//        двойной тап по СВОБОДНОМУ месту = сброс 1:1; двойной тап по объекту = настройки
 // 2.140: closePanel()/openPanel(); addObject сам создаёт массивы грядок теплицы
-// 2.66: имя участка — редактируемое поле вверху экрана, привязка к scheme.plotName
+// 2.66: имя участка — редактируемое поле вверху, привязка к scheme.plotName
 // 2.64: блок «Схема посадки» с расчётом растений, оценкой урожая и полем «Фактический урожай»
 // 2.57: иконки культур +20%; 2.56: SVG-иконки (фолбэк эмодзи); 2.52: справка у меню фаз
 // 2.50: пустое состояние списка; 2.46: тултипы значков + сводные предупреждения
@@ -341,6 +341,11 @@ export class SchemeView {
     return html;
   }
 
+  /* ---------- 2.159: легенда фаз (иконка = название) ---------- */
+  _phaseLegendHtml(order){
+    return `<div class="phase-legend">${order.map(ph => `<span class="pl-item"><span class="pl-ico">${PHASE_META[ph].icon}</span>${PHASE_META[ph].label}</span>`).join('')}</div>`;
+  }
+
   /* ---------- 2.64: схема посадки и урожай для грядки теплицы ---------- */
   _ghPlantingHtml(obj, i, culture) {
     const pRef = plantingRef(this.planting, culture);
@@ -399,11 +404,7 @@ export class SchemeView {
     this.plotBox.style.height = Math.round(this.scheme.lengthM * this.ppm) + 'px';
     this.plotEl.innerHTML = this.scheme.objects.map(o => {
       const vis = this._objectVisual(o);
-      return `<div class="obj o-${o.type} ${o.id === this.selectedObjId ? 'selected' : ''}"
-           data-id="${o.id}" title="${o.name}${vis.tip ? ' • ' + vis.tip : ''}"
-           style="left:${o.x * this.ppm}px; top:${o.y * this.ppm}px; width:${o.w * this.ppm}px; height:${o.l * this.ppm}px;">
-        ${vis.html}
-      </div>`;
+      return `<div class="obj o-${o.type} ${o.id === this.selectedObjId ? 'selected' : ''}" data-id="${o.id}" title="${o.name}${vis.tip ? ' • ' + vis.tip : ''}" style="left:${o.x * this.ppm}px; top:${o.y * this.ppm}px; width:${o.w * this.ppm}px; height:${o.l * this.ppm}px;">${vis.html}</div>`;
     }).join('');
     const shade = computeShade(this.scheme);
     drawShade(this.shadeCanvas, this.scheme, shade, this.ppm, this.scheme.gridStepM);
@@ -567,6 +568,8 @@ export class SchemeView {
             }).join('')}
             <span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span>
           </div>`;
+          // 2.159: легенда фаз под иконками (мобильный; на десктопе скрыта CSS)
+          extraHtml += this._phaseLegendHtml(order);
         }
         opExtra.innerHTML = extraHtml;
         const plantDateInput = document.getElementById('opPlantDate');
@@ -698,7 +701,9 @@ export class SchemeView {
         return `<button type="button" class="${cls}" data-i="${bedIndex}" data-phase="${ph}" ${curIdx >= 0 && i <= curIdx ? 'disabled' : ''} title="${PHASE_META[ph].label}">${PHASE_META[ph].icon}</button>`;
       }).join('') +
       `<span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span>` +
-      `</div>`;
+      `</div>` +
+      // 2.159: легенда фаз под иконками (мобильный)
+      this._phaseLegendHtml(order);
   }
 
   _setGreenhouseBedCount(obj, newCount) {
@@ -739,7 +744,7 @@ export class SchemeView {
     if (newIdx <= curIdx) return;
     const today = toDateStrLocal(new Date());
     if (!obj.greenhouseBedPhases[bedIndex]) {
-      obj.greenhouseBedPhases[bedIndex] = { phase: newPhase, started: today, phase_history: [{ phase: newPhase, started: today, ended: null }] };
+      obj.greenhouseBedPhases[bedIndex] = { phase: newPhase, phase_started: today, phase_history: [{ phase: newPhase, started: today, ended: null }] };
     } else {
       const bp = obj.greenhouseBedPhases[bedIndex];
       (bp.phase_history = bp.phase_history || []).forEach(h => { if (!h.ended) h.ended = today; });
