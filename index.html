@@ -76,7 +76,7 @@
   .palette-left { margin-left:0; }
   .palette-right { margin-left:auto; }
   .scheme-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 14px; }
-  /* 2.156: overflow:auto сохранён, overscroll-behavior УБРАН — прокрутка колесом над схемой работает как в рабочем файле */
+  /* 2.156: overflow:auto сохранён, overscroll-behavior УБРАН — прокрутка колесом над схемой работает */
   .plot-wrap { background:linear-gradient(135deg,#F5FBEC,#EDF7DD); border-radius:var(--radius); box-shadow:var(--shadow-s); padding:28px 16px 16px; overflow:auto; }
   #plotBox { position:relative; margin:auto; }
   .plot { position:relative; width:100%; height:100%; background:#fff; border-radius:14px; box-shadow:inset 0 0 0 1px rgba(120,160,120,.15); touch-action:none; }
@@ -153,11 +153,13 @@
   .cal-mode-toggle { display:flex; gap:6px; margin-bottom:12px; }
   .cal-mode-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 14px; font:600 13px "Manrope",sans-serif; color:var(--ink); cursor:pointer; }
   .cal-mode-btn.active { background:var(--olive); color:#fff; border-color:transparent; }
-  .cal-day-group { margin-bottom:14px; }
+  .cal-day-group { margin-bottom:14px; max-width:100%; }
   .cal-day-head { font-weight:700; font-size:14px; color:var(--olive-dark); margin-bottom:6px; }
-  .cal-task { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:10px; background:rgba(255,255,255,.6); margin-bottom:4px; font-size:13.5px; cursor:pointer; }
+  /* 2.157: строка задачи переносится; погодная подсказка — отдельной строкой, не обрезается */
+  .cal-task { display:flex; align-items:center; flex-wrap:wrap; row-gap:2px; gap:8px; padding:6px 8px; border-radius:10px; background:rgba(255,255,255,.6); margin-bottom:4px; font-size:13.5px; cursor:pointer; max-width:100%; }
   .cal-task .prio-bar { width:4px; height:18px; border-radius:2px; }
   .cal-task .task-crop { color:var(--ink-soft); margin-left:auto; }
+  .cal-task .task-wx, .cal-task .wx-note, .cal-task .task-note, .cal-task .task-hint { flex:1 1 100%; margin-left:0; white-space:normal; }
   .cal-task.done .task-name { text-decoration:line-through; color:var(--ink-soft); }
   .overdue-badge { background:var(--rose-dark); color:#fff; font-size:10px; border-radius:999px; padding:2px 8px; }
   .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
@@ -217,8 +219,11 @@
   .an-gantt-axis { display:grid; grid-template-columns:210px minmax(0,1fr); gap:10px; margin-top:4px; }
   .an-gantt-months { position:relative; height:16px; font-size:10.5px; color:var(--ink-soft); }
   .an-gantt-months span { position:absolute; top:0; }
-  .an-section table { width:100%; }
+  /* 2.157: таблица «Урожай» — горизонтальная прокрутка + закреплённый первый столбец */
+  .an-section { overflow-x:auto; }
+  .an-section table { width:100%; min-width:560px; border-collapse:separate; border-spacing:0; }
   .an-section table th { font-weight:700; }
+  .an-section table th:first-child, .an-section table td:first-child { position:sticky; left:0; background:#FFFCF4; z-index:2; box-shadow:1px 0 0 rgba(63,62,58,.12); white-space:nowrap; }
   .an-risks { display:flex; flex-direction:column; gap:8px; }
   .an-risk { border-left:4px solid var(--rose-dark); background:rgba(217,165,160,.14); border-radius:8px; padding:10px 12px; font-size:13px; color:var(--ink); line-height:1.45; }
   .an-risk.ok { border-left-color:var(--olive); background:rgba(138,155,110,.14); }
@@ -244,7 +249,12 @@
   @keyframes tsypa-bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
   #tsypa { z-index:35; }
   #tsypa.pos-left { align-items:flex-start; }
-  .tsypa.flip .tsypa-avatar img { transform: scaleX(-1); }
+  /* 2.157: Цыпа зеркалится на левых позициях (работает при flip и при pos-left/pos-3..5) */
+  #tsypa.flip .tsypa-avatar img,
+  #tsypa.pos-left .tsypa-avatar img,
+  #tsypa.pos-3 .tsypa-avatar img,
+  #tsypa.pos-4 .tsypa-avatar img,
+  #tsypa.pos-5 .tsypa-avatar img { transform: scaleX(-1); }
   #tsypa.pos-left .tsypa-bubble { border-radius:14px 14px 14px 4px; }
   #tsypa.pos-0 { right:16px; bottom:96px; top:auto; left:auto; }
   #tsypa.pos-1 { right:16px; top:45%;  bottom:auto; left:auto; }
@@ -405,7 +415,9 @@
     .chat-messages { flex:1 1 auto; min-height:0; }
     .chat-input-row { flex:0 0 auto; flex-direction:column; gap:8px; }
     .chat-input-row button { width:100%; min-height:44px; }
-    #screen-chat.active { height:calc(100dvh - 200px); min-height:300px; }
+    /* 2.157: кнопка «Отправить» чата не прячется за нижним меню */
+    #screen-chat.active { height:calc(100dvh - 235px); min-height:300px; }
+    .chat-root { margin-bottom: calc(68px + env(safe-area-inset-bottom)); }
     .tut-gardener { flex-direction:column; align-items:flex-start; gap:8px; }
     .tut-gardener-img { width:56px; height:56px; }
     .tut-gardener p { width:100%; }
@@ -431,11 +443,14 @@
     .an-gantt-label { font-size:11px; }
     .an-weeks { gap:2px; overflow-x:auto; }
     .an-week { min-width:3px; }
-    .an-section { overflow:hidden; }
+    /* 2.157: таблица урожая скроллится по горизонтали, вертикаль не режется */
+    .an-section { overflow-x:auto; overflow-y:hidden; }
     .an-gantt-row, .an-gantt-axis { grid-template-columns:96px minmax(0,1fr); }
     #tsypa { max-width:170px; }
     #tsypa .tsypa-avatar img { width:44px; height:44px; }
     .tsypa-bubble { font-size:12.5px; padding:8px 10px; }
+    /* 2.157: лист Советчика на мобильном непрозрачный */
+    .tip-bubble { background:#FFFCF4; }
     #tsypa.pos-2, #tsypa.pos-3 { top:118px; }
     .tip-bubble { top:118px; left:8px; right:8px; width:auto; }
     .toast { bottom:calc(80px + env(safe-area-inset-bottom)); width:max-content; max-width:calc(100vw - 24px); }
