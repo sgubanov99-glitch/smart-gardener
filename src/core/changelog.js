@@ -1,7 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.166';
+export const APP_VERSION = '2.167';
 
 export const CHANGELOG = [
+  { v:'2.167', date:'19.09.2026', title:'PWA: надёжный первый офлайн-загруз (precache critical/background)', notes:[
+    'precache разделён: CRITICAL (html, все JS-модули, data/*.json, мелкие svg) ждём полностью до skipWaiting/claim; NON-CRITICAL (стикеры/PNG) добираются в фоне',
+    'Список модулей расширен до полного графа импортов: добавлены ux.js, planner.js, compat-справочник — первый офлайн-загруз не упирается в отсутствующий модуль',
+    'Стратегии не изменены: навигация network-first с фолбэком на index.html; same-origin/шрифты SWR; внешние API network-first с фолбэком на кэш'
+  ]},
   { v:'2.166', date:'18.09.2026', title:'PWA/offline для дачи: manifest + service worker', notes:[
     'manifest.webmanifest: standalone-режим, русская локаль, цвета темы, SVG-иконки (any + maskable)',
     'sw.js: precache всего шелла (модули, data, assets, стикеры) с allSettled; навигация network-first с фолбэком на index.html; same-origin и шрифты stale-while-revalidate; внешние API network-first с фолбэком на кэш',
