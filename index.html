@@ -483,6 +483,9 @@
     .obj-ultra::after { content:''; position:absolute; right:2px; top:2px; width:8px; height:8px; border-radius:50%; background:var(--olive); box-shadow:0 0 0 1.5px #fff; }
     .plot { touch-action:pan-x pan-y; }
     input, select, textarea { font-size:16px !important; }
+    /* 2.172: Печать/Постер только на десктопе; Советчик на панели схемы только на мобильном */
+    .d-only { display:none !important; }
+    .pal-btn.m-only { display:flex; justify-content:center; }
     .m-only { display:flex; }
     #menuBtn { align-items:center; justify-content:center; min-width:48px; }
     .topbar-actions .btn:not(#menuBtn) { display:none; }
@@ -578,8 +581,9 @@
       <div class="palette palette-right">
         <button type="button" class="pal-btn" id="compatBtn">🤝 Совместимость</button>
         <button type="button" class="pal-btn" id="isoBtn">3D</button>
-        <button type="button" class="pal-btn" id="printBtn">🖨 Печать</button>
-        <button type="button" class="pal-btn" id="exportBtn">🖼 Постер PNG</button>
+        <button type="button" class="pal-btn d-only" id="printBtn">🖨 Печать</button>
+        <button type="button" class="pal-btn d-only" id="exportBtn">🖼 Постер PNG</button>
+        <button type="button" class="pal-btn m-only" id="advisorBtnMob">🐤 Советчик</button>
       </div>
     </div>
     <div class="scheme-actions">
@@ -692,7 +696,7 @@
       <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi">🎓</span>Обучение</button>
       <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi">📖</span>Книга отзывов</button>
       <button type="button" class="m-item" data-mact="printBtn"><span class="mi">🖨</span>Печать</button>
-      <button type="button" class="m-item" data-mact="advisorBtn"><span class="mi">🐤</span>Советчик</button>
+      <button type="button" class="m-item" data-mact="exportBtn"><span class="mi">🖼</span>Постер PNG</button>
       <label class="m-switch"><span class="mi">📱</span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
       <label class="m-switch"><span class="mi">🐤</span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
