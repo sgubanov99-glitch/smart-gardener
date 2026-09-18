@@ -1,9 +1,13 @@
-// sw.js — service worker: офлайн-режим для дачи (ревизия 2.166)
-// Стратегии: навигация — network-first с фолбэком на кэш index.html;
-// same-origin и шрифты — stale-while-revalidate; внешние API — network-first с фолбэком на кэш
-const CACHE = 'sg-cache-v2166';
+// sw.js — service worker: офлайн-режим для дачи (ревизия 2.167)
+// 2.167: precache разделён на CRITICAL (ждём полностью до skipWaiting/claim — html, все JS-модули,
+//        data/*.json, мелкие svg) и NON-CRITICAL (стикеры/PNG добираются в фоне);
+//        список модулей расширен до полного графа импортов (ux.js, planner.js, compat-справочник) —
+//        первый офлайн-загруз больше не упирается в отсутствующий модуль
+// 2.166: навигация network-first с фолбэком на index.html; same-origin и шрифты stale-while-revalidate;
+//        внешние API network-first с фолбэком на кэш
+const CACHE = 'sg-cache-v2167';
 
-const PRECACHE = [
+const CRITICAL = [
   './',
   './index.html',
   './manifest.webmanifest',
@@ -38,25 +42,33 @@ const PRECACHE = [
   './data/phases.json',
   './data/planting.json',
   './data/tutorial.json',
+  './data/compat.json',
+  './data/compatibility.json',
   './assets/logo.svg',
   './assets/logo-mono.svg',
   './assets/chick.svg',
   './assets/chick_full.svg',
-  './assets/icons.svg',
+  './assets/icons.svg'
+];
+
+const NON_CRITICAL = [
   './stickers/chick.png',
   './stickers/watering.png',
   './stickers/apples.png',
   './stickers/seedlings.png',
   './stickers/boy.png',
-  './stickers/cat.png'
+  './stickers/cat.png',
+  './gb.png'
 ];
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // индивидуально с catch: отсутствующий файл не ломает весь precache
-    await Promise.allSettled(PRECACHE.map(u => cache.add(u)));
+    // критичный набор ждём полностью — офлайн-загруз не упадёт на отсутствующем модуле
+    await Promise.allSettled(CRITICAL.map(u => cache.add(u)));
     await self.skipWaiting();
+    // тяжёлые картинки добираются в фоне, не блокируя активацию
+    Promise.allSettled(NON_CRITICAL.map(u => cache.add(u)));
   })());
 });
 
