@@ -1,4 +1,7 @@
-// src/ui/tsypa.js — Цыпа, проактивный маскот-агроном (ревизия 2.118, выверенная копия)
+// src/ui/tsypa.js — Цыпа, проактивный маскот-агроном (ревизия 2.158)
+// 2.158: подсказки приведены к нейтральным/мобильно-корректным формулировкам:
+//        «Обучение» — ☰ Меню (телефон) / верхняя панель (ПК); настройки объекта — двойной тап/клик;
+//        добавлена мобильная подсказка жестов (щипок = масштаб, двойной тап = 1:1 / настройки)
 // 2.118: на мобильном пул позиций [2,3,5] — исключены правый-низ (там FAB «+»)
 //        и правая середина (там плавающие ↩/↪): Цыпа не перекрывается и нажимается
 // 2.117: мобильный режим (matchMedia max-width:900px): аватар 44px (CSS), пузырь скрыт
@@ -10,13 +13,12 @@
 import { WEATHER_MODES, weatherMode, isRainExcused } from '../core/weather.js';
 
 const TIPS_FALLBACK = [
-  'Привет! Я Цыпа. Подскажу, что важно на участке. Нажми на меня!',
-  'Не знаешь, с чего начать? Открой «🎓 Обучение» в шапке!',
+  'Привет! Я Цыпа. Подскажу, что важно на участке. Нажми (тапни) на меня!',
+  'Не знаешь, с чего начать? Открой «🎓 Обучение»: на телефоне — кнопка ☰ Меню, на компьютере — в верхней панели.',
   'Пока всё спокойно. Так держать! 🌟',
   'Загляни в Календарь — вдруг созрело что-то важное? 🗓',
   'Не забудь записать урожай — так интереснее следить за успехами! 🧺'
 ];
-
 const MONTH_TIPS = [
   'Январь: планируем сезон и проверяем семена. 🌱',
   'Февраль: пора сеять перец и баклажаны на рассаду. 🌶',
@@ -31,7 +33,6 @@ const MONTH_TIPS = [
   'Ноябрь: сезон закрыт — укрываем посадки и планируем. ❄',
   'Декабрь: отдыхаем и мечтаем о новом урожае! 🎄'
 ];
-
 const CELEBRATIONS = [
   'Есть! Грядка довольна! 🌱',
   'Отмечено! Урожай стал ближе! 🧺',
@@ -39,37 +40,31 @@ const CELEBRATIONS = [
   'Так держать! Сезон будет щедрым! 🌞',
   'Плюс один шаг к большому урожаю! 🍅'
 ];
-
 const MONTHS_LOW = ['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
 const ROTATE_MS = 12000;
 const CELEBRATE_MS = 6000;
 const HOP_COOLDOWN_MS = 600;
 const QUIET_MS = 6000;
-
 const MQ_MOBILE = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width:900px)') : null;
 
 function isMobile() {
   return !!(MQ_MOBILE && MQ_MOBILE.matches);
 }
-
 function posPool() {
   // 2.118: на мобильном исключены правый-низ (FAB «+») и правая середина (↩/↪)
   return isMobile() ? [2, 3, 5] : [0, 1, 2, 3, 4, 5];
 }
-
 function toDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return y + '-' + m + '-' + dd;
 }
-
 function addDaysISO(iso, n) {
   const dt = new Date(iso + 'T00:00:00');
   dt.setDate(dt.getDate() + n);
   return toDateStr(dt);
 }
-
 function norm(s) {
   return String(s || '').trim().toLowerCase();
 }
@@ -80,11 +75,10 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
     el = document.createElement('div');
     el.id = 'tsypa';
     el.innerHTML = '<div class="tsypa-bubble" id="tsypaBubble"></div>' +
-      '<div class="tsypa-avatar"><img src="assets/chick_full.svg" alt="Цыпа" /></div>';
+                   '<div class="tsypa-avatar"><img src="assets/chick_full.svg" alt="Цыпа" /></div>';
     document.body.appendChild(el);
   }
   const bubble = el.querySelector('#tsypaBubble');
-
   let pool = posPool();
   let posIdx = pool[Math.floor(Math.random() * pool.length)];
   let lastHopAt = 0;
@@ -96,7 +90,6 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
     el.classList.toggle('pos-left', leftSide);
     el.classList.toggle('flip', leftSide);
   }
-
   function hop() {
     pool = posPool();
     let next = posIdx;
@@ -109,17 +102,14 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
     posIdx = next;
     applyPosition();
   }
-
   function setQuiet(on) {
     el.classList.toggle('tsypa-quiet', on);
   }
-
   function showBubbleBriefly() {
     setQuiet(false);
     if (quietTimer) clearTimeout(quietTimer);
     quietTimer = setTimeout(function () { setQuiet(true); }, QUIET_MS);
   }
-
   if (isMobile()) setQuiet(true);
 
   let tips = [];
@@ -134,7 +124,6 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
       return ((p.sowing_timing || p.sowing) || '').toLowerCase().includes(m);
     });
   }
-
   function plantedCultures() {
     const set = new Set();
     (scheme.objects || []).forEach(function (o) {
@@ -165,19 +154,16 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
       });
     });
     if (overdueCount > 0 && overdueExample) {
-      found.push('⏰ Просрочена задача «' + overdueExample.name + '» (' + overdueExample.crop + '). Всего таких: ' + overdueCount + '. Давай нагонять!');
+      found.push('⏰ Просрочена задача «' + overdueExample.name + '» (' + overdueExample.crop + '). Всего таких: ' + overdueCount + '. Открой «Календарь» и отметь выполненные!');
     }
-
     if (getReminders) {
       (getReminders() || []).forEach(function (r) { found.push(r.text); });
     }
-
     const wm = weatherMode(scheme);
     if (wm !== 'normal') {
       const m = WEATHER_MODES.find(function (x) { return x.id === wm; });
       if (m) found.push(m.icon + ' ' + m.hint);
     }
-
     const fruiting = [];
     (scheme.objects || []).forEach(function (o) {
       if (o.type === 'greenhouse') {
@@ -206,18 +192,21 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
     const sowable = sowNowPlants().filter(function (p) { return !planted.has(norm(p.name)); });
     if (sowable.length) {
       const names = sowable.slice(0, 3).map(function (p) { return p.name; }).join(', ');
-      found.push('🌱 Сейчас сажают: ' + names + (sowable.length > 3 ? ' и др.' : '') + '. Загляни в Каталог!');
+      found.push('🌱 Сейчас сажают: ' + names + (sowable.length > 3 ? ' и др.' : '') + '. Загляни в Каталог растений!');
     }
-
     (scheme.objects || []).forEach(function (o) {
       if (o.type !== 'greenhouse' && o.phase === 'senescence' && o.culture && o.actual_yield_kg == null) {
-        found.push('📝 Сезон «' + o.culture + '» закончился, а урожай не записан. Запиши в настройках объекта!');
+        found.push('📝 Сезон «' + o.culture + '» закончился, а урожай не записан. Открой настройки объекта (двойной тап/клик по объекту) и запиши урожай!');
       }
     });
 
+    // 2.158: мобильная подсказка жестов схемы
+    if (isMobile()) {
+      found.push('🤏 Щипок — масштаб схемы; двойной тап по свободному месту — возврат 1:1; двойной тап по объекту — настройки.');
+    }
+
     const monthTip = MONTH_TIPS[new Date().getMonth()];
     if (monthTip) found.push(monthTip);
-
     tips = found.length ? found : TIPS_FALLBACK;
   }
 
@@ -225,7 +214,6 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
     if (!bubble) return;
     bubble.textContent = tips[idx % tips.length] || TIPS_FALLBACK[0];
   }
-
   function startRotation() {
     stopRotation();
     rotateTimer = setInterval(function () {
@@ -234,18 +222,15 @@ export function createTsypa({ scheme, phases, plants, buildCalendar, getReminder
       render();
     }, ROTATE_MS);
   }
-
   function stopRotation() {
     if (rotateTimer) { clearInterval(rotateTimer); rotateTimer = null; }
   }
-
   function refresh() {
     computeTips();
     idx = 0;
     render();
     startRotation();
   }
-
   function celebrate() {
     celebrating = true;
     if (celebrateTimer) clearTimeout(celebrateTimer);
