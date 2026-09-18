@@ -253,7 +253,6 @@
   @keyframes tsypa-bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
   #tsypa { z-index:35; }
   #tsypa.pos-left { align-items:flex-start; }
-  /* 2.157: Цыпа зеркалится на левых позициях (работает при flip и при pos-left/pos-3..5) */
   #tsypa.flip .tsypa-avatar img,
   #tsypa.pos-left .tsypa-avatar img,
   #tsypa.pos-3 .tsypa-avatar img,
@@ -427,8 +426,11 @@
     .tut-gardener p { width:100%; }
     .tut-tips { padding-left:18px; }
     .an-section { padding:14px 12px; }
-    .an-section table { table-layout:fixed; width:100%; }
+    /* 2.164: таблица «Урожай» и прочие таблицы Аналитики — горизонтальная прокрутка и читаемые колонки.
+       min-width !important перебивает «.an-section * { min-width:0 !important }» из 2.124 */
+    .an-section table { table-layout:auto; width:100%; min-width:560px !important; }
     .an-section th, .an-section td { overflow-wrap:break-word; white-space:normal; font-size:12px; }
+    .an-section table th:first-child, .an-section table td:first-child { white-space:nowrap; }
     .an-section ul, .an-section ol { padding-left:18px; }
     .an-section li { overflow-wrap:break-word; }
     .an-section * { max-width:100% !important; min-width:0 !important; }
