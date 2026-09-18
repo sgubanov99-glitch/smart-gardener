@@ -1,7 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.167';
+export const APP_VERSION = '2.168';
 
 export const CHANGELOG = [
+  { v:'2.168', date:'19.09.2026', title:'PWA: PNG-иконки 192/512 + maskable — гарантированная установка', notes:[
+    'tools/make-icons.html: одноразовый генератор icon-192.png / icon-512.png / icon-maskable-512.png из logo.svg (с векторным фолбэком при недоступном SVG)',
+    'manifest.webmanifest: PNG 192/512 (purpose any) + maskable 512 — выполнены критерии устанавливаемости Chrome/Android; SVG оставлены как дополнительные',
+    'sw.js: PNG-иконки добавлены в CRITICAL precache — установка и иконка работают офлайн',
+    'index.html: apple-touch-icon → корректная иконка при «На экран «Домой»» на iOS'
+  ]},
   { v:'2.167', date:'19.09.2026', title:'PWA: надёжный первый офлайн-загруз (precache critical/background)', notes:[
     'precache разделён: CRITICAL (html, все JS-модули, data/*.json, мелкие svg) ждём полностью до skipWaiting/claim; NON-CRITICAL (стикеры/PNG) добираются в фоне',
     'Список модулей расширен до полного графа импортов: добавлены ux.js, planner.js, compat-справочник — первый офлайн-загруз не упирается в отсутствующий модуль',
