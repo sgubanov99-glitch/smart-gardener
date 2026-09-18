@@ -8,11 +8,11 @@
 <link rel="icon" type="image/svg+xml" href="assets/logo-mono.svg" />
 <!-- 2.166: PWA/offline для дачи -->
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="apple-touch-icon" href="assets/icon-192.png" />
 <meta name="theme-color" content="#8A9B6E" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<link rel="apple-touch-icon" href="assets/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Neucha&display=swap" rel="stylesheet" />
@@ -423,7 +423,6 @@
     .tut-gardener p { width:100%; }
     .tut-tips { padding-left:18px; }
     .an-section { padding:14px 12px; }
-    /* 2.155: таблица «Урожай» — первый столбец = 1/3 видимой части, horiz. прокрутка */
     .an-section table { table-layout:fixed; width:100%; min-width:560px !important; }
     .an-section th, .an-section td { overflow-wrap:break-word; white-space:normal; font-size:12px; }
     .an-section table th:first-child, .an-section table td:first-child {
@@ -579,6 +578,7 @@
       <div class="palette palette-right">
         <button type="button" class="pal-btn" id="compatBtn">🤝 Совместимость</button>
         <button type="button" class="pal-btn" id="isoBtn">3D</button>
+        <button type="button" class="pal-btn" id="printBtn">🖨 Печать</button>
         <button type="button" class="pal-btn" id="exportBtn">🖼 Постер PNG</button>
       </div>
     </div>
@@ -691,6 +691,7 @@
       <button type="button" class="m-item" data-mact="historyBtn"><span class="mi">🕘</span>История ревизий</button>
       <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi">🎓</span>Обучение</button>
       <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi">📖</span>Книга отзывов</button>
+      <button type="button" class="m-item" data-mact="printBtn"><span class="mi">🖨</span>Печать</button>
       <button type="button" class="m-item" data-mact="advisorBtn"><span class="mi">🐤</span>Советчик</button>
       <label class="m-switch"><span class="mi">📱</span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
