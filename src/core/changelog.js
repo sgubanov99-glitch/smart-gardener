@@ -1,7 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.165';
+export const APP_VERSION = '2.166';
 
 export const CHANGELOG = [
+  { v:'2.166', date:'18.09.2026', title:'PWA/offline для дачи: manifest + service worker', notes:[
+    'manifest.webmanifest: standalone-режим, русская локаль, цвета темы, SVG-иконки (any + maskable)',
+    'sw.js: precache всего шелла (модули, data, assets, стикеры) с allSettled; навигация network-first с фолбэком на index.html; same-origin и шрифты stale-while-revalidate; внешние API network-first с фолбэком на кэш',
+    'После одного посещения онлайн приложение полностью работает без сети; прогноз погоды офлайн деградирует до ручных режимов с тостом',
+    'main.js: регистрация SW + тосты «Нет сети / Снова в сети»; index.html: ссылка на манифест + theme-color + apple meta'
+  ]},
   { v:'2.165', date:'18.09.2026', title:'Аналитика (моб.): первый столбец таблицы «Урожай» = 1/3 видимой части', notes:[
     'table-layout:fixed + width/max-width calc((100vw - 48px)/3) для первого столбца — ровно треть видимой области таблицы вместо ~1/2',
     'Длинные названия культур обрезаются многоточием (overflow:hidden; text-overflow:ellipsis), первый столбец закреплён (sticky) и не переносится',
