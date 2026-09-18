@@ -1,19 +1,33 @@
-// src/bot/bot.js — чат-бот садовода (ревизия 2.67; служит bot.js последней ревизии 2.68)
-// 2.67: sowNow() читает sowing_timing — «Помоги посадить», ⭐ и выбор по номеру снова работают
+// src/bot/bot.js — чат-бот садовода (ревизия 2.163)
+// 2.163: ГЛАВНОЕ ИСПРАВЛЕНИЕ: в JS \w НЕ включает кириллицу ([A-Za-z0-9_]), поэтому /грядк\w*/
+//        не матчил «грядка/грядке/грядкой/грядку»; заменено на [а-яё]* — работают ВСЕ падежи:
+//        «грядка 1», «грядке 1», «грядкой 1», «грядку 1», «грядки 1», «теплица/теплице/теплицей 1»…
+// 2.162: статус = культура + фаза + приписка «(или напишите „отменить“)»; сценарий P (уточнение фазы
+//        списком → предупреждение о пересчёте → перевод только после «да»); явный выход «отменить»
+// 2.67: sowNow() читает sowing_timing — «Помоги посадить», ⭐ и выбор по номеру работают
 // 2.51: сценарии «Что посадить на…?» и «Помоги посадить» (многошаговые, с расстановкой на схеме)
 import { PHASE_ORDER, PHASE_META } from '../core/phaseMachine.js';
 import { fitsLight, compatOk, rotationOk, neighborsCultures, planPlacements } from '../core/planner.js';
 
 const MONTHS_LOW = ['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
 const LABELS = { bed:'Грядка', greenhouse:'Теплица', tree:'Дерево', bush:'Кустарник' };
+const CANCEL_HINT = ' (или напишите «отменить»)';
 
 function norm(s){ return String(s||'').trim().toLowerCase(); }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function yesNo(t){
   const s=norm(t);
   if(/^(да|подтвер|ок|okay|ok|хорошо|согласен|добав)/.test(s)) return true;
-  if(/^(нет|отмен|не надо|stop|стоп)/.test(s)) return false;
+  if(/^(нет|не надо|stop|стоп)/.test(s)) return false;
   return null;
+}
+function isCancel(t){
+  return /отмен|отменить|стоп|stop|другой вопрос|начать заново|сброс диалог/.test(norm(t));
+}
+// номер в конце имени объекта: «Грядка 1» → 1, «Теплица 2» → 2
+function nameNum(o){
+  const m = /(\d+)\s*$/.exec(String((o && o.name) || ''));
+  return m ? +m[1] : null;
 }
 
 export function createBot({ scheme, plants, phases, compat, generateTasks, onAdvancePhase, onStateChanged }){
@@ -27,23 +41,40 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     return k?phases[k]:null;
   }
   function plantByName(name){ return plants.find(p=>norm(p.name)===norm(name)); }
-
-  // 2.67: поле сроков в plants.json — sowing_timing (sowing оставлено как запасное)
   function sowNow(){
     const m=MONTHS_LOW[new Date().getMonth()];
     return plants.filter(p=>((p.sowing_timing||p.sowing)||'').toLowerCase().includes(m));
   }
-
   function typeFor(plant){ const t=norm(plant&&plant.type); if(t.includes('дерево'))return 'tree'; if(t.includes('кустарник'))return 'bush'; return 'bed'; }
   function canGreenhouse(plant){ return typeFor(plant)==='bed'; }
 
+  // 2.163: [а-яё]* вместо \w* — кириллические падежи матчатся; номер берётся ИЗ ИМЕНИ объекта,
+  // фолбэк по порядку создания и по вхождению полного имени
   function findObject(text){
-    const n=norm(text);
-    let m=n.match(/грядк[ауеы]?\s*(\d+)/);
-    if(m){ const beds=scheme.objects.filter(o=>o.type==='bed'); if(beds[+m[1]-1]) return beds[+m[1]-1]; }
-    m=n.match(/теплиц[ауеы]?\s*(\d+)/);
-    if(m){ const ghs=scheme.objects.filter(o=>o.type==='greenhouse'); if(ghs[+m[1]-1]) return ghs[+m[1]-1]; }
-    return scheme.objects.find(o=> norm(o.name).length>2 && n.includes(norm(o.name)));
+    const n = norm(text);
+    let m = n.match(/грядк[а-яё]*[\s.-]*(\d+)/);
+    if (m) {
+      const num = +m[1];
+      let o = scheme.objects.find(x => x.type==='bed' && nameNum(x)===num);
+      if (!o) { const beds = scheme.objects.filter(x=>x.type==='bed'); o = beds[num-1]; }
+      if (o) return o;
+    }
+    m = n.match(/теплиц[а-яё]*[\s.-]*(\d+)/);
+    if (m) {
+      const num = +m[1];
+      let o = scheme.objects.find(x => x.type==='greenhouse' && nameNum(x)===num);
+      if (!o) { const ghs = scheme.objects.filter(x=>x.type==='greenhouse'); o = ghs[num-1]; }
+      if (o) return o;
+    }
+    m = n.match(/(дерев[а-яё]*|кустарн[а-яё]*|куст[а-яё]*)[\s.-]*(\d+)/);
+    if (m) {
+      const num = +m[2];
+      const type = /дерев/.test(m[1]) ? 'tree' : 'bush';
+      let o = scheme.objects.find(x => x.type===type && nameNum(x)===num);
+      if (!o) { const arr = scheme.objects.filter(x=>x.type===type); o = arr[num-1]; }
+      if (o) return o;
+    }
+    return scheme.objects.find(o => norm(o.name).length>2 && n.includes(norm(o.name)));
   }
 
   function setCultureOn(obj, culture){
@@ -84,7 +115,7 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     if(obj) return proposeCultures(obj);
     s={flow:'A', step:'object'};
     const list=scheme.objects.map(o=>o.name).join(', ')||'(пока нет объектов)';
-    return 'На каком объекте посадить? Укажите название или номер, например «грядка 1».\nОбъекты: '+list+'.';
+    return 'На каком объекте посадить? Укажите название или номер, например «грядка 1».\nОбъекты: '+list+'.'+CANCEL_HINT;
   }
   function proposeCultures(obj){
     const cands=candidatesFor(obj).slice(0,6);
@@ -93,14 +124,14 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     s={flow:'A', step:'culture', objId:obj.id, candidates:cands.map(p=>p.name)};
     return 'Объект «'+obj.name+'». Подходящие культуры (свет, совместимость, севооборот; ⭐ — сеют в этом месяце):\n'+
       cands.map((p,i)=>(i+1)+'. '+p.name+(now.includes(norm(p.name))?' ⭐':'')).join('\n')+
-      '\nНапишите номер или название культуры.';
+      '\nНапишите номер или название культуры.'+CANCEL_HINT;
   }
 
   /* ---------- сценарий B: «Помоги посадить» ---------- */
   function flowBStart(){
     s={flow:'B', step:'list'};
     const now=sowNow();
-    return 'Какие культуры посадить? Перечислите до 6 через запятую.\nСеют в этом месяце:\n'+(now.slice(0,8).map((p,i)=>(i+1)+'. '+p.name).join('\n')||'—')+'\nМожно номера или названия.';
+    return 'Какие культуры посадить? Перечислите до 6 через запятую.\nСеют в этом месяце:\n'+(now.slice(0,8).map((p,i)=>(i+1)+'. '+p.name).join('\n')||'—')+'\nМожно номера или названия.'+CANCEL_HINT;
   }
   function parseCultureList(text){
     const tokens=norm(text).split(/[,;\n]|\s+и\s+/).map(t=>t.trim()).filter(Boolean);
@@ -115,10 +146,11 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     });
     return out.slice(0,6);
   }
+  // 2.163: [а-яё]* вместо \w* — «томат:грядкой»/«томат:теплице» разбираются корректно
   function parsePlaceMap(text){
     const map={};
     norm(text).split(/[,;\n]/).forEach(tok=>{
-      const m=tok.match(/^(.*?)[\s:.-]*(грядк[ауеы]?|теплиц[ауеы]?)$/);
+      const m=tok.match(/^(.+?)[\s:.-]*(грядк[а-яё]*|теплиц[а-яё]*)$/);
       if(!m) return;
       const culture=plantByName(m[1].trim());
       if(!culture) return;
@@ -148,7 +180,7 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     s={flow:'B', step:'confirm', plan:res.plan, failed:res.failed};
     let msg='План размещения:\n'+res.plan.map((pl,i)=>(i+1)+'. '+pl.culture+' → '+describePlan(pl)).join('\n');
     if(res.failed.length) msg+='\n⚠ Не поместилось (нужно место): '+res.failed.map(f=>f.culture).join(', ')+'. Освободите место и повторите запрос.';
-    msg+='\nПодтвердить добавление на схему? «да» / «нет».';
+    msg+='\nПодтвердить добавление на схему? «да» / «нет».'+CANCEL_HINT;
     return msg;
   }
   function applyPlan(plan){
@@ -176,35 +208,75 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     });
   }
 
-  /* ---------- простые поведения ---------- */
+  /* ---------- статус объекта = культура + фаза + приписка про «отменить» ---------- */
   function status(text){
     const obj=findObject(text);
-    if(!obj) return 'Не нашёл объект. Укажите, например, «грядка 1».';
-    const cults = obj.type==='greenhouse' ? (obj.greenhouseBedCultures||[]).filter(Boolean) : (obj.culture?[obj.culture]:[]);
-    if(!cults.length) return '«'+obj.name+'»: культура не задана.';
-    return '«'+obj.name+'»: '+cults.join(', ')+'.';
+    if(!obj) return 'Не нашёл объект. Укажите, например, «грядка 1» или «грядкой 1».'+CANCEL_HINT;
+    if(obj.type==='greenhouse'){
+      const lines=[];
+      (obj.greenhouseBedCultures||[]).forEach((c,i)=>{
+        if(!c) return;
+        const bp=(obj.greenhouseBedPhases||[])[i];
+        const lab=(bp && bp.phase && PHASE_META[bp.phase]) ? PHASE_META[bp.phase].label : 'фаза не задана';
+        lines.push('грядка '+(i+1)+': '+c+' — '+lab);
+      });
+      if(!lines.length) return '«'+obj.name+'»: культура не задана.'+CANCEL_HINT;
+      return '«'+obj.name+'»:\n'+lines.join('\n')+'.'+CANCEL_HINT;
+    }
+    if(!obj.culture) return '«'+obj.name+'»: культура не задана.'+CANCEL_HINT;
+    const lab=(obj.phase && PHASE_META[obj.phase]) ? PHASE_META[obj.phase].label : 'фаза не задана';
+    return '«'+obj.name+'»: '+obj.culture+' — '+lab+(obj.phase_started? ' (с '+obj.phase_started+')':'')+'.'+CANCEL_HINT;
   }
+
+  /* ---------- сценарий P: уточнение фазы с подтверждением ---------- */
   function matchPhase(t){
     const map=[[/зацвел|цветени/,'flowering'], [/плодонос|созрел|урожай/,'fruiting'], [/взош|пророс|рассад/,'seedling'], [/посажен|посеян|посадк/,'planting']];
     for(const [re,ph] of map){ if(re.test(t)) return ph; }
     return null;
   }
-  function applyPhase(text, ph){
-    const p=plants.find(pp=> norm(text).includes(norm(pp.name)));
-    if(!p) return 'Укажите культуру, например «томаты зацвели».';
-    const obj=scheme.objects.find(o=> o.culture && norm(o.culture)===norm(p.name));
-    if(!obj) return 'Не нашёл объект с культурой «'+p.name+'».';
-    if(onAdvancePhase) onAdvancePhase(obj.id, null, ph);
-    return 'Принял: «'+obj.name+'» → фаза '+(PHASE_META[ph]?PHASE_META[ph].label:ph)+'. Календарь обновлён.';
+  function cropOnScheme(text){
+    const n=norm(text);
+    return plants.find(p=> n.includes(norm(p.name)) && scheme.objects.some(o=>
+      (o.culture && norm(o.culture)===norm(p.name)) ||
+      (o.greenhouseBedCultures||[]).some(c=>norm(c)===norm(p.name)) ));
+  }
+  function objectForCulture(culture){
+    return scheme.objects.find(o=>
+      (o.culture && norm(o.culture)===norm(culture)) ||
+      (o.greenhouseBedCultures||[]).some(c=>norm(c)===norm(culture)));
+  }
+  function phaseListFor(culture){
+    const cp=phaseDataFor(culture);
+    if(!cp) return [];
+    return PHASE_ORDER.filter(ph=>cp[ph]);
+  }
+  function confirmPhaseMsg(obj,culture,ph){
+    return '⚠ ВНИМАНИЕ: перевод «'+obj.name+'» ('+culture+') в фазу «'+PHASE_META[ph].label+'» пересчитает Календарь, Обзор и Аналитику; значок на схеме и в настройках изменится. Подтвердите: «да» — перевести, «нет» — отмена.'+CANCEL_HINT;
+  }
+  function flowPStart(text){
+    const p=cropOnScheme(text);
+    if(!p) return null;
+    const obj=objectForCulture(p.name);
+    if(!obj) return null;
+    const list=phaseListFor(p.name);
+    if(!list.length) return null;
+    const ph=matchPhase(text);
+    if(ph && list.includes(ph)){
+      s={flow:'P', step:'confirm', objId:obj.id, culture:p.name, phase:ph};
+      return confirmPhaseMsg(obj,p.name,ph);
+    }
+    s={flow:'P', step:'phase', objId:obj.id, culture:p.name, candidates:list};
+    return 'Не распознал фразу как фазу. В какой фазе сейчас «'+p.name+'»? Напишите номер или название:\n'+
+      list.map((ph,i)=>(i+1)+'. '+PHASE_META[ph].label).join('\n')+'.'+CANCEL_HINT;
   }
 
   /* ---------- маршрутизация сессии ---------- */
   function sessionRoute(text){
-    if(/отмен|стоп|stop/.test(norm(text))){ s=null; return 'Диалог отменён.'; }
+    if(isCancel(text)){ s=null; return 'Диалог отменён. Можете задать новый вопрос.'; }
     if(s.flow==='A'){
       if(s.step==='object'){
         const obj=findObject(text);
-        if(!obj) return 'Не нашёл объект. Укажите, например, «грядка 1» или название.';
+        if(!obj) return 'Не нашёл объект. Укажите, например, «грядка 1» или название.'+CANCEL_HINT;
         return proposeCultures(obj);
       }
       if(s.step==='culture'){
@@ -213,18 +285,18 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
         let pick=null;
         if(!isNaN(num) && num>=1 && num<=s.candidates.length) pick=s.candidates[num-1];
         else { const p=plantByName(text); if(p && s.candidates.includes(p.name)) pick=p.name; }
-        if(!pick) return 'Выберите культуру из списка номером или названием.';
+        if(!pick) return 'Выберите культуру из списка номером или названием.'+CANCEL_HINT;
         s.pendingCulture=pick;
         if(obj.culture){
           s.step='confirm_replace';
-          return '⚠ ВНИМАНИЕ: объект «'+obj.name+'» уже занят культурой «'+obj.culture+'». Замена приведёт к пересчёту Календаря и сбросу фаз. Подтвердите осознанно: «да» — заменить, «нет» — отмена.';
+          return '⚠ ВНИМАНИЕ: объект «'+obj.name+'» уже занят культурой «'+obj.culture+'». Замена приведёт к пересчёту Календаря и сбросу фаз. Подтвердите осознанно: «да» — заменить, «нет» — отмена.'+CANCEL_HINT;
         }
         s.step='confirm_add';
-        return 'Посадить «'+pick+'» на «'+obj.name+'»? Ответьте «да» или «нет».';
+        return 'Посадить «'+pick+'» на «'+obj.name+'»? Ответьте «да» или «нет».'+CANCEL_HINT;
       }
       if(s.step==='confirm_add' || s.step==='confirm_replace'){
         const yn=yesNo(text);
-        if(yn===null) return 'Ответьте «да» или «нет».';
+        if(yn===null) return 'Ответьте «да» или «нет».'+CANCEL_HINT;
         const obj=scheme.objects.find(o=>o.id===s.objId);
         const culture=s.pendingCulture;
         s=null;
@@ -237,12 +309,12 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
     if(s.flow==='B'){
       if(s.step==='list'){
         const names=parseCultureList(text);
-        if(!names.length) return 'Не распознал культуры. Перечислите названия или номера через запятую (до 6).';
+        if(!names.length) return 'Не распознал культуры. Перечислите названия или номера через запятую (до 6).'+CANCEL_HINT;
         s.list=names;
         const ambiguous=names.filter(n=>{ const p=plantByName(n); return p && canGreenhouse(p); });
         if(ambiguous.length){
           s.step='place';
-          return 'Уточните место для культур, которые можно и в грядке и в теплице: напишите через запятую «название:грядка» или «название:теплица».\nНужно уточнить: '+ambiguous.join(', ')+'.';
+          return 'Уточните место для культур, которые можно и в грядке и в теплице: напишите через запятую «название:грядка» или «название:теплица».\nНужно уточнить: '+ambiguous.join(', ')+'.'+CANCEL_HINT;
         }
         return buildPlan(names, {});
       }
@@ -252,13 +324,43 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
       }
       if(s.step==='confirm'){
         const yn=yesNo(text);
-        if(yn===null) return 'Ответьте «да» или «нет».';
+        if(yn===null) return 'Ответьте «да» или «нет».'+CANCEL_HINT;
         const plan=s.plan;
         s=null;
         if(!yn) return 'Отменено.';
         applyPlan(plan);
         if(onStateChanged) onStateChanged();
         return 'Добавлено на схему: '+plan.map(p=>p.culture).join(', ')+'. Календарь пересчитан.';
+      }
+    }
+    if(s.flow==='P'){
+      if(s.step==='phase'){
+        const list=s.candidates;
+        const nn=norm(text);
+        const num=parseInt(nn,10);
+        let ph=null;
+        if(!isNaN(num) && num>=1 && num<=list.length) ph=list[num-1];
+        else ph=list.find(q=> nn===q || nn===norm(PHASE_META[q].label) || nn.includes(norm(PHASE_META[q].label)));
+        if(!ph) return 'Выберите фазу из списка номером или названием.'+CANCEL_HINT;
+        s.step='confirm'; s.phase=ph;
+        const obj=scheme.objects.find(o=>o.id===s.objId);
+        return confirmPhaseMsg(obj, s.culture, ph);
+      }
+      if(s.step==='confirm'){
+        const yn=yesNo(text);
+        if(yn===null) return 'Ответьте «да» или «нет».'+CANCEL_HINT;
+        const obj=scheme.objects.find(o=>o.id===s.objId);
+        const ph=s.phase; const culture=s.culture;
+        s=null;
+        if(!yn) return 'Отменено.';
+        if(obj.type==='greenhouse'){
+          const idx=(obj.greenhouseBedCultures||[]).findIndex(c=>norm(c)===norm(culture));
+          if(onAdvancePhase) onAdvancePhase(obj.id, (idx>=0?idx:null), ph);
+        } else {
+          if(onAdvancePhase) onAdvancePhase(obj.id, null, ph);
+        }
+        if(onStateChanged) onStateChanged();
+        return 'Готово: «'+obj.name+'» ('+culture+') → фаза '+PHASE_META[ph].label+'. Календарь, Обзор и Аналитика пересчитаны.';
       }
     }
     s=null;
@@ -268,11 +370,12 @@ export function createBot({ scheme, plants, phases, compat, generateTasks, onAdv
   function respond(text){
     const t=norm(text);
     if(s) return sessionRoute(text);
+    if(isCancel(t)) return 'Активного диалога нет. Задайте вопрос, например «Что с грядкой 1?».';
     if(/что посадить/.test(t)) return flowAStart(text);
     if(/помоги\s+посадить|помоги.*посадить/.test(t)) return flowBStart();
     if(/что с|состояние|как дела/.test(t)) return status(text);
-    const ph=matchPhase(t);
-    if(ph) return applyPhase(text, ph);
+    const pf=flowPStart(text);
+    if(pf) return pf;
     return 'Могу: «Что посадить на …?», «Помоги посадить», «Что с грядкой 1?» или сообщите о смене фазы («томаты зацвели»).';
   }
 
