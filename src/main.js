@@ -1,4 +1,6 @@
-// src/main.js — точка входа ревизии 2.170. Связывает слои каркаса.
+// src/main.js — точка входа ревизии 2.172. Связывает слои каркаса.
+// 2.172: мобильная кнопка «🐤 Советчик» на панели схемы (advisorBtnMob) проксирует на основной обработчик;
+//        «Печать»/«Постер PNG» на мобильном живут в ☰-меню (data-mact), Советчик из меню убран
 // 2.170: печатная версия постера — кнопка «🖨 Печать» + exportPrint()
 // 2.166: PWA/offline — регистрация service worker + тосты «Нет сети / Снова в сети»
 // 2.155: одноразовая подсказка жестов масштаба на Схеме
@@ -606,6 +608,71 @@ on('printBtn', async function(){
   }
 });
 
+/* --- Советчик (основной обработчик, десктоп-кнопка в шапке) --- */
+on('advisorBtn', function(){
+  const bubble = document.getElementById('tipBubble');
+  if (!bubble) return;
+  if (!bubble.classList.contains('hidden')) { bubble.classList.add('hidden'); return; }
+  const MONTHS_LOW = ['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
+  const MONTHS_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const SEASON_ADVICE = {
+    0:'Сезон закрыт: отдыхаем и планируем схемы участка. Ждём Вас в апреле!',
+    1:'Сезон закрыт: перебираем семена и точим инструмент. Ждём Вас в апреле!',
+    2:'Сезон закрыт: готовим рассадные ёмкости и грунт. Ждём Вас в апреле!',
+    3:'Апрель: прогреваем грядки, сеем холодостойкие и высаживаем рассаду под плёнку; не спешим с теплолюбивыми.',
+    4:'Май: после угрозы заморозков высаживаем рассаду в грунт и теплицу, мульчируем и ставим дуги для зелени.',
+    5:'Июнь: полив утром/вечером, подкормки азотом, пасынкуем томаты и прореживаем всходы.',
+    6:'Июль: полив участился, теплицу проветриваем днём; собираем первые овощи и ягоды.',
+    7:'Август: полив стабильный, вечером проветриваем теплицу; массовый сбор и закладка компоста.',
+    8:'Полив к сентябрю сокращаем: томатам хватит одного раза в 4–5 дней, а зелени хватит дождей. Теплицу вечером проветривайте — от конденсата берётся фитофтора.',
+    9:'Октябрь: последний сбор, уборка ботвы и мойка теплицы; укрываем многолетники перед заморозками.',
+    10:'Сезон закрыт: убираем ботву и моем теплицу. Ждём Вас в апреле!',
+    11:'Сезон закрыт: укрываем многолетники и планируем посадки. Ждём Вас в апреле!'
+  };
+  function groupByType(list) {
+    const groups = { 'дерево': [], 'кустарник': [], 'овощ': [], 'зелень': [], 'ягода': [] };
+    const labels = { 'дерево':'🌳 Деревья','кустарник':'🌿 Кустарники','овощ':'🥕 Овощи','зелень':'🌱 Зелень','ягода':'🍓 Ягоды' };
+    list.forEach(function(p){
+      const t = (p.type || '').toLowerCase();
+      for (const k of Object.keys(groups)) { if (t.includes(k)) { groups[k].push(p.name); return; } }
+    });
+    return Object.keys(groups).filter(k=>groups[k].length)
+      .map(k=>'<div class="tip-group"><b>'+labels[k]+':</b> '+groups[k].join(', ')+'</div>').join('');
+  }
+  const now = new Date();
+  const m = MONTHS_LOW[now.getMonth()];
+  const sowP = plants.filter(p=>((p.sowing_timing||p.sowing)||'').toLowerCase().includes(m));
+  const harP = plants.filter(p=>((p.harvest_timing||p.harvest)||'').toLowerCase().includes(m));
+  let body;
+  if(!sowP.length && !harP.length){
+    body = '<div class="m-row">В этом месяце в открытом грунте обычно не сажают и не собирают — загляните в «Календарь», там актуальные задачи по фазам.</div>';
+  } else {
+    body = '<b>Сейчас можно посадить:</b>'+(sowP.length?groupByType(sowP):'—')+'<br>'+
+           '<b>Пора собирать:</b>'+(harP.length?groupByType(harP):'—')+'<br>';
+  }
+  bubble.innerHTML =
+    '<button type="button" class="tip-close" id="tipClose" aria-label="Закрыть">✕</button>'+
+    '<strong style="font-family:\'Neucha\';font-size:19px;display:inline-flex;align-items:center;gap:6px"><img src="assets/chick.svg" alt="" style="width:28px;height:28px" />Советчик · '+MONTHS_NOM[now.getMonth()].toLowerCase()+'</strong>'+
+    '<div class="tip-season"><b>Совет сезона</b>'+(SEASON_ADVICE[now.getMonth()]||'')+'</div>'+
+    '<span class="tip-count">посадить сейчас: '+sowP.length+' · собрать: '+harP.length+'</span><br><br>'+
+    body+'В засуху — полив и мульча! 🌿';
+  const tc = bubble.querySelector('#tipClose');
+  if (tc) tc.addEventListener('click', function(e){ e.stopPropagation(); bubble.classList.add('hidden'); });
+  bubble.classList.remove('hidden');
+  fixRelativeImages(bubble);
+});
+
+/* --- 2.172: мобильная кнопка «Советчик» на панели схемы проксирует на основной обработчик --- */
+on('advisorBtnMob', function(){
+  const a = document.getElementById('advisorBtn');
+  if (a) a.click();
+});
+
+document.addEventListener('pointerdown', function(e){
+  const bubble = document.getElementById('tipBubble');
+  if (bubble && !bubble.classList.contains('hidden') && !e.target.closest('#tipBubble') && !e.target.closest('#advisorBtn') && !e.target.closest('#advisorBtnMob')) bubble.classList.add('hidden');
+});
+
 /* --- 2.95: undo/redo клавиши --- */
 on('undoBtn', function(){ if (history.undo()) showToast('Отменено ↩'); });
 on('redoBtn', function(){ if (history.redo()) showToast('Повторено ↪'); });
@@ -621,7 +688,7 @@ document.addEventListener('keydown', function(e){
   }
 });
 document.addEventListener('click', function(e){
-  if (e.target.closest('#historyBtn,#tutorialBtn,#guestbookBtn,#advisorBtn,[data-mact],.obj-chip,.btn-card,.gh-plant-card,.obj')) resetViewOffset();
+  if (e.target.closest('#historyBtn,#tutorialBtn,#guestbookBtn,#advisorBtn,#advisorBtnMob,[data-mact],.obj-chip,.btn-card,.gh-plant-card,.obj')) resetViewOffset();
 }, true);
 
 /* --- навигация --- */
@@ -704,64 +771,6 @@ on('resetBtn', function(){
   if (pn) pn.value = '';
   schemeView.render();
   showToast('Схема очищена ✓');
-});
-
-/* --- Советчик --- */
-const MONTHS_LOW = ['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
-const MONTHS_NOM = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const SEASON_ADVICE = {
-  0:'Сезон закрыт: отдыхаем и планируем схемы участка. Ждём Вас в апреле!',
-  1:'Сезон закрыт: перебираем семена и точим инструмент. Ждём Вас в апреле!',
-  2:'Сезон закрыт: готовим рассадные ёмкости и грунт. Ждём Вас в апреле!',
-  3:'Апрель: прогреваем грядки, сеем холодостойкие и высаживаем рассаду под плёнку; не спешим с теплолюбивыми.',
-  4:'Май: после угрозы заморозков высаживаем рассаду в грунт и теплицу, мульчируем и ставим дуги для зелени.',
-  5:'Июнь: полив утром/вечером, подкормки азотом, пасынкуем томаты и прореживаем всходы.',
-  6:'Июль: полив участился, теплицу проветриваем днём; собираем первые овощи и ягоды.',
-  7:'Август: полив стабильный, вечером проветриваем теплицу; массовый сбор и закладка компоста.',
-  8:'Полив к сентябрю сокращаем: томатам хватит одного раза в 4–5 дней, а зелени хватит дождей. Теплицу вечером проветривайте — от конденсата берётся фитофтора.',
-  9:'Октябрь: последний сбор, уборка ботвы и мойка теплицы; укрываем многолетники перед заморозками.',
-  10:'Сезон закрыт: убираем ботву и моем теплицу. Ждём Вас в апреле!',
-  11:'Сезон закрыт: укрываем многолетники и планируем посадки. Ждём Вас в апреле!'
-};
-function groupByType(list) {
-  const groups = { 'дерево': [], 'кустарник': [], 'овощ': [], 'зелень': [], 'ягода': [] };
-  const labels = { 'дерево':'🌳 Деревья','кустарник':'🌿 Кустарники','овощ':'🥕 Овощи','зелень':'🌱 Зелень','ягода':'🍓 Ягоды' };
-  list.forEach(function(p){
-    const t = (p.type || '').toLowerCase();
-    for (const k of Object.keys(groups)) { if (t.includes(k)) { groups[k].push(p.name); return; } }
-  });
-  return Object.keys(groups).filter(k=>groups[k].length)
-    .map(k=>'<div class="tip-group"><b>'+labels[k]+':</b> '+groups[k].join(', ')+'</div>').join('');
-}
-on('advisorBtn', function(){
-  const bubble = document.getElementById('tipBubble');
-  if (!bubble) return;
-  if (!bubble.classList.contains('hidden')) { bubble.classList.add('hidden'); return; }
-  const now = new Date();
-  const m = MONTHS_LOW[now.getMonth()];
-  const sowP = plants.filter(p=>((p.sowing_timing||p.sowing)||'').toLowerCase().includes(m));
-  const harP = plants.filter(p=>((p.harvest_timing||p.harvest)||'').toLowerCase().includes(m));
-  let body;
-  if(!sowP.length && !harP.length){
-    body = '<div class="m-row">В этом месяце в открытом грунте обычно не сажают и не собирают — загляните в «Календарь», там актуальные задачи по фазам.</div>';
-  } else {
-    body = '<b>Сейчас можно посадить:</b>'+(sowP.length?groupByType(sowP):'—')+'<br>'+
-           '<b>Пора собирать:</b>'+(harP.length?groupByType(harP):'—')+'<br>';
-  }
-  bubble.innerHTML =
-    '<button type="button" class="tip-close" id="tipClose" aria-label="Закрыть">✕</button>'+
-    '<strong style="font-family:\'Neucha\';font-size:19px;display:inline-flex;align-items:center;gap:6px"><img src="assets/chick.svg" alt="" style="width:28px;height:28px" />Советчик · '+MONTHS_NOM[now.getMonth()].toLowerCase()+'</strong>'+
-    '<div class="tip-season"><b>Совет сезона</b>'+(SEASON_ADVICE[now.getMonth()]||'')+'</div>'+
-    '<span class="tip-count">посадить сейчас: '+sowP.length+' · собрать: '+harP.length+'</span><br><br>'+
-    body+'В засуху — полив и мульча! 🌿';
-  const tc = bubble.querySelector('#tipClose');
-  if (tc) tc.addEventListener('click', function(e){ e.stopPropagation(); bubble.classList.add('hidden'); });
-  bubble.classList.remove('hidden');
-  fixRelativeImages(bubble);
-});
-document.addEventListener('pointerdown', function(e){
-  const bubble = document.getElementById('tipBubble');
-  if (bubble && !bubble.classList.contains('hidden') && !e.target.closest('#tipBubble') && !e.target.closest('#advisorBtn')) bubble.classList.add('hidden');
 });
 
 /* --- История ревизий --- */
