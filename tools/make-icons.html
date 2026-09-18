@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Генератор PNG-иконок 192/512 — Умный садовод</title>
+<style>
+  body { font:16px/1.5 system-ui, sans-serif; margin:40px auto; max-width:680px; padding:0 16px; color:#3F3E3A; }
+  h1 { font-size:24px; }
+  button { font:700 16px system-ui, sans-serif; padding:12px 22px; border:0; border-radius:12px; background:#8A9B6E; color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  code { background:#f0ead9; padding:2px 6px; border-radius:6px; }
+  #log { white-space:pre-wrap; background:#f6f2e7; border:1px solid #e2d8bf; padding:12px; border-radius:10px; margin-top:16px; min-height:40px; }
+  .prev { display:flex; gap:12px; align-items:center; margin-top:16px; }
+  .prev canvas { border-radius:12px; box-shadow:0 6px 14px rgba(62,62,58,.15); background:#fff; }
+</style>
+</head>
+<body>
+<h1>🌱 Генератор PNG-иконок (192 / 512 / maskable)</h1>
+<p>Нажмите кнопку — скачаются <b>icon-192.png</b>, <b>icon-512.png</b> и <b>icon-maskable-512.png</b>.
+Положите их в <code>assets/</code> и закоммитьте. Страница пытается отрисовать <code>assets/logo.svg</code>;
+если SVG недоступен или canvas защищён (file://), рисуется векторный фолбэк в фирменных цветах.</p>
+<button id="go">Сгенерировать и скачать</button>
+<div class="prev" id="prev"></div>
+<div id="log"></div>
+<script>
+const SVG_URL = '../assets/logo.svg';
+const log = s => { document.getElementById('log').textContent += s + '\n'; };
+
+function loadImg(src){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error('не удалось загрузить ' + src));
+    img.src = src;
+  });
+}
+
+/* векторный фолбэк: бумага + оливковый скруглённый квадрат + росток */
+function drawFallback(ctx, S, inset){
+  ctx.fillStyle = '#F1E8D7'; ctx.fillRect(0, 0, S, S);
+  const m = S * inset, w = S - 2 * m, r = w * 0.22;
+  ctx.fillStyle = '#8A9B6E';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(m, m, w, w, r); else ctx.rect(m, m, w, w);
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = S * 0.05; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(S*0.5, S*0.5 + w*0.28); ctx.lineTo(S*0.5, S*0.5 - w*0.05); ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath(); ctx.ellipse(S*0.5 - w*0.16, S*0.5 - w*0.10, w*0.16, w*0.09, -0.7, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(S*0.5 + w*0.16, S*0.5 - w*0.18, w*0.16, w*0.09,  0.7, 0, Math.PI*2); ctx.fill();
+}
+
+async function makeCanvas(S, maskable){
+  const c = document.createElement('canvas'); c.width = S; c.height = S;
+  const ctx = c.getContext('2d');
+  let okSvg = false;
+  if (!maskable) {
+    try {
+      const img = await loadImg(SVG_URL);
+      ctx.clearRect(0, 0, S, S);
+      ctx.drawImage(img, 0, 0, S, S);
+      ctx.getImageData(0, 0, 1, 1); // проверка на tainted canvas
+      okSvg = true;
+    } catch (e) { log('SVG не использован (' + e.message + ') — рисую фолбэк.'); }
+  }
+  if (!okSvg) drawFallback(ctx, S, maskable ? 0.10 : 0.06); // maskable: контент в безопасной зоне 80%
+  return c;
+}
+
+function download(canvas, name){
+  return new Promise(res => {
+    canvas.toBlob(b => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      log('Скачано: ' + name + ' (' + b.size + ' байт)');
+      res();
+    }, 'image/png');
+  });
+}
+
+document.getElementById('go').addEventListener('click', async () => {
+  const btn = document.getElementById('go');
+  btn.disabled = true;
+  try {
+    const c192 = await makeCanvas(192, false);
+    const c512 = await makeCanvas(512, false);
+    const cMask = await makeCanvas(512, true);
+    const prev = document.getElementById('prev');
+    prev.innerHTML = '';
+    [c192, c512, cMask].forEach(c => { const s = document.createElement('canvas'); s.width = s.height = 72; s.getContext('2d').drawImage(c, 0, 0, 72, 72); prev.appendChild(s); });
+    await download(c192, 'icon-192.png');
+    await download(c512, 'icon-512.png');
+    await download(cMask, 'icon-maskable-512.png');
+    log('Готово. Переместите три файла в assets/ и закоммитьте.');
+  } catch (e) {
+    log('Ошибка: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
