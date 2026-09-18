@@ -1,7 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.168';
+export const APP_VERSION = '2.169';
 
 export const CHANGELOG = [
+  { v:'2.169', date:'19.09.2026', title:'Генератор иконок: исправлен tainted-canvas, скачивание всегда работает', notes:[
+    'Причина сбоя: SVG, загруженный cross-origin/file://, taintedует canvas, а фолбэк дорисовывался на том же canvas — toBlob запрещён',
+    '2.169: каждая попытка рисуется на свежем canvas; логотип грузится через fetch→blob→objectURL (не taintedует)',
+    'При недоступном fetch (file://) векторный фолбэк рисуется на чистом canvas — скачивание PNG гарантировано',
+    'maskable-иконка: логотип в безопасной зоне ~80% на бумажном фоне'
+  ]},
   { v:'2.168', date:'19.09.2026', title:'PWA: PNG-иконки 192/512 + maskable — гарантированная установка', notes:[
     'tools/make-icons.html: одноразовый генератор icon-192.png / icon-512.png / icon-maskable-512.png из logo.svg (с векторным фолбэком при недоступном SVG)',
     'manifest.webmanifest: PNG 192/512 (purpose any) + maskable 512 — выполнены критерии устанавливаемости Chrome/Android; SVG оставлены как дополнительные',
