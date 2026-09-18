@@ -1,9 +1,9 @@
-// src/main.js — точка входа ревизии 2.166. Связывает слои каркаса.
-// 2.166: PWA/offline — регистрация service worker (sw.js) + тосты «Нет сети / Снова в сети»
-// 2.155: таблица «Урожай» — первый столбец 1/3 (CSS); fixBadges в обёртке рендера (2.151)
-// 2.153: одноразовая подсказка жестов масштаба на Схеме (zoom-hint)
-// 2.139: guardGreenhouse (массивы грядок), injectOpsHead (ops-head + closePanel), fixBadges,
-//        scheduleSchemeHooks (click/pointerup), opExtra re-render hook
+// src/main.js — точка входа ревизии 2.170. Связывает слои каркаса.
+// 2.170: печатная версия постера — кнопка «🖨 Печать» + exportPrint()
+// 2.166: PWA/offline — регистрация service worker + тосты «Нет сети / Снова в сети»
+// 2.155: одноразовая подсказка жестов масштаба на Схеме
+// 2.151: fixBadges в обёртке рендера schemeView (значки фаз на каждом кадре)
+// 2.139: guardGreenhouse (массивы грядок), injectOpsHead (ops-head + closePanel), opExtra re-render
 // 2.131: десктоп — родной Обзор; мобильные строки Обзора с чекбоксами задач
 // 2.125: фиксатор абсолютных путей картинок; 2.121: карточка растения открывается надёжно
 // 2.119: ПК-режим с пилюлей возврата; resetViewOffset() перед листами
@@ -27,6 +27,7 @@ import { createTsypa } from './ui/tsypa.js';
 import { createTutorialView } from './ui/tutorialView.js';
 import { createGuestbookView } from './ui/guestbookView.js';
 import { exportPosterPNG } from './core/exportPoster.js';
+import { exportPrint } from './core/exportPrint.js';
 import { createHistory } from './core/history.js';
 import { createReminders } from './core/reminders.js';
 import { WEATHER_MODES } from './core/weather.js';
@@ -537,7 +538,7 @@ function scheduleSchemeHooks(){
 document.addEventListener('click', scheduleSchemeHooks);
 document.addEventListener('pointerup', scheduleSchemeHooks);
 
-/* --- 2.153: одноразовая подсказка жестов масштаба на Схеме (мобильный) --- */
+/* --- 2.155: одноразовая подсказка жестов масштаба на Схеме (мобильный) --- */
 (function zoomHintOnce(){
   const isMob = !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches);
   if (!isMob) return;
@@ -582,7 +583,7 @@ if (opExtraEl) {
   });
 }
 
-/* --- экспорт постера --- */
+/* --- экспорт постера PNG --- */
 on('exportBtn', async function(){
   const btn = document.getElementById('exportBtn');
   try {
@@ -592,6 +593,17 @@ on('exportBtn', async function(){
     showToast('Постер сохранён ✓');
   } catch (e) { console.error('exportPosterPNG:', e); showToast('Не удалось собрать постер'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = '🖼 Постер PNG'; } }
+});
+
+/* --- 2.170: печатная версия постера (буклет A4) --- */
+on('printBtn', async function(){
+  try {
+    showToast('Готовлю печатную версию…');
+    await exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion: APP_VERSION });
+  } catch (e) {
+    console.error('exportPrint:', e);
+    showToast('Не удалось подготовить печать');
+  }
 });
 
 /* --- 2.95: undo/redo клавиши --- */
