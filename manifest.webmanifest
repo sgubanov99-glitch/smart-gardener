@@ -1,0 +1,16 @@
+{
+  "name": "Умный садовод — планировщик дачного участка",
+  "short_name": "Садовод",
+  "description": "Схема участка, календарь работ по фазам, прогноз урожая и погода. Работает офлайн на даче.",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F1E8D7",
+  "theme_color": "#8A9B6E",
+  "icons": [
+    { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/logo-mono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

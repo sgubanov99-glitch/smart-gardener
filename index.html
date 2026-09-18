@@ -6,6 +6,12 @@
 <meta name="description" content="Умный садовод — планировщик дачного участка: схема грядок и теплиц, календарь работ по фазам, прогноз урожая, погода и книга отзывов." />
 <title>Умный садовод — прототип</title>
 <link rel="icon" type="image/svg+xml" href="assets/logo-mono.svg" />
+<!-- 2.166: PWA/offline для дачи -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#8A9B6E" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Neucha&display=swap" rel="stylesheet" />
@@ -22,15 +28,12 @@
 <style>
   :root { --paper:#F1E8D7; --panel:rgba(255,252,244,.72); --olive:#8A9B6E; --olive-dark:#6F8257; --rose:#D9A5A0; --rose-dark:#C08B86; --ink:#3F3E3A; --ink-soft:#6B6A64; --halo:#E9DCC3; --radius:16px; --radius-s:12px; --shadow:0 10px 20px rgba(62,62,58,.12); --shadow-s:0 6px 14px rgba(62,62,58,.10); }
   * { box-sizing:border-box; } html, body { margin:0; padding:0; }
-  /* 2.156: overscroll-behavior УБРАН (ломал прокрутку колесом над схемой на десктопе) */
   body { background: var(--paper) url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)' opacity='0.05'/></svg>"); color: var(--ink); font-family:"Manrope",Arial,sans-serif; font-size:16px; line-height:1.5; padding-bottom:110px; overflow-x:hidden; }
   html { overflow-x:hidden; }
   .hidden { display:none !important; }
   .topbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
   .logo { font-family:"Neucha",cursive; font-size:clamp(30px,4.5vw,42px); display:flex; align-items:center; gap:10px; margin-right:auto; }
   .logo-img { width:52px; height:52px; flex:none; }
-  .tut-brand { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; font:700 12px Manrope,sans-serif; color:var(--ink-soft); }
-  .tut-brand img { width:22px; height:22px; }
   .version { font:700 12px "Manrope",sans-serif; color:var(--ink-soft); background:rgba(63,62,58,.08); border-radius:999px; padding:3px 10px; align-self:center; }
   .topbar-actions { display:flex; flex-wrap:wrap; gap:8px; }
   .btn { font-family:"Manrope",sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-s); padding:10px 14px; cursor:pointer; color:var(--ink); background:var(--panel); box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; }
@@ -75,7 +78,6 @@
   .palette-left { margin-left:0; }
   .palette-right { margin-left:auto; }
   .scheme-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 14px; }
-  /* 2.156: overflow:auto сохранён, overscroll-behavior УБРАН — прокрутка колесом над схемой работает */
   .plot-wrap { background:linear-gradient(135deg,#F5FBEC,#EDF7DD); border-radius:var(--radius); box-shadow:var(--shadow-s); padding:28px 16px 16px; overflow:auto; }
   #plotBox { position:relative; margin:auto; }
   .plot { position:relative; width:100%; height:100%; background:#fff; border-radius:14px; box-shadow:inset 0 0 0 1px rgba(120,160,120,.15); touch-action:none; }
@@ -118,7 +120,6 @@
   .gh-phase-btn.ph-past { opacity:.35; cursor:default; }
   .gh-phase-btn.ph-current { outline:2px solid var(--olive); }
   .gh-phase-btn.ph-next { cursor:pointer; }
-  /* 2.159: легенда фаз под иконками в настройках культуры; на десктопе скрыта (там подсказка по наведению) */
   .phase-legend { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11px; color:var(--ink-soft); margin-top:2px; }
   .pl-item { display:inline-flex; align-items:center; gap:4px; }
   .pl-ico { font-size:14px; }
@@ -159,7 +160,6 @@
   .cal-mode-btn.active { background:var(--olive); color:#fff; border-color:transparent; }
   .cal-day-group { margin-bottom:14px; max-width:100%; }
   .cal-day-head { font-weight:700; font-size:14px; color:var(--olive-dark); margin-bottom:6px; }
-  /* 2.157: строка задачи переносится; погодная подсказка — отдельной строкой, не обрезается */
   .cal-task { display:flex; align-items:center; flex-wrap:wrap; row-gap:2px; gap:8px; padding:6px 8px; border-radius:10px; background:rgba(255,255,255,.6); margin-bottom:4px; font-size:13.5px; cursor:pointer; max-width:100%; }
   .cal-task .prio-bar { width:4px; height:18px; border-radius:2px; }
   .cal-task .task-crop { color:var(--ink-soft); margin-left:auto; }
@@ -223,7 +223,6 @@
   .an-gantt-axis { display:grid; grid-template-columns:210px minmax(0,1fr); gap:10px; margin-top:4px; }
   .an-gantt-months { position:relative; height:16px; font-size:10.5px; color:var(--ink-soft); }
   .an-gantt-months span { position:absolute; top:0; }
-  /* 2.157: таблица «Урожай» — горизонтальная прокрутка + закреплённый первый столбец */
   .an-section { overflow-x:auto; }
   .an-section table { width:100%; min-width:560px; border-collapse:separate; border-spacing:0; }
   .an-section table th { font-weight:700; }
@@ -367,7 +366,6 @@
   .fd-exit { display:none; position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; align-items:center; gap:8px; border:none; border-radius:999px; padding:12px 16px; background:#5A4668; color:#fff; font:700 14px Manrope,sans-serif; box-shadow:var(--shadow); cursor:pointer; }
   html.fd .fd-exit { display:flex; }
   .m-note { font-size:11.5px; color:var(--ink-soft); margin:2px 0 10px; }
-  /* 2.155: нет задержки/случайного зума на двойной тап по управляющим элементам (не влияет на колесо мыши) */
   .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .hm-btn, .gh-phase-btn, .phase-controls .ph {
     touch-action: manipulation;
     -webkit-user-select: none; user-select: none;
@@ -395,7 +393,6 @@
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
     .plot-wrap { padding:26px 22px 22px; }
     .obj-panel { padding:12px; }
-    /* 2.155: визуальная ручка bottom-sheet настроек объекта */
     #objPanel:not(.hidden)::before { content:''; display:block; width:44px; height:4px; border-radius:2px; background:rgba(63,62,58,.22); margin:0 auto 10px; }
     .op-grid { grid-template-columns:1fr; }
     .op-bed { grid-template-columns:1fr; }
@@ -418,7 +415,6 @@
     .chat-messages { flex:1 1 auto; min-height:0; }
     .chat-input-row { flex:0 0 auto; flex-direction:column; gap:8px; }
     .chat-input-row button { width:100%; min-height:44px; }
-    /* 2.157: кнопка «Отправить» чата не прячется за нижним меню */
     #screen-chat.active { height:calc(100dvh - 235px); min-height:300px; }
     .chat-root { margin-bottom: calc(68px + env(safe-area-inset-bottom)); }
     .tut-gardener { flex-direction:column; align-items:flex-start; gap:8px; }
@@ -426,9 +422,7 @@
     .tut-gardener p { width:100%; }
     .tut-tips { padding-left:18px; }
     .an-section { padding:14px 12px; }
-    /* 2.165: таблица «Урожай» — горизонтальная прокрутка, читаемые колонки;
-       первый столбец = 1/3 видимой части таблицы (100vw минус отступы экрана 12+12 и секции 12+12 = 48px);
-       длинные названия обрезаются многоточием, остальные колонки делят остаток поровну */
+    /* 2.155: таблица «Урожай» — первый столбец = 1/3 видимой части, horiz. прокрутка */
     .an-section table { table-layout:fixed; width:100%; min-width:560px !important; }
     .an-section th, .an-section td { overflow-wrap:break-word; white-space:normal; font-size:12px; }
     .an-section table th:first-child, .an-section table td:first-child {
@@ -454,13 +448,11 @@
     .an-gantt-label { font-size:11px; }
     .an-weeks { gap:2px; overflow-x:auto; }
     .an-week { min-width:3px; }
-    /* 2.157: таблица урожая скроллится по горизонтали, вертикаль не режется */
     .an-section { overflow-x:auto; overflow-y:hidden; }
     .an-gantt-row, .an-gantt-axis { grid-template-columns:96px minmax(0,1fr); }
     #tsypa { max-width:170px; }
     #tsypa .tsypa-avatar img { width:44px; height:44px; }
     .tsypa-bubble { font-size:12.5px; padding:8px 10px; }
-    /* 2.157: лист Советчика на мобильном непрозрачный */
     .tip-bubble { background:#FFFCF4; }
     #tsypa.pos-2, #tsypa.pos-3 { top:118px; }
     .tip-bubble { top:118px; left:8px; right:8px; width:auto; }
@@ -485,12 +477,10 @@
     .calendar-stage { overflow:hidden; }
     .an-weeks { overflow-x:hidden; }
     .an-kpi-grid > *, .an-gantt-row > * { min-width:0; }
-    /* умные бейджи фаз на мобильном (фиксированный размер, внутри границ) */
     .obj-tiny .phase-badge, .obj-tiny .gh-phase-badge { width:14px; height:14px; font-size:8px; left:2px; top:2px; }
     .obj-tiny .gh-phases { gap:1px; max-width:90%; }
     .obj-ultra .phase-badge, .obj-ultra .gh-phases { display:none; }
     .obj-ultra::after { content:''; position:absolute; right:2px; top:2px; width:8px; height:8px; border-radius:50%; background:var(--olive); box-shadow:0 0 0 1.5px #fff; }
-    /* панорама пальцем при зуме (только touch, не влияет на колесо мыши) */
     .plot { touch-action:pan-x pan-y; }
     input, select, textarea { font-size:16px !important; }
     .m-only { display:flex; }
