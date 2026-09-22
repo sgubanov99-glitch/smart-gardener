@@ -1,7 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.177';
+export const APP_VERSION = '2.178';
 
 export const CHANGELOG = [
+  { v:'2.178', date:'22.09.2026', title:'PWA-полировка: бейдж «офлайн» на si-offline (без 📴), кнопка установки, управляемые обновления', notes:[
+    'index.html: бейдж «офлайн» в шапке на спрайт-иконке si-offline; CSS .offline-badge; пункт меню «Установить приложение»',
+    'main.js: setOfflineBadge() по offline/online; beforeinstallprompt/appinstalled; SKIP_WAITING + controllerchange + проверка обновлений раз в час',
+    'Тосты онлайн/офлайн без эмодзи'
+  ]},
   { v:'2.174-177', date:'22.09.2026', title:'Иконки: вариант 2 — централизованный рантайм-слой замены эмодзи на спрайт', notes:[
     'Новый src/ui/icons.js: SITE_ICON (эмодзи→si-*), PHASE_EMOJI_MAP (фазовый контекст), swapEmojiInTextNodes (TreeWalker только по текстовым узлам)',
     'main.js: MutationObserver по document.body + scheduleSwap() — эмодзи подменяются на знаки спрайта после каждого рендера любого вида, без правок логики видов',
