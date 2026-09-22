@@ -1,12 +1,12 @@
-// src/main.js — точка входа (ревизия 2.173)
-// 2.173: ИСПРАВЛЕНА коллизия id после загрузки схемы: nextId пересчитывается после storage.load
-//        и в applySchemeState (undo/redo) — новый объект больше не получает занятый id,
-//        не накладывается на существующий и корректно выделяется/перетаскивается
-// 2.168: централизованный слой замены эмодзи на знаки спрайта smart-gardener.svg:
-//        swapEmojiInTextNodes(document.body) через MutationObserver после каждого рендера
-// 2.161: Советчик возвращает СПИСКИ культур по типам (groupByType); «Печать» → exportPrint; постер PNG; PWA-регистрация защищена
-// 2.157: карточки культур из настроек схемы открываются в экране «Растения» (onOpenPlantCard)
-// 2.153: схема: pinch-зум, двойной тап по свободному = 1:1 (логика в schemeView)
+// src/main.js — точка входа (ревизия 2.175)
+// 2.175: PWA-полировка: бейдж «офлайн» в шапке на спрайт-иконке si-offline (без эмодзи 📴);
+//        кнопка установки «Установить приложение» (beforeinstallprompt);
+//        управляемые обновления SW (SKIP_WAITING + controllerchange + проверка раз в час)
+// 2.173: коллизия id после загрузки схемы исправлена (recalcNextId)
+// 2.168: централизованный слой замены эмодзи на знаки спрайта (swapEmojiInTextNodes + MutationObserver)
+// 2.161: Советчик возвращает СПИСКИ культур; «Печать» → exportPrint; постер PNG
+// 2.157: карточки культур из настроек схемы открываются в экране «Растения»
+// 2.153: схема: pinch-зум, двойной тап по свободному = 1:1
 // 2.140: bottom-sheet настроек; 2.131: Обзор; 2.117: мобильный каркас
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
@@ -100,11 +100,11 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
 let tutorialSlides = [];
 try { const tres = await fetch('data/tutorial.json'); if (tres.ok) tutorialSlides = await tres.json(); } catch(e){ console.warn('tutorial.json не загрузился', e); }
 try { const iconsRes = await fetch('assets/icons.svg'); if (iconsRes.ok){ const t = await iconsRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('icons.svg не загрузился', e); }
-// 2.162: инлайн спрайта служебных иконок сайта (si- для навигации, кнопок, подсказок, обучения, советчика)
+// 2.162: инлайн спрайта служебных иконок сайта (si-*)
 try { const siteRes = await fetch('assets/smart-gardener.svg'); if (siteRes.ok){ const t = await siteRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('smart-gardener.svg не загрузился', e); }
 
 /* --- сервисы и представления --- */
@@ -205,7 +205,7 @@ function applySchemeState(parsed){
   Object.keys(scheme).forEach(k=>{ delete scheme[k]; });
   Object.assign(scheme, parsed);
   scheme.completedTasks = scheme.completedTasks || {};
-  recalcNextId();   // 2.173: после undo/redo nextId тоже корректен
+  recalcNextId();   // 2.173
   refreshAfterHistory();
 }
 const history = createHistory({ getState: ()=>scheme, applyState: applySchemeState, limit: 60 });
@@ -362,7 +362,7 @@ document.addEventListener('change', function(e){
 on('saveBtn', function(){ storage.save(scheme); const pn=(scheme.plotName||'').trim(); showToast(pn ? 'План «'+pn+'» сохранён ✓' : 'План сохранён ✓'); });
 on('loadBtn', function(){
   storage.load(scheme, function(){
-    recalcNextId();   // 2.173: после загрузки nextId = max(id)+1 — новые объекты не конфликтуют с загруженными
+    recalcNextId();   // 2.173
     const set=(id,v)=>{ const el=document.getElementById(id); if (el) el.value=v; };
     set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
     schemeView.render(); calendarView.render();
@@ -450,12 +450,51 @@ window.__sgSelfTest = function(){
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
 
-/* --- PWA (защищённая регистрация; если sw.js нет — не падает) --- */
+/* --- 2.175: PWA-полировка: установка, бейдж офлайна (si-offline), управляемые обновления --- */
+let deferredInstall = null;
+const installBtn = document.getElementById('installAppBtn');
+const offlineBadge = document.getElementById('offlineBadge');
+function updateInstallUI(){ if (installBtn) installBtn.style.display = deferredInstall ? '' : 'none'; }
+window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); deferredInstall = e; updateInstallUI(); });
+window.addEventListener('appinstalled', ()=>{ deferredInstall = null; updateInstallUI(); showToast('Приложение установлено ✓'); });
+if (installBtn) installBtn.addEventListener('click', async ()=>{
+  mCloseSheets();
+  if (deferredInstall){
+    deferredInstall.prompt();
+    const r = await deferredInstall.userChoice;
+    deferredInstall = null; updateInstallUI();
+    if (r && r.outcome === 'accepted') showToast('Устанавливаем…');
+  } else {
+    const ios = /iphone|ipad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    showToast(ios ? 'iOS: Поделиться → «На экран «Домой»»' : 'Браузер пока не предлагает установку — откройте по HTTPS и повторите позже');
+  }
+});
+updateInstallUI();
+// 2.175: бейдж «офлайн» на спрайт-иконке si-offline (без эмодзи 📴)
+function setOfflineBadge(offline){ if (offlineBadge) offlineBadge.classList.toggle('hidden', !offline); }
+setOfflineBadge(!navigator.onLine);
+window.addEventListener('offline', ()=>{ setOfflineBadge(true); showToast('Нет сети — приложение работает офлайн'); });
+window.addEventListener('online', ()=>{ setOfflineBadge(false); showToast('Снова в сети'); });
+
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW register:', e)); });
+  window.addEventListener('load', async ()=>{
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      reg.addEventListener('updatefound', ()=>{
+        const nw = reg.installing; if (!nw) return;
+        nw.addEventListener('statechange', ()=>{
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            if (confirm('Доступна новая версия приложения. Обновить сейчас?')) {
+              navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+            }
+          }
+        });
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', ()=> location.reload());
+      setInterval(()=>{ reg.update(); }, 60*60*1000);
+    } catch(e){ console.warn('SW register:', e); }
+  });
 }
-window.addEventListener('offline', ()=>showToast('Нет сети — приложение работает офлайн 🌾'));
-window.addEventListener('online', ()=>showToast('Снова в сети ✓'));
 
 /* --- первичный рендер --- */
 schemeView.render();
