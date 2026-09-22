@@ -956,6 +956,9 @@ export class SchemeView {
   addObject(type) {
     const t = OBJ_TYPES[type];
     if (!t) return;
+    // 2.173: гарантируем уникальный id даже если nextId не восстановился после загрузки
+    const maxId = this.scheme.objects.reduce((m,o)=>Math.max(m, o.id||0), 0);
+    if (!Number.isFinite(this.scheme.nextId) || this.scheme.nextId <= maxId) this.scheme.nextId = maxId + 1;
     const obj = { id: this.scheme.nextId++, type, name: this.nextUniqueName(this.scheme, t.label), culture: null, plantingDate: null, w: Math.min(t.w, this.scheme.widthM), l: Math.min(t.l, this.scheme.lengthM), x: 0, y: 0 };
     if (t.h) obj.height_m = t.h;
     // 2.140: теплица сразу получает массивы грядок — выбор культуры не падает
