@@ -1,7 +1,20 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.172';
+export const APP_VERSION = '2.177';
 
 export const CHANGELOG = [
+  { v:'2.174-177', date:'22.09.2026', title:'Иконки: вариант 2 — централизованный рантайм-слой замены эмодзи на спрайт', notes:[
+    'Новый src/ui/icons.js: SITE_ICON (эмодзи→si-*), PHASE_EMOJI_MAP (фазовый контекст), swapEmojiInTextNodes (TreeWalker только по текстовым узлам)',
+    'main.js: MutationObserver по document.body + scheduleSwap() — эмодзи подменяются на знаки спрайта после каждого рендера любого вида, без правок логики видов',
+    'Контекст фаз по классам-предкам (.phase-badge/.gh-phase-badge/.pl-ico/.phase-controls/.an-legend/.tut-icon) — 🌱/🌿/🍅 в фазах дают si-shoots/si-growth/si-fruiting, в навигации — si-sprout/si-leaf/si-fruiting',
+    'schemeView.js и exportPoster.js НЕ изменены (рабочие версии) — слой замены работает поверх них',
+    'index.html: CSS-размеры .ic-site для навигации/кнопок/бейджей/легенд/обучения'
+  ]},
+  { v:'2.173', date:'21.09.2026', title:'Иконки сайта из спрайта smart-gardener.svg вместо эмодзи', notes:[
+    'Спрайт assets/smart-gardener.svg вставляется инлайном в начало body через main.js (как icons.svg)',
+    'Эмодзи в навигации, верхней панели, палитре схемы, undo/redo, ☰-меню и пилюлях-подсказках заменены на <svg class="ic-site"><use href="#si-…"/></svg>',
+    'CSS .ic-site задаёт единые размеры (20/22/18/16px) — знаки уже в цвете каталога',
+    'Цыпа (Советчик) и переключатели меню оставлены как есть (вектор chick.svg / эмодзи)'
+  ]},
   { v:'2.172', date:'19.09.2026', title:'Мобильная навигация кнопок + Обучение: геолокация, прогноз, офлайн', notes:[
     'Мобильный: «Печать» и «Постер PNG» убраны с панели схемы в ☰-меню (Печать была, добавлен Постер PNG)',
     'На панели схемы вместо них — кнопка «🐤 Советчик» (только мобильный); из ☰-меню Советчик убран',
