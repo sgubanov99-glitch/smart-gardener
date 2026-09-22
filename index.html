@@ -31,7 +31,7 @@
   body { background: var(--paper) url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)' opacity='0.05'/></svg>"); color: var(--ink); font-family:"Manrope",Arial,sans-serif; font-size:16px; line-height:1.5; padding-bottom:110px; overflow-x:hidden; }
   html { overflow-x:hidden; }
   .hidden { display:none !important; }
-  /* 2.175: размеры site-иконок спрайта smart-gardener.svg (подменённых рантайм-слоем) */
+  /* site-иконки спрайта smart-gardener.svg */
   .ic-site { width:20px; height:20px; flex:none; vertical-align:-4px; }
   .nav-btn .ic-site { width:22px; height:22px; }
   .btn .ic-site { width:18px; height:18px; vertical-align:-3px; }
@@ -47,6 +47,9 @@
   .obj-chip .ic-site { width:16px; height:16px; }
   .plot-name-emoji .ic-site { width:24px; height:24px; }
   #sunMarker .ic-site { width:24px; height:24px; vertical-align:0; }
+  /* 2.175: бейдж «офлайн» на спрайт-иконке si-offline (без эмодзи 📴) */
+  .offline-badge { display:inline-flex; align-items:center; gap:6px; font:700 11px "Manrope",sans-serif; color:#9A635E; background:rgba(217,165,160,.25); border-radius:999px; padding:3px 10px; align-self:center; }
+  .offline-badge .ic-site { width:14px; height:14px; vertical-align:0; }
   .topbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
   .logo { font-family:"Neucha",cursive; font-size:clamp(30px,4.5vw,42px); display:flex; align-items:center; gap:10px; margin-right:auto; }
   .logo-img { width:52px; height:52px; flex:none; }
@@ -129,10 +132,12 @@
   .obj-chip.selected { background:var(--olive); color:#fff; border-color:transparent; }
   .phase-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .phase-controls .ph { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); display:inline-flex; align-items:center; justify-content:center; }
+  .phase-controls .ph .ic-site { width:16px; height:16px; vertical-align:0; }
   .phase-controls .ph-past { opacity:.35; cursor:default; }
   .phase-controls .ph-current { outline:2px solid var(--olive); }
   .phase-controls .ph-next { cursor:pointer; }
   .gh-phase-btn { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); display:inline-flex; align-items:center; justify-content:center; }
+  .gh-phase-btn .ic-site { width:16px; height:16px; vertical-align:0; }
   .gh-phase-btn.ph-past { opacity:.35; cursor:default; }
   .gh-phase-btn.ph-current { outline:2px solid var(--olive); }
   .gh-phase-btn.ph-next { cursor:pointer; }
@@ -400,11 +405,6 @@
     #sunDir { width:100%; }
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
-    /* 2.176: мобильный — кнопки 3D/2D и Советчик в одном ряду */
-    .palette-right { flex-wrap:wrap; gap:8px; }
-    .palette-right #compatBtn { flex:1 1 100%; justify-content:center; }
-    .palette-right #isoBtn,
-    .palette-right #advisorBtnMob { flex:1 1 30%; min-width:0; padding:10px 6px; justify-content:center; }
     .pal-btn { padding:10px 14px; min-height:40px; }
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
     .plot-wrap { padding:26px 22px 22px; }
@@ -543,14 +543,16 @@
 <body>
   <header class="topbar">
     <div class="logo"><img src="assets/logo.svg" alt="Умный садовод — логотип" class="logo-img" /> Умный садовод <span class="version" id="appVersion"></span></div>
+    <!-- 2.175: бейдж «офлайн» на спрайт-иконке si-offline (без эмодзи 📴) -->
+    <span class="offline-badge hidden" id="offlineBadge"><svg class="ic-site"><use href="#si-offline"></use></svg> офлайн</span>
     <div class="topbar-actions">
-      <button type="button" class="btn m-only" id="menuBtn" aria-label="Меню">☰ Меню</button>
-      <button type="button" class="btn btn-blue" id="saveBtn">💾 Сохранить</button>
-      <button type="button" class="btn btn-green" id="loadBtn">📂 Загрузить</button>
-      <button type="button" class="btn btn-pink" id="resetBtn">🧹 Сбросить</button>
-      <button type="button" class="btn" id="historyBtn" title="История ревизий">🕘 История</button>
-      <button type="button" class="btn" id="tutorialBtn">🎓 Обучение</button>
-      <button type="button" class="btn btn-violet" id="guestbookBtn">📖 Книга отзывов</button>
+      <button type="button" class="btn m-only" id="menuBtn" aria-label="Меню"><svg class="ic-site"><use href="#si-menu"/></svg> Меню</button>
+      <button type="button" class="btn btn-blue" id="saveBtn"><svg class="ic-site"><use href="#si-save"/></svg> Сохранить</button>
+      <button type="button" class="btn btn-green" id="loadBtn"><svg class="ic-site"><use href="#si-load"/></svg> Загрузить</button>
+      <button type="button" class="btn btn-pink" id="resetBtn"><svg class="ic-site"><use href="#si-reset"/></svg> Сбросить</button>
+      <button type="button" class="btn" id="historyBtn" title="История ревизий"><svg class="ic-site"><use href="#si-history"/></svg> История</button>
+      <button type="button" class="btn" id="tutorialBtn"><svg class="ic-site"><use href="#si-tutorial"/></svg> Обучение</button>
+      <button type="button" class="btn btn-violet" id="guestbookBtn"><svg class="ic-site"><use href="#si-guestbook"/></svg> Книга отзывов</button>
       <button type="button" class="btn btn-olive advisor" id="advisorBtn">Советчик<img src="assets/chick.svg" alt="" class="advisor-emoji" /></button>
     </div>
   </header>
@@ -558,15 +560,15 @@
   <section class="screen active" id="screen-scheme">
     <div id="hintBar">
       <div class="hint-content">
-        <button type="button" class="hint-pill" data-tip="Шаг 1 из 4: добавьте объект на участок"><span class="hint-step-number">1</span>🌿 Добавьте объект</button>
-        <button type="button" class="hint-pill" data-tip="Шаг 2 из 4: перетащите объект на участке"><span class="hint-step-number">2</span>🖐 Перетащите его</button>
-        <button type="button" class="hint-pill" data-tip="Шаг 3 из 4: кликните дважды по объекту, чтобы настроить его параметры"><span class="hint-step-number">3</span>⚙️ Кликните дважды, чтобы настроить</button>
-        <button type="button" class="hint-pill" data-tip="Шаг 4 из 4: сохраните план в файл"><span class="hint-step-number">4</span>💾 Сохраните план в файл</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 1 из 4: добавьте объект на участок"><span class="hint-step-number">1</span><svg class="ic-site"><use href="#si-bed"/></svg> Добавьте объект</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 2 из 4: перетащите объект на участке"><span class="hint-step-number">2</span><svg class="ic-site"><use href="#si-drag"/></svg> Перетащите его</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 3 из 4: кликните дважды по объекту, чтобы настроить его параметры"><span class="hint-step-number">3</span><svg class="ic-site"><use href="#si-settings"/></svg> Кликните дважды, чтобы настроить</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 4 из 4: сохраните план в файл"><span class="hint-step-number">4</span><svg class="ic-site"><use href="#si-save"/></svg> Сохраните план в файл</button>
       </div>
-      <button type="button" class="icon-btn" id="closeHintBtn" title="Скрыть подсказки">✕</button>
+      <button type="button" class="icon-btn" id="closeHintBtn" title="Скрыть подсказки"><svg class="ic-site"><use href="#si-close"/></svg></button>
     </div>
     <div class="plot-name-bar">
-      <span class="plot-name-emoji">🏡</span>
+      <span class="plot-name-emoji"><svg class="ic-site"><use href="#si-map"/></svg></span>
       <input id="plotNameInput" type="text" placeholder="Дайте имя вашему участку…" maxlength="60" />
     </div>
     <div class="scheme-toolbar">
@@ -589,31 +591,31 @@
         </select>
       </label>
       <div class="palette palette-right">
-        <button type="button" class="pal-btn" id="compatBtn">🤝 Совместимость</button>
+        <button type="button" class="pal-btn" id="compatBtn"><svg class="ic-site"><use href="#si-compatibility"/></svg> Совместимость</button>
         <button type="button" class="pal-btn" id="isoBtn">3D</button>
-        <button type="button" class="pal-btn d-only" id="printBtn">🖨 Печать</button>
-        <button type="button" class="pal-btn d-only" id="exportBtn">🖼 Постер PNG</button>
-        <button type="button" class="pal-btn m-only" id="advisorBtnMob">🐤 Советчик</button>
+        <button type="button" class="pal-btn d-only" id="printBtn"><svg class="ic-site"><use href="#si-print"/></svg> Печать</button>
+        <button type="button" class="pal-btn d-only" id="exportBtn"><svg class="ic-site"><use href="#si-poster"/></svg> Постер PNG</button>
+        <button type="button" class="pal-btn m-only" id="advisorBtnMob"><svg class="ic-site"><use href="#si-chick"/></svg> Советчик</button>
       </div>
     </div>
     <div class="scheme-actions">
       <div class="palette palette-left">
-        <button type="button" class="pal-btn" data-add="building">🏠 Постройка</button>
-        <button type="button" class="pal-btn" data-add="greenhouse">🌱 Теплица</button>
-        <button type="button" class="pal-btn" data-add="bed">🥕 Грядка</button>
-        <button type="button" class="pal-btn" data-add="tree">🌳 Дерево</button>
-        <button type="button" class="pal-btn" data-add="bush">🌵 Кустарник</button>
+        <button type="button" class="pal-btn" data-add="building"><svg class="ic-site"><use href="#si-house"/></svg> Постройка</button>
+        <button type="button" class="pal-btn" data-add="greenhouse"><svg class="ic-site"><use href="#si-greenhouse"/></svg> Теплица</button>
+        <button type="button" class="pal-btn" data-add="bed"><svg class="ic-site"><use href="#si-bed"/></svg> Грядка</button>
+        <button type="button" class="pal-btn" data-add="tree"><svg class="ic-site"><use href="#si-tree"/></svg> Дерево</button>
+        <button type="button" class="pal-btn" data-add="bush"><svg class="ic-site"><use href="#si-bush"/></svg> Кустарник</button>
       </div>
       <div class="palette palette-right">
-        <button type="button" class="pal-btn" id="undoBtn" title="Отменить (Ctrl+Z)" disabled>↩ Отменить</button>
-        <button type="button" class="pal-btn" id="redoBtn" title="Повторить (Ctrl+Y или Ctrl+Shift+Z)" disabled>↪ Повтор</button>
+        <button type="button" class="pal-btn" id="undoBtn" title="Отменить (Ctrl+Z)" disabled><svg class="ic-site"><use href="#si-undo"/></svg> Отменить</button>
+        <button type="button" class="pal-btn" id="redoBtn" title="Повторить (Ctrl+Y или Ctrl+Shift+Z)" disabled><svg class="ic-site"><use href="#si-redo"/></svg> Повтор</button>
       </div>
     </div>
     <div class="plot-wrap" id="plotWrap">
       <div id="plotBox">
         <div class="plot" id="plot"></div>
         <canvas id="shadeCanvas"></canvas>
-        <div id="sunMarker">☀️</div>
+        <div id="sunMarker"><svg class="ic-site"><use href="#si-sun"/></svg></div>
       </div>
     </div>
     <div class="plot-wrap hidden" id="isoWrap" style="text-align:center">
@@ -632,7 +634,7 @@
       <div class="op-extra hidden" id="opExtra"></div>
       <div class="op-footer">
         <span class="obj-info" id="objInfo"></span>
-        <button type="button" class="btn-rose" id="objDelete">🗑 Удалить</button>
+        <button type="button" class="btn-rose" id="objDelete"><svg class="ic-site"><use href="#si-delete"/></svg> Удалить</button>
       </div>
     </div>
     <div class="obj-list" id="objList"></div>
@@ -680,12 +682,12 @@
   </section>
 
   <nav class="bottomnav" id="bottomnav">
-    <button type="button" class="nav-btn active" data-goto="screen-scheme"><span class="ico">🗺</span>Схема</button>
-    <button type="button" class="nav-btn" data-goto="screen-plants"><span class="ico">🌱</span>Растения</button>
-    <button type="button" class="nav-btn" data-goto="screen-calendar"><span class="ico">🗓</span>Календарь</button>
-    <button type="button" class="nav-btn" data-goto="screen-chat"><span class="ico">💬</span>Чат</button>
-    <button type="button" class="nav-btn" data-goto="screen-home"><span class="ico">📋</span>Обзор</button>
-    <button type="button" class="nav-btn" data-goto="screen-analytics"><span class="ico">📊</span>Аналитика</button>
+    <button type="button" class="nav-btn active" data-goto="screen-scheme"><span class="ico"><svg class="ic-site"><use href="#si-map"/></svg></span>Схема</button>
+    <button type="button" class="nav-btn" data-goto="screen-plants"><span class="ico"><svg class="ic-site"><use href="#si-sprout"/></svg></span>Растения</button>
+    <button type="button" class="nav-btn" data-goto="screen-calendar"><span class="ico"><svg class="ic-site"><use href="#si-calendar"/></svg></span>Календарь</button>
+    <button type="button" class="nav-btn" data-goto="screen-chat"><span class="ico"><svg class="ic-site"><use href="#si-chat"/></svg></span>Чат</button>
+    <button type="button" class="nav-btn" data-goto="screen-home"><span class="ico"><svg class="ic-site"><use href="#si-overview"/></svg></span>Обзор</button>
+    <button type="button" class="nav-btn" data-goto="screen-analytics"><span class="ico"><svg class="ic-site"><use href="#si-analytics"/></svg></span>Аналитика</button>
   </nav>
 
   <div class="calendar-modal hidden" id="guestbookOverlay">
@@ -698,38 +700,39 @@
 
   <div class="m-sheet hidden" id="mMenuSheet">
     <div class="m-sheet-panel">
-      <div class="m-sheet-head"><span class="m-sheet-title">Меню</span><button type="button" class="m-sheet-close" id="mMenuClose" aria-label="Закрыть">✕</button></div>
-      <button type="button" class="m-item" data-mact="saveBtn"><span class="mi">💾</span>Сохранить</button>
-      <button type="button" class="m-item" data-mact="loadBtn"><span class="mi">📂</span>Загрузить</button>
-      <button type="button" class="m-item" data-mact="resetBtn"><span class="mi">🧹</span>Сбросить</button>
-      <button type="button" class="m-item" data-mact="historyBtn"><span class="mi">🕘</span>История ревизий</button>
-      <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi">🎓</span>Обучение</button>
-      <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi">📖</span>Книга отзывов</button>
-      <button type="button" class="m-item" data-mact="printBtn"><span class="mi">🖨</span>Печать</button>
-      <button type="button" class="m-item" data-mact="exportBtn"><span class="mi">🖼</span>Постер PNG</button>
-      <label class="m-switch"><span class="mi">📱</span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
+      <div class="m-sheet-head"><span class="m-sheet-title">Меню</span><button type="button" class="m-sheet-close" id="mMenuClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button></div>
+      <button type="button" class="m-item" data-mact="saveBtn"><span class="mi"><svg class="ic-site"><use href="#si-save"/></svg></span>Сохранить</button>
+      <button type="button" class="m-item" data-mact="loadBtn"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Загрузить</button>
+      <button type="button" class="m-item" data-mact="resetBtn"><span class="mi"><svg class="ic-site"><use href="#si-reset"/></svg></span>Сбросить</button>
+      <button type="button" class="m-item" data-mact="historyBtn"><span class="mi"><svg class="ic-site"><use href="#si-history"/></svg></span>История ревизий</button>
+      <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
+      <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
+      <button type="button" class="m-item" data-mact="printBtn"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
+      <button type="button" class="m-item" data-mact="exportBtn"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
+      <button type="button" class="m-item" id="installAppBtn" style="display:none"><span class="mi"><svg class="ic-site"><use href="#si-install"/></svg></span>Установить приложение</button>
+      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
-      <label class="m-switch"><span class="mi">🐤</span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
+      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
       <div style="text-align:center;color:var(--ink-soft);font-size:12px;margin-top:8px">Умный садовод · v<span id="mVersion"></span></div>
     </div>
   </div>
   <div class="m-sheet hidden" id="mAddSheet">
     <div class="m-sheet-panel">
-      <div class="m-sheet-head"><span class="m-sheet-title">Добавить на участок</span><button type="button" class="m-sheet-close" id="mAddClose" aria-label="Закрыть">✕</button></div>
-      <button type="button" class="m-item" data-addfab="building"><span class="mi">🏠</span>Постройка</button>
-      <button type="button" class="m-item" data-addfab="greenhouse"><span class="mi">🌱</span>Теплица</button>
-      <button type="button" class="m-item" data-addfab="bed"><span class="mi">🥕</span>Грядка</button>
-      <button type="button" class="m-item" data-addfab="tree"><span class="mi">🌳</span>Дерево</button>
-      <button type="button" class="m-item" data-addfab="bush"><span class="mi">🌵</span>Кустарник</button>
+      <div class="m-sheet-head"><span class="m-sheet-title">Добавить на участок</span><button type="button" class="m-sheet-close" id="mAddClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button></div>
+      <button type="button" class="m-item" data-addfab="building"><span class="mi"><svg class="ic-site"><use href="#si-house"/></svg></span>Постройка</button>
+      <button type="button" class="m-item" data-addfab="greenhouse"><span class="mi"><svg class="ic-site"><use href="#si-greenhouse"/></svg></span>Теплица</button>
+      <button type="button" class="m-item" data-addfab="bed"><span class="mi"><svg class="ic-site"><use href="#si-bed"/></svg></span>Грядка</button>
+      <button type="button" class="m-item" data-addfab="tree"><span class="mi"><svg class="ic-site"><use href="#si-tree"/></svg></span>Дерево</button>
+      <button type="button" class="m-item" data-addfab="bush"><span class="mi"><svg class="ic-site"><use href="#si-bush"/></svg></span>Кустарник</button>
     </div>
   </div>
   <button type="button" class="m-fab" id="addFab" aria-label="Добавить объект">+</button>
   <div class="m-undoredo" id="mUndoRedo">
-    <button type="button" id="undoFab" disabled aria-label="Отменить">↩</button>
-    <button type="button" id="redoFab" disabled aria-label="Повторить">↪</button>
+    <button type="button" id="undoFab" disabled aria-label="Отменить"><svg class="ic-site"><use href="#si-undo"/></svg></button>
+    <button type="button" id="redoFab" disabled aria-label="Повторить"><svg class="ic-site"><use href="#si-redo"/></svg></button>
   </div>
 
-  <button type="button" class="fd-exit" id="fdExit">📱 Мобильная версия</button>
+  <button type="button" class="fd-exit" id="fdExit"><svg class="ic-site"><use href="#si-phone"/></svg> Мобильная версия</button>
 
   <div class="tip-bubble hidden" id="tipBubble"></div>
   <div id="shadeTip" class="hidden"></div>
