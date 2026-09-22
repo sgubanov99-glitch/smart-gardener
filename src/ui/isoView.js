@@ -1,4 +1,7 @@
-// src/ui/isoView.js — псевдо-3D изометрия (ревизия 2.57)
+// src/ui/isoView.js — псевдо-3D изометрия (ревизия 2.173)
+// 2.173: эмодзи на объектах заменены на иконки спрайтов:
+//        культуры — из icons.svg (crop-*), пустые объекты и фолбэк — site-иконки
+//        smart-gardener.svg (si-house / si-greenhouse / si-bed / si-tree / si-bush)
 // 2.57: иконки культур на canvas — растрируем <symbol> спрайта в Image (фолбэк эмодзи)
 import { getCropIconId } from './ux.js';
 
@@ -7,14 +10,14 @@ const TYPE_COLORS = {
   greenhouse: ['#E3F2E6','#CBE3D0','#B5D2BA'],
   bed:        ['#EDF6DC','#D8E8C0','#C2D6A6']
 };
-const TYPE_EMOJI = { building:'🏠', greenhouse:'🌱', bed:'🥕', tree:'🌳', bush:'🌵' };
+// 2.173: site-иконки типов объектов (пустые объекты и фолбэк вместо эмодзи)
+const TYPE_ICON_ID = { building:'si-house', greenhouse:'si-greenhouse', bed:'si-bed', tree:'si-tree', bush:'si-bush' };
 const TRUNK_COLOR  = '#C9A98A';
 const CROWN_LIGHT  = '#D3E6B8';
 const CROWN_DARK   = '#A6C489';
 const BUSH_LIGHT   = '#D8E9BE';
 const BUSH_DARK    = '#ACC98F';
 const SHADOW_FILL  = 'rgba(63,62,58,.14)';
-
 const PLANT_EMOJI = {
   'томат':'🍅','огурец':'🥒','перец':'🫑','капуста':'🥬','редис':'🌶',
   'морковь':'🥕','свёкла':'🟣','лук':'🧅','чеснок':'🧄','картофель':'🥔',
@@ -39,7 +42,7 @@ function sunShadeDir(sunDir){
   return map[sunDir||'S']||map.S;
 }
 
-/* ---------- 2.57: растр иконок спрайта для canvas ---------- */
+/* ---------- 2.57: растр иконок спрайта для canvas (кэш) ---------- */
 const iconCache = new Map();
 let requestIsoRender = ()=>{};
 function iconImage(id){
@@ -66,6 +69,12 @@ function iconImage(id){
 function drawCultureIcon(ctx, culture, cx, cy, size){
   const id = getCropIconId(culture);
   const img = id ? iconImage(id) : null;
+  if(img){ ctx.drawImage(img, cx-size/2, cy-size/2, size, size); return true; }
+  return false;
+}
+/* ---------- 2.173: site-иконка типа объекта (вместо эмодзи) ---------- */
+function drawTypeIcon(ctx, type, cx, cy, size){
+  const img = iconImage(TYPE_ICON_ID[type]);
   if(img){ ctx.drawImage(img, cx-size/2, cy-size/2, size, size); return true; }
   return false;
 }
@@ -141,7 +150,7 @@ export function createIsoView({ scheme, plants, onSelect }){
       };
       mk('+',()=>{ zoom=Math.min(2.5,zoom*1.15); render(); },'Приблизить');
       mk('−',()=>{ zoom=Math.max(0.5,zoom/1.15); render(); },'Отдалить');
-      mk('⟲',()=>{ zoom=1; render(); },'Сбросить масштаб (2/3)');
+      mk('⟲',()=>{ zoom=1; render(); },'Сбросить масштаб');
       wrap.appendChild(bar);
     }
     if(!wrap.querySelector('.iso-hint')){
@@ -159,7 +168,6 @@ export function createIsoView({ scheme, plants, onSelect }){
       const SUN={N:'Север',NW:'Северо-Запад',W:'Запад',SW:'Юго-Запад',S:'Юг',SE:'Юго-Восток',E:'Восток',NE:'Северо-Восток'};
       hint.textContent='☀ Солнце: '+(SUN[scheme.sunDir||'S']||'Юг')+' · тени против солнца · колесо мыши / кнопки — зум';
     }
-
     const wrap = canvas.parentElement;
     const cw = wrap ? wrap.clientWidth : 900;
     const vh = window.innerHeight || 800;
@@ -170,7 +178,6 @@ export function createIsoView({ scheme, plants, onSelect }){
     const tH = (vh*fill)/(span*0.5 + maxH*0.8);
     const baseT = Math.max(10, Math.min(tW,tH));
     const t = baseT*zoom;
-
     const corners=[project(0,0,t),project(scheme.widthM,0,t),project(scheme.widthM,scheme.lengthM,t),project(0,scheme.lengthM,t)];
     let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
     corners.forEach(c=>{minX=Math.min(minX,c.x);maxX=Math.max(maxX,c.x);minY=Math.min(minY,c.y);maxY=Math.max(maxY,c.y);});
@@ -180,10 +187,8 @@ export function createIsoView({ scheme, plants, onSelect }){
     const ox=-minX+20, oy=-minY+20;
     ctx.clearRect(0,0,W,H);
     ctx.save(); ctx.translate(ox,oy);
-
     const g0=project(0,0,t),g1=project(scheme.widthM,0,t),g2=project(scheme.widthM,scheme.lengthM,t),g3=project(0,scheme.lengthM,t);
     poly([g0,g1,g2,g3]); ctx.fillStyle='rgba(245,251,236,.75)'; ctx.fill();
-
     ctx.strokeStyle='rgba(120,160,120,.25)'; ctx.lineWidth=1;
     for(let gx=0;gx<=scheme.widthM+0.001;gx+=scheme.gridStepM){
       const a=project(gx,0,t),c=project(gx,scheme.lengthM,t);
@@ -193,13 +198,10 @@ export function createIsoView({ scheme, plants, onSelect }){
       const a=project(0,gy,t),c=project(scheme.widthM,gy,t);
       ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(c.x,c.y);ctx.stroke();
     }
-
     drawCastShadows(t);
-
     order = scheme.objects.slice().sort((a,b)=>(a.x+a.y)-(b.x+b.y));
     order.forEach(o=>{
       const gc = project(o.x+o.w/2, o.y+o.l/2, t);
-
       if(o.type==='tree'){
         const h=o.height_m||3;
         const totalPx=h*t*0.8;
@@ -213,29 +215,30 @@ export function createIsoView({ scheme, plants, onSelect }){
         ctx.strokeRect(gc.x-trunkW/2, gc.y-trunkH, trunkW, trunkH);
         const crownCy=gc.y-trunkH-crownR*0.75;
         sphere(gc.x,crownCy,crownR,CROWN_LIGHT,CROWN_DARK);
-        // 2.57: иконка культуры на кроне (фолбэк эмодзи)
+        // 2.173: иконка культуры → фолбэк site-иконка типа → фолбэк эмодзи
         if(!drawCultureIcon(ctx, o.culture, gc.x, crownCy, crownR*1.1)){
-          ctx.font=`${Math.max(12,crownR*0.8)}px serif`;
-          ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText(emojiFor(o.culture), gc.x, crownCy);
+          if(!drawTypeIcon(ctx, o.type, gc.x, crownCy, crownR*1.1)){
+            ctx.font=`${Math.max(12,crownR*0.8)}px serif`;
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(emojiFor(o.culture), gc.x, crownCy);
+          }
         }
         o._isoCircle={x:gc.x+ox,y:crownCy+oy,r:crownR};
         o._isoTop=null;
-
       } else if(o.type==='bush'){
         const r=Math.max(t*0.5, Math.min(o.w,o.l)*t*0.5);
         contactShadow(gc.x,gc.y,r*0.85,r*0.38);
         const cy=gc.y-r*0.85;
         sphere(gc.x,cy,r,BUSH_LIGHT,BUSH_DARK);
-        // 2.57: иконка культуры на шаре (фолбэк эмодзи)
         if(!drawCultureIcon(ctx, o.culture, gc.x, cy, r*1.1)){
-          ctx.font=`${Math.max(12,r*0.8)}px serif`;
-          ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText(emojiFor(o.culture), gc.x, cy);
+          if(!drawTypeIcon(ctx, o.type, gc.x, cy, r*1.1)){
+            ctx.font=`${Math.max(12,r*0.8)}px serif`;
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(emojiFor(o.culture), gc.x, cy);
+          }
         }
         o._isoCircle={x:gc.x+ox,y:cy+oy,r:r};
         o._isoTop=null;
-
       } else {
         const h=o.height_m||0.4;
         const hz=h*t*0.8;
@@ -247,9 +250,7 @@ export function createIsoView({ scheme, plants, onSelect }){
         poly([tA,tB,tC,tD]); ctx.fillStyle=cols[0]; ctx.fill();
         ctx.strokeStyle='rgba(63,62,58,.20)'; ctx.lineWidth=1; ctx.stroke();
         const cx=(tA.x+tC.x)/2, cy=(tA.y+tC.y)/2;
-
         if(o.type==='greenhouse'){
-          // 2.57: ряд иконок культур теплицы (фолбэк эмодзи)
           const cs=(o.greenhouseBedCultures||[]).filter(Boolean);
           if(cs.length){
             const size=t*0.7, gap=size*0.2;
@@ -264,16 +265,21 @@ export function createIsoView({ scheme, plants, onSelect }){
               }
             });
           } else {
-            ctx.font=`${Math.max(14,t*0.8)}px serif`;
-            ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.fillText('🌱',cx,cy);
+            // 2.173: пустая теплица — site-иконка вместо 🌱
+            if(!drawTypeIcon(ctx,'greenhouse',cx,cy,t*0.8)){
+              ctx.font=`${Math.max(14,t*0.8)}px serif`;
+              ctx.textAlign='center'; ctx.textBaseline='middle';
+              ctx.fillText('🌱',cx,cy);
+            }
           }
         } else {
-          // 2.57: иконка культуры на грядке/постройке (фолбэк эмодзи)
+          // 2.173: грядка/постройка — иконка культуры → site-иконка типа → фолбэк эмодзи
           if(!drawCultureIcon(ctx, o.culture, cx, cy, t*0.9)){
-            ctx.font=`${Math.max(14,t*0.8)}px serif`;
-            ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.fillText(emojiFor(o.culture),cx,cy);
+            if(!drawTypeIcon(ctx, o.type, cx, cy, t*0.9)){
+              ctx.font=`${Math.max(14,t*0.8)}px serif`;
+              ctx.textAlign='center'; ctx.textBaseline='middle';
+              ctx.fillText(emojiFor(o.culture),cx,cy);
+            }
           }
         }
         o._isoTop=[tA,tB,tC,tD].map(p=>({x:p.x+ox,y:p.y+oy}));
@@ -288,7 +294,6 @@ export function createIsoView({ scheme, plants, onSelect }){
     zoom=Math.min(2.5,Math.max(0.5, zoom*(e.deltaY<0?1.1:0.9)));
     render();
   },{passive:false});
-
   canvas.addEventListener('click',(e)=>{
     const r=canvas.getBoundingClientRect();
     const px=e.clientX-r.left, py=e.clientY-r.top;
@@ -302,14 +307,11 @@ export function createIsoView({ scheme, plants, onSelect }){
       }
     }
   });
-
   window.addEventListener('resize',()=>{
     const w=document.getElementById('isoWrap');
     if(w && !w.classList.contains('hidden')) render();
   });
-
   // 2.57: перерисовка после загрузки иконок
   requestIsoRender = ()=>{ render(); };
-
   return { render };
 }
