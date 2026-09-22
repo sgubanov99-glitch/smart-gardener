@@ -6,7 +6,6 @@
 <meta name="description" content="Умный садовод — планировщик дачного участка: схема грядок и теплиц, календарь работ по фазам, прогноз урожая, погода и книга отзывов." />
 <title>Умный садовод — прототип</title>
 <link rel="icon" type="image/svg+xml" href="assets/logo-mono.svg" />
-<!-- 2.166: PWA/offline для дачи -->
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#8A9B6E" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -32,12 +31,24 @@
   body { background: var(--paper) url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)' opacity='0.05'/></svg>"); color: var(--ink); font-family:"Manrope",Arial,sans-serif; font-size:16px; line-height:1.5; padding-bottom:110px; overflow-x:hidden; }
   html { overflow-x:hidden; }
   .hidden { display:none !important; }
+  /* 2.168: размеры site-иконок спрайта smart-gardener.svg */
+  .ic-site{width:20px;height:20px;flex:none;vertical-align:-4px}
+  .nav-btn .ic-site{width:22px;height:22px}
+  .btn .ic-site{width:18px;height:18px;vertical-align:-3px}
+  .pal-btn .ic-site{width:18px;height:18px;vertical-align:-3px}
+  .m-item .ic-site{width:22px;height:22px}
+  .hint-pill .ic-site{width:16px;height:16px}
+  .phase-badge .ic-site,.gh-phase-badge .ic-site{width:14px;height:14px;vertical-align:0}
+  .obj .ic-site{width:1em;height:1em;vertical-align:middle}
+  .pl-ico .ic-site{width:14px;height:14px;vertical-align:-2px}
+  .an-legend .ic-site{width:12px;height:12px;vertical-align:-1px}
+  .tut-icon .ic-site{width:48px;height:48px}
   .topbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
   .logo { font-family:"Neucha",cursive; font-size:clamp(30px,4.5vw,42px); display:flex; align-items:center; gap:10px; margin-right:auto; }
   .logo-img { width:52px; height:52px; flex:none; }
   .version { font:700 12px "Manrope",sans-serif; color:var(--ink-soft); background:rgba(63,62,58,.08); border-radius:999px; padding:3px 10px; align-self:center; }
   .topbar-actions { display:flex; flex-wrap:wrap; gap:8px; }
-  .btn { font-family:"Manrope",sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-s); padding:10px 14px; cursor:pointer; color:var(--ink); background:var(--panel); box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; }
+  .btn { font-family:"Manrope",sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:var(--radius-s); padding:10px 14px; cursor:pointer; color:var(--ink); background:var(--panel); box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; gap:6px; }
   .btn:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
   .btn:active { transform:translateY(1px) scale(.97); }
   .btn:disabled { opacity:.5; cursor:default; }
@@ -46,13 +57,13 @@
   .advisor { position:relative; }
   .advisor .advisor-emoji { position:absolute; top:-16px; right:-10px; width:30px; height:30px; pointer-events:none; filter:drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
   .screen { display:none; max-width:1180px; margin:0 auto; padding:22px 22px 30px; }
-  .screen.active { display:block; animation:pop .3s ease both; }
+  .screen.active { display:block; animation:pop .3s ease backwards; }
   @keyframes pop { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
   .screen-title { margin:0 0 16px; font-family:"Neucha",cursive; font-weight:400; font-size:clamp(28px,4vw,40px); }
   .screen-title .accent { text-decoration:underline; text-decoration-style:wavy; text-decoration-color:var(--rose); text-underline-offset:7px; }
   .bottomnav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:45; display:flex; gap:6px; background:var(--panel); backdrop-filter:blur(6px); border-radius:var(--radius); box-shadow:var(--shadow); padding:6px; }
   .nav-btn { border:none; background:transparent; border-radius:var(--radius-s); padding:8px 16px; font-family:"Manrope",sans-serif; font-weight:700; font-size:12.5px; color:var(--ink-soft); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; }
-  .nav-btn .ico { font-size:20px; } .nav-btn.active { background:var(--olive); color:#fff; box-shadow:var(--shadow-s); }
+  .nav-btn .ico { font-size:20px; display:flex; } .nav-btn.active { background:var(--olive); color:#fff; box-shadow:var(--shadow-s); }
   #hintBar { position:relative; z-index:5; margin:0 0 14px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow-s); }
   .hint-content { display:flex; flex-wrap:wrap; gap:8px; }
   .hint-pill { position:relative; display:inline-flex; align-items:center; gap:8px; cursor:help; border:none; background:linear-gradient(180deg,#FFF6DF,#F8EBC8); border-radius:999px; padding:8px 12px; font:600 13px "Manrope",sans-serif; color:#4A3B19; box-shadow:0 6px 12px rgba(70,60,40,.10); }
@@ -61,9 +72,11 @@
   .hint-pill::after { content:attr(data-tip); position:absolute; top:calc(100% + 10px); left:50%; transform:translateX(-50%) translateY(-4px); opacity:0; visibility:hidden; pointer-events:none; background:rgba(255,253,247,.96); color:#4B4B4B; border:1px solid rgba(121,96,62,.14); box-shadow:0 12px 22px rgba(70,60,40,.16); font-size:12px; font-weight:500; line-height:1.35; text-align:center; padding:7px 10px; border-radius:10px; width:max-content; max-width:230px; white-space:normal; transition:opacity .16s ease, transform .16s ease; z-index:80; }
   .hint-pill::before { content:""; position:absolute; top:calc(100% + 4px); left:50%; transform:translateX(-50%) translateY(-4px); width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:6px solid rgba(255,253,247,.96); opacity:0; visibility:hidden; pointer-events:none; transition:opacity .16s ease, transform .16s ease; z-index:80; }
   .hint-pill:hover::after, .hint-pill:hover::before { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
-  .icon-btn { width:34px; height:34px; border:none; border-radius:12px; background:#FFF7E8; box-shadow:var(--shadow-s); cursor:pointer; font-size:15px; }
+  .icon-btn { width:34px; height:34px; border:none; border-radius:12px; background:#FFF7E8; box-shadow:var(--shadow-s); cursor:pointer; font-size:15px; display:inline-flex; align-items:center; justify-content:center; }
+  .icon-btn .ic-site { width:16px; height:16px; }
   .plot-name-bar { display:flex; align-items:center; gap:10px; margin:0 0 10px; padding:10px 16px; background:linear-gradient(180deg,#FFFDF6,#F7F1E2); border:1px solid rgba(138,155,110,.28); border-radius:var(--radius-s); box-shadow:var(--shadow-s); }
-  .plot-name-emoji { font-size:24px; }
+  .plot-name-emoji { font-size:24px; display:inline-flex; }
+  .plot-name-emoji .ic-site { width:24px; height:24px; }
   .plot-name-bar input { flex:1; min-width:0; border:none; background:transparent; font-family:"Neucha",cursive; font-size:22px; color:var(--olive-dark); outline:none; }
   .plot-name-bar input::placeholder { color:rgba(111,130,87,.45); }
   .zoom-hint { display:flex; align-items:center; gap:8px; margin:0 0 10px; padding:8px 10px; border-radius:10px; background:rgba(138,155,110,.12); color:var(--ink-soft); font-size:12px; line-height:1.35; }
@@ -73,7 +86,7 @@
   .scheme-toolbar input, .scheme-toolbar select { width:76px; border:none; border-radius:10px; padding:8px 10px; font:700 14px "Manrope",sans-serif; background:var(--panel); box-shadow:var(--shadow-s); color:var(--ink); }
   #sunDir { width:auto; min-width:76px; }
   .palette { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
-  .pal-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:8px 14px; font:600 13.5px "Manrope",sans-serif; color:var(--ink); cursor:pointer; transition:transform .15s ease; }
+  .pal-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:8px 14px; font:600 13.5px "Manrope",sans-serif; color:var(--ink); cursor:pointer; transition:transform .15s ease; display:inline-flex; align-items:center; gap:6px; }
   .pal-btn:hover { transform:translateY(-2px); box-shadow:var(--shadow-s); }
   .pal-btn:disabled { opacity:.6; cursor:wait; }
   .palette-left { margin-left:0; }
@@ -83,7 +96,8 @@
   #plotBox { position:relative; margin:auto; }
   .plot { position:relative; width:100%; height:100%; background:#fff; border-radius:14px; box-shadow:inset 0 0 0 1px rgba(120,160,120,.15); touch-action:none; }
   #shadeCanvas { position:absolute; left:0; top:0; z-index:3; pointer-events:none; border-radius:14px; }
-  #sunMarker { position:absolute; z-index:4; pointer-events:none; font-size:24px; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+  #sunMarker { position:absolute; z-index:4; pointer-events:none; font-size:24px; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,.25)); display:inline-flex; }
+  #sunMarker .ic-site { width:24px; height:24px; vertical-align:0; }
   .obj { position:absolute; display:grid; place-items:center; z-index:2; border:2px solid rgba(63,62,58,.15); border-radius:12px; cursor:grab; user-select:none; touch-action:none; overflow:hidden; }
   .obj:active { cursor:grabbing; } .obj.selected { outline:3px solid rgba(138,155,110,.5); }
   .obj.invalid { border-color:var(--rose-dark); background:rgba(217,165,160,.2) !important; }
@@ -105,19 +119,22 @@
   .op-bed-title { grid-column:1/-1; font:800 12px "Manrope",sans-serif; color:var(--olive-dark); }
   .op-footer { margin-top:12px; display:flex; align-items:center; gap:12px; }
   .op-footer .obj-info { font-size:13px; color:var(--ink-soft); }
-  .btn-rose { border:none; border-radius:10px; padding:8px 14px; background:var(--rose); color:#fff; font:700 13px "Manrope",sans-serif; cursor:pointer; margin-left:auto; }
-  .btn-card { grid-column:1/-1; border:none; border-radius:var(--radius-s); padding:10px 14px; background:linear-gradient(180deg,#C9F3B9,#A9E8A0); color:#274A22; font:700 13.5px "Manrope",sans-serif; cursor:pointer; box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; }
+  .btn-rose { border:none; border-radius:10px; padding:8px 14px; background:var(--rose); color:#fff; font:700 13px "Manrope",sans-serif; cursor:pointer; margin-left:auto; display:inline-flex; align-items:center; gap:6px; }
+  .btn-card { grid-column:1/-1; border:none; border-radius:var(--radius-s); padding:10px 14px; background:linear-gradient(180deg,#C9F3B9,#A9E8A0); color:#274A22; font:700 13.5px "Manrope",sans-serif; cursor:pointer; box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
   .btn-card:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
   .btn-card:active { transform:translateY(1px) scale(.97); }
   .obj-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .obj-chip { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 12px; font:600 12.5px "Manrope",sans-serif; cursor:pointer; color:var(--ink); }
+  .obj-chip { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 12px; font:600 12.5px "Manrope",sans-serif; cursor:pointer; color:var(--ink); display:inline-flex; align-items:center; gap:6px; }
   .obj-chip.selected { background:var(--olive); color:#fff; border-color:transparent; }
+  .obj-chip .ic-site { width:16px; height:16px; }
   .phase-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .phase-controls .ph { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); }
+  .phase-controls .ph { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); display:inline-flex; align-items:center; justify-content:center; }
+  .phase-controls .ph .ic-site { width:16px; height:16px; vertical-align:0; }
   .phase-controls .ph-past { opacity:.35; cursor:default; }
   .phase-controls .ph-current { outline:2px solid var(--olive); }
   .phase-controls .ph-next { cursor:pointer; }
-  .gh-phase-btn { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); }
+  .gh-phase-btn { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); display:inline-flex; align-items:center; justify-content:center; }
+  .gh-phase-btn .ic-site { width:16px; height:16px; vertical-align:0; }
   .gh-phase-btn.ph-past { opacity:.35; cursor:default; }
   .gh-phase-btn.ph-current { outline:2px solid var(--olive); }
   .gh-phase-btn.ph-next { cursor:pointer; }
@@ -125,13 +142,13 @@
   .pl-item { display:inline-flex; align-items:center; gap:4px; }
   .pl-ico { font-size:14px; }
   @media (min-width:901px) { .phase-legend { display:none; } }
-  .gh-plant-card { grid-column:1/-1; border:none; border-radius:var(--radius-s); padding:9px 14px; background:linear-gradient(180deg,#C9F3B9,#A9E8A0); color:#274A22; font:700 13px "Manrope",sans-serif; cursor:pointer; box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; }
+  .gh-plant-card { grid-column:1/-1; border:none; border-radius:var(--radius-s); padding:9px 14px; background:linear-gradient(180deg,#C9F3B9,#A9E8A0); color:#274A22; font:700 13px "Manrope",sans-serif; cursor:pointer; box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
   .gh-plant-card:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
   .stub-note { padding:40px; text-align:center; color:var(--ink-soft); background:var(--panel); border-radius:var(--radius); }
   .plants-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .plants-toolbar input { flex:1; min-width:180px; border:none; border-radius:10px; padding:9px 12px; font:600 14px "Manrope",sans-serif; background:#fff; box-shadow:var(--shadow-s); }
   .plants-type-filter { display:flex; gap:6px; flex-wrap:wrap; }
-  .plants-type-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 12px; font:600 12.5px "Manrope",sans-serif; color:var(--ink); cursor:pointer; }
+  .plants-type-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 12px; font:600 12.5px "Manrope",sans-serif; color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
   .plants-type-btn.active { background:var(--olive); color:#fff; border-color:transparent; }
   .plants-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
   .plant-card { display:flex; align-items:center; gap:10px; background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow-s); padding:12px; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease; }
@@ -152,12 +169,13 @@
   .plant-emoji-lg { font-size:56px; }
   .plant-detail-head h3 { margin:0; font-family:"Neucha",cursive; font-size:26px; }
   .plant-type-lg { font-size:13px; color:var(--ink-soft); }
-  .plant-detail-close { margin-left:auto; border:none; background:var(--panel); border-radius:10px; width:32px; height:32px; cursor:pointer; box-shadow:var(--shadow-s); }
+  .plant-detail-close { margin-left:auto; border:none; background:var(--panel); border-radius:10px; width:32px; height:32px; cursor:pointer; box-shadow:var(--shadow-s); display:inline-flex; align-items:center; justify-content:center; }
+  .plant-detail-close .ic-site { width:16px; height:16px; }
   .plant-detail-body { margin-bottom:14px; }
   .plant-detail-row { font-size:14px; margin:4px 0; }
   .plant-detail-actions { display:flex; gap:10px; }
   .cal-mode-toggle { display:flex; gap:6px; margin-bottom:12px; }
-  .cal-mode-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 14px; font:600 13px "Manrope",sans-serif; color:var(--ink); cursor:pointer; }
+  .cal-mode-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 14px; font:600 13px "Manrope",sans-serif; color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
   .cal-mode-btn.active { background:var(--olive); color:#fff; border-color:transparent; }
   .cal-day-group { margin-bottom:14px; max-width:100%; }
   .cal-day-head { font-weight:700; font-size:14px; color:var(--olive-dark); margin-bottom:6px; }
@@ -166,7 +184,7 @@
   .cal-task .task-crop { color:var(--ink-soft); margin-left:auto; }
   .cal-task .task-wx, .cal-task .wx-note, .cal-task .task-note, .cal-task .task-hint { flex:1 1 100%; margin-left:0; white-space:normal; }
   .cal-task.done .task-name { text-decoration:line-through; color:var(--ink-soft); }
-  .overdue-badge { background:var(--rose-dark); color:#fff; font-size:10px; border-radius:999px; padding:2px 8px; }
+  .overdue-badge { background:var(--rose-dark); color:#fff; font-size:10px; border-radius:999px; padding:1px 7px; }
   .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
   .m-week { text-align:center; font:700 11px "Manrope",sans-serif; color:var(--ink-soft); padding:4px 0; }
   .m-cell { min-height:60px; border:1px solid rgba(63,62,58,.12); border-radius:8px; padding:4px; cursor:pointer; background:#fff; transition:background .15s; }
@@ -178,7 +196,7 @@
   .m-badges { display:flex; flex-wrap:wrap; gap:2px; margin-top:2px; }
   .m-badge { font-size:11px; }
   .m-nav { display:flex; align-items:center; justify-content:space-between; }
-  .m-nav button { border:none; background:var(--panel); border-radius:8px; padding:6px 12px; cursor:pointer; font-weight:700; }
+  .m-nav button { border:none; background:var(--panel); border-radius:8px; padding:6px 12px; cursor:pointer; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
   .m-day-detail { margin-top:10px; }
   .chat-root { display:flex; flex-direction:column; height:420px; background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow-s); }
   .chat-messages { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; }
@@ -253,11 +271,7 @@
   @keyframes tsypa-bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
   #tsypa { z-index:35; }
   #tsypa.pos-left { align-items:flex-start; }
-  #tsypa.flip .tsypa-avatar img,
-  #tsypa.pos-left .tsypa-avatar img,
-  #tsypa.pos-3 .tsypa-avatar img,
-  #tsypa.pos-4 .tsypa-avatar img,
-  #tsypa.pos-5 .tsypa-avatar img { transform: scaleX(-1); }
+  #tsypa.flip .tsypa-avatar img, #tsypa.pos-left .tsypa-avatar img, #tsypa.pos-3 .tsypa-avatar img, #tsypa.pos-4 .tsypa-avatar img, #tsypa.pos-5 .tsypa-avatar img { transform: scaleX(-1); }
   #tsypa.pos-left .tsypa-bubble { border-radius:14px 14px 14px 4px; }
   #tsypa.pos-0 { right:16px; bottom:96px; top:auto; left:auto; }
   #tsypa.pos-1 { right:16px; top:45%;  bottom:auto; left:auto; }
@@ -275,11 +289,12 @@
   .calendar-stage.no-image img { display:none; }
   .overlay { position:fixed; inset:0; z-index:60; display:grid; place-items:center; background:rgba(63,62,58,.35); backdrop-filter:blur(2px); padding:18px; }
   .modal { width:min(560px,94vw); max-height:86vh; overflow:auto; background:#FFFCF4; border-radius:var(--radius); box-shadow:var(--shadow); padding:24px 26px; animation:pop .25s ease both; }
-  .modal-head { display:flex; align-items:center; gap:12px; } .modal-head h2 { margin:0; font-family:"Neucha",cursive; font-size:31px; }
-  .m-emoji { font-size:40px; } .m-close { margin-left:auto; border:none; border-radius:10px; width:34px; height:34px; background:var(--panel); box-shadow:var(--shadow-s); cursor:pointer; }
+  .modal-head { display:flex; align-items:center; gap:12px; } .modal-head h2 { margin:0; font-family:"Neucha",cursive; font-size:31px; display:flex; align-items:center; gap:10px; }
+  .m-emoji { font-size:40px; } .m-close { margin-left:auto; border:none; border-radius:10px; width:34px; height:34px; background:var(--panel); box-shadow:var(--shadow-s); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+  .m-close .ic-site { width:16px; height:16px; }
   .m-type { display:inline-block; margin:8px 0 10px; padding:4px 12px; border-radius:999px; background:rgba(138,155,110,.22); color:var(--olive-dark); font-size:12.5px; font-weight:700; }
-  .m-row { font-size:14.5px; margin:5px 0; color:var(--ink-soft); } .m-row b { color:var(--ink); }
-  .m-section { margin-top:12px; font-family:"Neucha",cursive; font-size:21px; color:var(--olive-dark); }
+  .m-row { font-size:14.5px; margin:5px 0; color:var(--ink-soft); display:flex; align-items:center; gap:6px; } .m-row b { color:var(--ink); }
+  .m-section { margin-top:12px; font-family:"Neucha",cursive; font-size:21px; color:var(--olive-dark); display:flex; align-items:center; gap:8px; }
   .care-list { margin:6px 0 0; padding:0; list-style:none; } .care-list li { font-size:14px; margin:6px 0; color:var(--ink-soft); } .care-list b { color:var(--ink); }
   .disease-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
   .disease-pills span { padding:5px 12px; border-radius:999px; background:rgba(217,165,160,.28); color:#9A635E; font-size:12.5px; font-weight:700; }
@@ -292,16 +307,17 @@
   .tip-close { position:absolute; top:10px; right:10px; width:26px; height:26px; border:none; border-radius:50%; background:rgba(63,62,58,.08); color:var(--ink); font:700 14px "Manrope",sans-serif; cursor:pointer; display:grid; place-items:center; line-height:1; transition:background .15s ease; }
   .tip-close:hover { background:rgba(63,62,58,.16); }
   .tip-group { margin:4px 0; } .tip-count { color:var(--ink-soft); font-size:12px; }
-  .screen-hint { background:rgba(138,155,110,.12); border-radius:10px; padding:8px 12px; font-size:13px; margin-bottom:12px; color:var(--ink-soft); }
+  .screen-hint { background:rgba(138,155,110,.12); border-radius:10px; padding:8px 12px; font-size:13px; margin-bottom:12px; color:var(--ink-soft); display:flex; align-items:flex-start; gap:6px; }
+  .screen-hint .ic-site { flex:none; margin-top:2px; }
   .empty-state { display:flex; flex-direction:column; align-items:center; gap:6px; padding:36px 20px; text-align:center; background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow-s); }
-  .empty-state-icon { font-size:44px; }
+  .empty-state-icon { font-size:44px; display:flex; }
   .empty-state-title { font-family:"Neucha",cursive; font-size:22px; color:var(--ink); }
   .empty-state-text { font-size:13.5px; color:var(--ink-soft); max-width:420px; }
   .empty-state-action { margin-top:8px; }
   .tutorial-modal { width:min(720px,94vw); }
   .tut-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
   .tut-ill { display:flex; align-items:center; gap:12px; }
-  .tut-icon { font-size:64px; line-height:1; filter:drop-shadow(0 4px 8px rgba(0,0,0,.15)); }
+  .tut-icon { font-size:64px; line-height:1; filter:drop-shadow(0 4px 8px rgba(0,0,0,.15)); display:flex; }
   .tut-sticker { width:88px; height:auto; filter:drop-shadow(0 4px 8px rgba(0,0,0,.15)); }
   .tut-title { font-family:'Neucha',cursive; font-weight:400; font-size:30px; color:var(--olive-dark); margin:10px 0 14px; }
   .tut-gardener { display:flex; gap:10px; align-items:flex-start; background:rgba(138,155,110,.10); border-radius:12px; padding:12px 14px; }
@@ -316,11 +332,13 @@
   .tut-dots { display:flex; gap:6px; }
   .tut-dot { width:9px; height:9px; border-radius:50%; background:rgba(63,62,58,.18); cursor:pointer; transition:background .15s, transform .15s; }
   .tut-dot.active { background:var(--olive); transform:scale(1.25); }
+  .tut-brand { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; font:700 12px Manrope,sans-serif; color:var(--ink-soft); }
+  .tut-brand img { width:22px; height:22px; }
   .wx-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 10px; padding:10px 12px; background:var(--panel); border-radius:var(--radius-s); box-shadow:var(--shadow-s); }
-  .wx-title { font:700 13px Manrope,sans-serif; color:var(--ink-soft); }
-  .wx-btn { border:1.5px solid rgba(63,62,58,.14); background:#fff; border-radius:999px; padding:6px 12px; font:600 12.5px Manrope,sans-serif; color:var(--ink); cursor:pointer; }
+  .wx-title { font:700 13px Manrope,sans-serif; color:var(--ink-soft); display:inline-flex; align-items:center; gap:6px; }
+  .wx-btn { border:1.5px solid rgba(63,62,58,.14); background:#fff; border-radius:999px; padding:6px 12px; font:600 12.5px Manrope,sans-serif; color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
   .wx-btn.active { background:var(--olive); color:#fff; border-color:transparent; }
-  .wx-hint { font-size:12px; color:var(--ink-soft); margin:0 0 12px; }
+  .wx-hint { font-size:12px; color:var(--ink-soft); margin:0 0 12px; display:flex; align-items:center; gap:6px; }
   .gb-panel { position:absolute; left:52%; top:39.5%; transform:translate(-50%,-50%); width:clamp(320px,63.8%,941px); max-height:53%; overflow:auto; background:rgba(255,253,247,.95); border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.25); padding:14px 16px; }
   .gb-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
   .gb-title { font-family:"Neucha",cursive; font-size:22px; color:#5A4668; }
@@ -355,22 +373,19 @@
   .m-sheet-panel { position:absolute; inset:0; background:var(--paper); padding:calc(14px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom)); overflow:auto; }
   .m-sheet-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .m-sheet-title { font-family:"Neucha",cursive; font-size:26px; color:var(--olive-dark); }
-  .m-sheet-close { margin-left:auto; width:44px; height:44px; border:none; border-radius:12px; background:#fff; box-shadow:var(--shadow-s); font-size:18px; cursor:pointer; }
+  .m-sheet-close { margin-left:auto; width:44px; height:44px; border:none; border-radius:12px; background:#fff; box-shadow:var(--shadow-s); font-size:18px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
   .m-item { display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:14px 16px; margin-bottom:10px; border:none; border-radius:14px; background:#fff; box-shadow:var(--shadow-s); font:700 16px "Manrope",sans-serif; color:var(--ink); text-align:left; cursor:pointer; }
-  .m-item .mi { font-size:22px; width:28px; text-align:center; }
+  .m-item .mi { font-size:22px; width:28px; text-align:center; display:flex; align-items:center; justify-content:center; }
   .m-switch { display:flex; align-items:center; gap:12px; min-height:56px; padding:14px 16px; margin-bottom:10px; border-radius:14px; background:#fff; box-shadow:var(--shadow-s); font:700 16px "Manrope",sans-serif; }
   .m-switch input { width:22px; height:22px; margin-left:auto; }
   .m-fab { position:fixed; right:14px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; width:56px; height:56px; border:none; border-radius:50%; background:var(--olive); color:#fff; font:800 28px "Manrope",sans-serif; box-shadow:var(--shadow); cursor:pointer; }
   .m-undoredo { position:fixed; right:14px; top:45%; z-index:44; flex-direction:column; gap:10px; }
-  .m-undoredo button { width:48px; height:48px; border:none; border-radius:50%; background:#fff; box-shadow:var(--shadow-s); font-size:20px; cursor:pointer; }
+  .m-undoredo button { width:48px; height:48px; border:none; border-radius:50%; background:#fff; box-shadow:var(--shadow-s); font-size:20px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
   .m-undoredo button:disabled { opacity:.45; }
   .fd-exit { display:none; position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; align-items:center; gap:8px; border:none; border-radius:999px; padding:12px 16px; background:#5A4668; color:#fff; font:700 14px Manrope,sans-serif; box-shadow:var(--shadow); cursor:pointer; }
   html.fd .fd-exit { display:flex; }
   .m-note { font-size:11.5px; color:var(--ink-soft); margin:2px 0 10px; }
-  .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .hm-btn, .gh-phase-btn, .phase-controls .ph {
-    touch-action: manipulation;
-    -webkit-user-select: none; user-select: none;
-  }
+  .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .hm-btn, .gh-phase-btn, .phase-controls .ph { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
   @media (max-width: 900px) {
     body { padding-bottom:96px; -webkit-tap-highlight-color:transparent; }
     .topbar { padding:10px 12px; gap:8px; }
@@ -425,11 +440,7 @@
     .an-section { padding:14px 12px; }
     .an-section table { table-layout:fixed; width:100%; min-width:560px !important; }
     .an-section th, .an-section td { overflow-wrap:break-word; white-space:normal; font-size:12px; }
-    .an-section table th:first-child, .an-section table td:first-child {
-      width: calc((100vw - 48px) / 3);
-      max-width: calc((100vw - 48px) / 3);
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
+    .an-section table th:first-child, .an-section table td:first-child { width: calc((100vw - 48px) / 3); max-width: calc((100vw - 48px) / 3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .an-section ul, .an-section ol { padding-left:18px; }
     .an-section li { overflow-wrap:break-word; }
     .an-section * { max-width:100% !important; min-width:0 !important; }
@@ -483,9 +494,6 @@
     .obj-ultra::after { content:''; position:absolute; right:2px; top:2px; width:8px; height:8px; border-radius:50%; background:var(--olive); box-shadow:0 0 0 1.5px #fff; }
     .plot { touch-action:pan-x pan-y; }
     input, select, textarea { font-size:16px !important; }
-    /* 2.172: Печать/Постер только на десктопе; Советчик на панели схемы только на мобильном */
-    .d-only { display:none !important; }
-    .pal-btn.m-only { display:flex; justify-content:center; }
     .m-only { display:flex; }
     #menuBtn { align-items:center; justify-content:center; min-width:48px; }
     .topbar-actions .btn:not(#menuBtn) { display:none; }
@@ -534,13 +542,13 @@
   <header class="topbar">
     <div class="logo"><img src="assets/logo.svg" alt="Умный садовод — логотип" class="logo-img" /> Умный садовод <span class="version" id="appVersion"></span></div>
     <div class="topbar-actions">
-      <button type="button" class="btn m-only" id="menuBtn" aria-label="Меню">☰ Меню</button>
-      <button type="button" class="btn btn-blue" id="saveBtn">💾 Сохранить</button>
-      <button type="button" class="btn btn-green" id="loadBtn">📂 Загрузить</button>
-      <button type="button" class="btn btn-pink" id="resetBtn">🧹 Сбросить</button>
-      <button type="button" class="btn" id="historyBtn" title="История ревизий">🕘 История</button>
-      <button type="button" class="btn" id="tutorialBtn">🎓 Обучение</button>
-      <button type="button" class="btn btn-violet" id="guestbookBtn">📖 Книга отзывов</button>
+      <button type="button" class="btn m-only" id="menuBtn" aria-label="Меню"><svg class="ic-site"><use href="#si-menu"/></svg> Меню</button>
+      <button type="button" class="btn btn-blue" id="saveBtn"><svg class="ic-site"><use href="#si-save"/></svg> Сохранить</button>
+      <button type="button" class="btn btn-green" id="loadBtn"><svg class="ic-site"><use href="#si-load"/></svg> Загрузить</button>
+      <button type="button" class="btn btn-pink" id="resetBtn"><svg class="ic-site"><use href="#si-reset"/></svg> Сбросить</button>
+      <button type="button" class="btn" id="historyBtn" title="История ревизий"><svg class="ic-site"><use href="#si-history"/></svg> История</button>
+      <button type="button" class="btn" id="tutorialBtn"><svg class="ic-site"><use href="#si-tutorial"/></svg> Обучение</button>
+      <button type="button" class="btn btn-violet" id="guestbookBtn"><svg class="ic-site"><use href="#si-guestbook"/></svg> Книга отзывов</button>
       <button type="button" class="btn btn-olive advisor" id="advisorBtn">Советчик<img src="assets/chick.svg" alt="" class="advisor-emoji" /></button>
     </div>
   </header>
@@ -548,15 +556,15 @@
   <section class="screen active" id="screen-scheme">
     <div id="hintBar">
       <div class="hint-content">
-        <button type="button" class="hint-pill" data-tip="Шаг 1 из 4: добавьте объект на участок"><span class="hint-step-number">1</span><span>🌿 Добавьте объект</span></button>
-        <button type="button" class="hint-pill" data-tip="Шаг 2 из 4: перетащите объект на участке"><span class="hint-step-number">2</span><span>🖐 Перетащите его</span></button>
-        <button type="button" class="hint-pill" data-tip="Шаг 3 из 4: кликните дважды по объекту, чтобы настроить его параметры"><span class="hint-step-number">3</span><span>⚙️ Кликните дважды, чтобы настроить</span></button>
-        <button type="button" class="hint-pill" data-tip="Шаг 4 из 4: сохраните план в файл"><span class="hint-step-number">4</span><span>💾 Сохраните план в файл</span></button>
+        <button type="button" class="hint-pill" data-tip="Шаг 1 из 4: добавьте объект на участок"><span class="hint-step-number">1</span><svg class="ic-site"><use href="#si-bed"/></svg> Добавьте объект</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 2 из 4: перетащите объект на участке"><span class="hint-step-number">2</span><svg class="ic-site"><use href="#si-drag"/></svg> Перетащите его</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 3 из 4: кликните дважды по объекту, чтобы настроить его параметры"><span class="hint-step-number">3</span><svg class="ic-site"><use href="#si-settings"/></svg> Кликните дважды, чтобы настроить</button>
+        <button type="button" class="hint-pill" data-tip="Шаг 4 из 4: сохраните план в файл"><span class="hint-step-number">4</span><svg class="ic-site"><use href="#si-save"/></svg> Сохраните план в файл</button>
       </div>
-      <button type="button" class="icon-btn" id="closeHintBtn" title="Скрыть подсказки">✕</button>
+      <button type="button" class="icon-btn" id="closeHintBtn" title="Скрыть подсказки"><svg class="ic-site"><use href="#si-close"/></svg></button>
     </div>
     <div class="plot-name-bar">
-      <span class="plot-name-emoji">🏡</span>
+      <span class="plot-name-emoji"><svg class="ic-site"><use href="#si-map"/></svg></span>
       <input id="plotNameInput" type="text" placeholder="Дайте имя вашему участку…" maxlength="60" />
     </div>
     <div class="scheme-toolbar">
@@ -579,31 +587,31 @@
         </select>
       </label>
       <div class="palette palette-right">
-        <button type="button" class="pal-btn" id="compatBtn">🤝 Совместимость</button>
+        <button type="button" class="pal-btn" id="compatBtn"><svg class="ic-site"><use href="#si-compatibility"/></svg> Совместимость</button>
         <button type="button" class="pal-btn" id="isoBtn">3D</button>
-        <button type="button" class="pal-btn d-only" id="printBtn">🖨 Печать</button>
-        <button type="button" class="pal-btn d-only" id="exportBtn">🖼 Постер PNG</button>
-        <button type="button" class="pal-btn m-only" id="advisorBtnMob">🐤 Советчик</button>
+        <button type="button" class="pal-btn d-only" id="printBtn"><svg class="ic-site"><use href="#si-print"/></svg> Печать</button>
+        <button type="button" class="pal-btn d-only" id="exportBtn"><svg class="ic-site"><use href="#si-poster"/></svg> Постер PNG</button>
+        <button type="button" class="pal-btn m-only" id="advisorBtnMob"><svg class="ic-site"><use href="#si-chick"/></svg> Советчик</button>
       </div>
     </div>
     <div class="scheme-actions">
       <div class="palette palette-left">
-        <button type="button" class="pal-btn" data-add="building">🏠 Постройка</button>
-        <button type="button" class="pal-btn" data-add="greenhouse">🌱 Теплица</button>
-        <button type="button" class="pal-btn" data-add="bed">🥕 Грядка</button>
-        <button type="button" class="pal-btn" data-add="tree">🌳 Дерево</button>
-        <button type="button" class="pal-btn" data-add="bush">🌵 Кустарник</button>
+        <button type="button" class="pal-btn" data-add="building"><svg class="ic-site"><use href="#si-house"/></svg> Постройка</button>
+        <button type="button" class="pal-btn" data-add="greenhouse"><svg class="ic-site"><use href="#si-greenhouse"/></svg> Теплица</button>
+        <button type="button" class="pal-btn" data-add="bed"><svg class="ic-site"><use href="#si-bed"/></svg> Грядка</button>
+        <button type="button" class="pal-btn" data-add="tree"><svg class="ic-site"><use href="#si-tree"/></svg> Дерево</button>
+        <button type="button" class="pal-btn" data-add="bush"><svg class="ic-site"><use href="#si-bush"/></svg> Кустарник</button>
       </div>
       <div class="palette palette-right">
-        <button type="button" class="pal-btn" id="undoBtn" title="Отменить (Ctrl+Z)" disabled>↩ Отменить</button>
-        <button type="button" class="pal-btn" id="redoBtn" title="Повторить (Ctrl+Y или Ctrl+Shift+Z)" disabled>↪ Повтор</button>
+        <button type="button" class="pal-btn" id="undoBtn" title="Отменить (Ctrl+Z)" disabled><svg class="ic-site"><use href="#si-undo"/></svg> Отменить</button>
+        <button type="button" class="pal-btn" id="redoBtn" title="Повторить (Ctrl+Y или Ctrl+Shift+Z)" disabled><svg class="ic-site"><use href="#si-redo"/></svg> Повтор</button>
       </div>
     </div>
     <div class="plot-wrap" id="plotWrap">
       <div id="plotBox">
         <div class="plot" id="plot"></div>
         <canvas id="shadeCanvas"></canvas>
-        <div id="sunMarker">☀️</div>
+        <div id="sunMarker"><svg class="ic-site"><use href="#si-sun"/></svg></div>
       </div>
     </div>
     <div class="plot-wrap hidden" id="isoWrap" style="text-align:center">
@@ -622,7 +630,7 @@
       <div class="op-extra hidden" id="opExtra"></div>
       <div class="op-footer">
         <span class="obj-info" id="objInfo"></span>
-        <button type="button" class="btn-rose" id="objDelete">🗑 Удалить</button>
+        <button type="button" class="btn-rose" id="objDelete"><svg class="ic-site"><use href="#si-delete"/></svg> Удалить</button>
       </div>
     </div>
     <div class="obj-list" id="objList"></div>
@@ -670,12 +678,12 @@
   </section>
 
   <nav class="bottomnav" id="bottomnav">
-    <button type="button" class="nav-btn active" data-goto="screen-scheme"><span class="ico">🏡</span>Схема</button>
-    <button type="button" class="nav-btn" data-goto="screen-plants"><span class="ico">🌱</span>Растения</button>
-    <button type="button" class="nav-btn" data-goto="screen-calendar"><span class="ico">🗓</span>Календарь</button>
-    <button type="button" class="nav-btn" data-goto="screen-chat"><span class="ico">💬</span>Чат</button>
-    <button type="button" class="nav-btn" data-goto="screen-home"><span class="ico">📋</span>Обзор</button>
-    <button type="button" class="nav-btn" data-goto="screen-analytics"><span class="ico">📊</span>Аналитика</button>
+    <button type="button" class="nav-btn active" data-goto="screen-scheme"><span class="ico"><svg class="ic-site"><use href="#si-map"/></svg></span>Схема</button>
+    <button type="button" class="nav-btn" data-goto="screen-plants"><span class="ico"><svg class="ic-site"><use href="#si-sprout"/></svg></span>Растения</button>
+    <button type="button" class="nav-btn" data-goto="screen-calendar"><span class="ico"><svg class="ic-site"><use href="#si-calendar"/></svg></span>Календарь</button>
+    <button type="button" class="nav-btn" data-goto="screen-chat"><span class="ico"><svg class="ic-site"><use href="#si-chat"/></svg></span>Чат</button>
+    <button type="button" class="nav-btn" data-goto="screen-home"><span class="ico"><svg class="ic-site"><use href="#si-overview"/></svg></span>Обзор</button>
+    <button type="button" class="nav-btn" data-goto="screen-analytics"><span class="ico"><svg class="ic-site"><use href="#si-analytics"/></svg></span>Аналитика</button>
   </nav>
 
   <div class="calendar-modal hidden" id="guestbookOverlay">
@@ -688,38 +696,38 @@
 
   <div class="m-sheet hidden" id="mMenuSheet">
     <div class="m-sheet-panel">
-      <div class="m-sheet-head"><span class="m-sheet-title">Меню</span><button type="button" class="m-sheet-close" id="mMenuClose" aria-label="Закрыть">✕</button></div>
-      <button type="button" class="m-item" data-mact="saveBtn"><span class="mi">💾</span>Сохранить</button>
-      <button type="button" class="m-item" data-mact="loadBtn"><span class="mi">📂</span>Загрузить</button>
-      <button type="button" class="m-item" data-mact="resetBtn"><span class="mi">🧹</span>Сбросить</button>
-      <button type="button" class="m-item" data-mact="historyBtn"><span class="mi">🕘</span>История ревизий</button>
-      <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi">🎓</span>Обучение</button>
-      <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi">📖</span>Книга отзывов</button>
-      <button type="button" class="m-item" data-mact="printBtn"><span class="mi">🖨</span>Печать</button>
-      <button type="button" class="m-item" data-mact="exportBtn"><span class="mi">🖼</span>Постер PNG</button>
-      <label class="m-switch"><span class="mi">📱</span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
+      <div class="m-sheet-head"><span class="m-sheet-title">Меню</span><button type="button" class="m-sheet-close" id="mMenuClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button></div>
+      <button type="button" class="m-item" data-mact="saveBtn"><span class="mi"><svg class="ic-site"><use href="#si-save"/></svg></span>Сохранить</button>
+      <button type="button" class="m-item" data-mact="loadBtn"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Загрузить</button>
+      <button type="button" class="m-item" data-mact="resetBtn"><span class="mi"><svg class="ic-site"><use href="#si-reset"/></svg></span>Сбросить</button>
+      <button type="button" class="m-item" data-mact="historyBtn"><span class="mi"><svg class="ic-site"><use href="#si-history"/></svg></span>История ревизий</button>
+      <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
+      <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
+      <button type="button" class="m-item" data-mact="printBtn"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
+      <button type="button" class="m-item" data-mact="exportBtn"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
+      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
-      <label class="m-switch"><span class="mi">🐤</span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
+      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
       <div style="text-align:center;color:var(--ink-soft);font-size:12px;margin-top:8px">Умный садовод · v<span id="mVersion"></span></div>
     </div>
   </div>
   <div class="m-sheet hidden" id="mAddSheet">
     <div class="m-sheet-panel">
-      <div class="m-sheet-head"><span class="m-sheet-title">Добавить на участок</span><button type="button" class="m-sheet-close" id="mAddClose" aria-label="Закрыть">✕</button></div>
-      <button type="button" class="m-item" data-addfab="building"><span class="mi">🏠</span>Постройка</button>
-      <button type="button" class="m-item" data-addfab="greenhouse"><span class="mi">🌱</span>Теплица</button>
-      <button type="button" class="m-item" data-addfab="bed"><span class="mi">🥕</span>Грядка</button>
-      <button type="button" class="m-item" data-addfab="tree"><span class="mi">🌳</span>Дерево</button>
-      <button type="button" class="m-item" data-addfab="bush"><span class="mi">🌵</span>Кустарник</button>
+      <div class="m-sheet-head"><span class="m-sheet-title">Добавить на участок</span><button type="button" class="m-sheet-close" id="mAddClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button></div>
+      <button type="button" class="m-item" data-addfab="building"><span class="mi"><svg class="ic-site"><use href="#si-house"/></svg></span>Постройка</button>
+      <button type="button" class="m-item" data-addfab="greenhouse"><span class="mi"><svg class="ic-site"><use href="#si-greenhouse"/></svg></span>Теплица</button>
+      <button type="button" class="m-item" data-addfab="bed"><span class="mi"><svg class="ic-site"><use href="#si-bed"/></svg></span>Грядка</button>
+      <button type="button" class="m-item" data-addfab="tree"><span class="mi"><svg class="ic-site"><use href="#si-tree"/></svg></span>Дерево</button>
+      <button type="button" class="m-item" data-addfab="bush"><span class="mi"><svg class="ic-site"><use href="#si-bush"/></svg></span>Кустарник</button>
     </div>
   </div>
   <button type="button" class="m-fab" id="addFab" aria-label="Добавить объект">+</button>
   <div class="m-undoredo" id="mUndoRedo">
-    <button type="button" id="undoFab" disabled aria-label="Отменить">↩</button>
-    <button type="button" id="redoFab" disabled aria-label="Повторить">↪</button>
+    <button type="button" id="undoFab" disabled aria-label="Отменить"><svg class="ic-site"><use href="#si-undo"/></svg></button>
+    <button type="button" id="redoFab" disabled aria-label="Повторить"><svg class="ic-site"><use href="#si-redo"/></svg></button>
   </div>
 
-  <button type="button" class="fd-exit" id="fdExit">📱 Мобильная версия</button>
+  <button type="button" class="fd-exit" id="fdExit"><svg class="ic-site"><use href="#si-phone"/></svg> Мобильная версия</button>
 
   <div class="tip-bubble hidden" id="tipBubble"></div>
   <div id="shadeTip" class="hidden"></div>
