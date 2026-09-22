@@ -1,154 +1,165 @@
-// src/ui/plantsView.js — каталог растений (ревизия 2.71)
-// 2.71: Цыпа на карточках «подходит к посадке» — векторный /assets/chick.svg (вместо /stickers/chick.png)
-// 2.60: строгий фильтр света — «Полное солнце» только full_sun без полутени
-// 2.58: соседи и севооборот в карточке растения; фильтр по свету; обновлённая справка блока
+// src/ui/plantsView.js — каталог растений (ревизия 2.164)
+// 2.164: ВОЗВРАЩЁН фильтр по свету/тени (light_requirements); иконки культур из icons.svg,
+//        фолбэк для деревьев/кустарников — site-иконки si-tree/si-bush
+// 2.163: уход/соседи/севооборот/болезни с site-иконками в карточке
 import { screenHintHTML, emptyStateHTML, cropIconHTML } from './ux.js';
+import { siteIcon } from './icons.js';
+import { familyOf } from '../core/compatibility.js';
 
-const PLANT_EMOJI = {
-  'томат':'🍅','огурец':'🥒','перец':'🫑','капуста':'🥬','редис':'🌶',
-  'морковь':'🥕','свёкла':'🟣','лук':'🧅','чеснок':'🧄','картофель':'🥔',
-  'клубника':'🍓','земляника садовая':'🍓','укроп':'🌿','петрушка':'🌿',
-  'салат':'🥬','шпинат':'🥬','тыква':'🎃','кабачок':'🥒','патиссон':'🎃',
-  'дыня':'🍈','арбуз':'🍉','баклажан':'🍆','горох':'🫛','фасоль':'🫘',
-  'репа':'🍠','рукола':'🌿','щавель':'🍃','кинза':'🌿'
-};
 const MONTHS_LOW = ['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
-
-function norm(s){ return String(s||'').trim().toLowerCase(); }
-function plantEmoji(p){ return p.emoji || PLANT_EMOJI[norm(p.name)] || '🌿'; }
-function monthShort(){ return MONTHS_LOW[new Date().getMonth()]; }
-function isSowNow(p){ return String(p.sowing_timing||'').toLowerCase().includes(monthShort()); }
-function lightLabel(reqs){
-  if(!Array.isArray(reqs)||!reqs.length) return '—';
-  const map={full_sun:'солнечное место',partial_shade:'лёгкая полутень',full_shade:'тень'};
-  return reqs.map(r=>map[String(r).trim()]||r).join(' / ');
-}
+const TYPE_FILTERS = [
+  { key:'all', label:'Все' },
+  { key:'дерево', label:'Деревья' },
+  { key:'кустарник', label:'Кустарники' },
+  { key:'овощ', label:'Овощи' },
+  { key:'зелень', label:'Зелень' },
+  { key:'ягода', label:'Ягоды' }
+];
+const LIGHT_FILTERS = [
+  { key:'all', label:'Любой свет' },
+  { key:'full_sun', label:'Солнце' },
+  { key:'partial_shade', label:'Полутень' },
+  { key:'full_shade', label:'Тень' }
+];
+function norm(s){ return String(s || '').trim().toLowerCase(); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
 export function createPlantsView({ plants, compat, onAddToScheme }) {
   const root = document.getElementById('screen-plants-body');
+  let filter = 'all';
+  let light = 'all';
   let query = '';
-  let typeFilter = 'all';
-  let lightFilter = 'any';
-  const TYPES = [ ['all','Все'], ['дерево','🌳 Деревья'], ['кустарник','🌿 Кустарники'], ['овощ','🥕 Овощи'], ['зелень','🌱 Зелень'], ['ягода','🍓 Ягоды'] ];
-  const LIGHTS = [ ['any','Любой свет'], ['full_sun','Полное солнце'], ['partial_shade','Солнце/полутень'] ];
+  let detailName = null;
 
-  function neighborsOf(name){
-    const c = norm(name);
-    const good=[], bad=[];
-    if (compat) {
-      (compat.good||[]).forEach(p=>{ if(p[0]===c) good.push(p[1]); else if(p[1]===c) good.push(p[0]); });
-      (compat.bad||[]).forEach(p=>{ if(p[0]===c) bad.push(p[1]); else if(p[1]===c) bad.push(p[0]); });
+  function sowNow(p){
+    const m = MONTHS_LOW[new Date().getMonth()];
+    return ((p.sowing_timing || p.sowing) || '').toLowerCase().includes(m);
+  }
+  function matches(p){
+    if (filter !== 'all' && !String(p.type || '').includes(filter)) return false;
+    if (light !== 'all' && !(p.light_requirements || []).includes(light)) return false;
+    if (query && !norm(p.name).includes(query)) return false;
+    return true;
+  }
+  function pick(...vals){
+    for (const v of vals){
+      if (Array.isArray(v) && v.length) return v;
+      if (typeof v === 'string' && v.trim()) return [v];
     }
-    return {good,bad};
+    return [];
   }
-  function familyOfName(name){
-    return (compat && compat.families) ? (compat.families[norm(name)] || null) : null;
+  function careOf(p){
+    const src = (p.care && typeof p.care === 'object' && !Array.isArray(p.care)) ? p.care : null;
+    if (src) return {
+      watering: pick(src.watering, src.poliv),
+      fertilizing: pick(src.fertilizing, src.podkormka),
+      pruning: pick(src.pruning, src.obrezka),
+      other: pick(src.other, src.prochee)
+    };
+    return {
+      watering: pick(p.watering, p.care_watering),
+      fertilizing: pick(p.fertilizing, p.care_fertilizing),
+      pruning: pick(p.pruning, p.care_pruning),
+      other: pick(p.care_other, (Array.isArray(p.care) ? p.care : null))
+    };
   }
-
-  function filtered(){
-    return plants.filter(p=>{
-      const okType = typeFilter==='all' || String(p.type||'').includes(typeFilter);
-      const q = query.trim().toLowerCase();
-      const okQ = !q || norm(p.name).includes(q);
-      const reqs = Array.isArray(p.light_requirements) ? p.light_requirements.map(x=>String(x).trim()) : [];
-      let okLight = true;
-      if (lightFilter === 'full_sun') okLight = reqs.includes('full_sun') && !reqs.includes('partial_shade');
-      else if (lightFilter === 'partial_shade') okLight = reqs.includes('partial_shade');
-      return okType && okQ && okLight;
-    });
+  function diseasesOf(p){
+    const d = p.diseases || p.common_diseases || p.disease || [];
+    return Array.isArray(d) ? d : (typeof d === 'string' && d.trim() ? [d] : []);
   }
-
+  function neighborsOf(c){
+    const c0 = norm(c);
+    const good = [], bad = [];
+    if (compat) {
+      (compat.good || []).forEach(p => { if (p[0] === c0) good.push(p[1]); else if (p[1] === c0) good.push(p[0]); });
+      (compat.bad  || []).forEach(p => { if (p[0] === c0) bad.push(p[1]);  else if (p[1] === c0) bad.push(p[0]); });
+    }
+    return { good, bad };
+  }
+  // 2.164: иконка культуры; фолбэк для деревьев/кустарников — site-иконки
+  function cultureIcon(p, size){
+    const svg = cropIconHTML(p.name, size);
+    if (svg) return svg;
+    const t = String(p.type || '').toLowerCase();
+    if (t.includes('дерево')) return siteIcon('si-tree');
+    if (t.includes('кустарник')) return siteIcon('si-bush');
+    return '';
+  }
   function cardHTML(p){
-    const name = String(p.name||'').trim();
-    const ic = cropIconHTML(name, 36);
-    return `<div class="plant-card" data-name="${name.replace(/"/g,'&quot;')}">
-      ${isSowNow(p) ? '<img src="/assets/chick.svg" alt="" class="plant-chick" title="Подходит к посадке в этом месяце" />' : ''}
-      <span class="plant-emoji">${ic || plantEmoji(p)}</span>
-      <span class="plant-info">
-        <span class="plant-name" style="display:block">${name}</span>
-        <span class="plant-type" style="display:block">${String(p.type||'').trim()}</span>
-        <span class="plant-timing" style="display:block">Посев: ${p.sowing_timing||'—'} · Урожай: ${p.harvest_timing||'—'}</span>
-      </span>
-      <button type="button" class="plant-detail-btn" title="Открыть карточку">ℹ️</button>
-    </div>`;
+    const sow = sowNow(p);
+    return `<div class="plant-card" data-name="${esc(p.name)}">` +
+      (sow ? `<img src="assets/chick.svg" alt="" class="plant-chick" title="Сеют в текущем месяце" />` : '') +
+      `<span class="plant-emoji">${cultureIcon(p, 36)}</span>` +
+      `<div class="plant-info"><div class="plant-name">${esc(p.name)}</div>` +
+      `<div class="plant-type">${esc(p.type || '')}</div>` +
+      `<div class="plant-timing">${esc(p.sowing_timing || p.sowing || '')} · ${esc(p.harvest_timing || p.harvest || '')}</div></div>` +
+      `<button type="button" class="plant-detail-btn" data-detail="${esc(p.name)}" title="Карточка">›</button>` +
+      `</div>`;
   }
-
+  function careRow(iconHtml, label, items){
+    if (!items || !items.length) return '';
+    return `<div class="plant-detail-row">${iconHtml} <b>${label}:</b> ${items.map(esc).join('; ')}</div>`;
+  }
+  function detailHTML(p){
+    if (!p) return '';
+    const care = careOf(p);
+    const diseases = diseasesOf(p);
+    const nb = neighborsOf(p.name);
+    const fam = familyOf(compat, p.name);
+    const careHtml =
+      careRow(siteIcon('si-water'), 'Полив', care.watering) +
+      careRow(siteIcon('si-fertilize'), 'Подкормка', care.fertilizing) +
+      careRow(siteIcon('si-prune'), 'Обрезка', care.pruning) +
+      careRow(siteIcon('si-leaf'), 'Прочее', care.other);
+    const disHtml = diseases.length
+      ? `<div class="plant-detail-row">${siteIcon('si-warning')} <b>Болезни:</b> ${diseases.map(esc).join(', ')}</div>` : '';
+    const nbHtml = (nb.good.length || nb.bad.length)
+      ? `<div class="plant-detail-row">${siteIcon('si-compatibility')} <b>Соседи:</b></div>` +
+        (nb.good.length ? `<div class="plant-detail-row">${siteIcon('si-compatGood')} Хорошие: ${nb.good.map(esc).join(', ')}</div>` : '') +
+        (nb.bad.length ? `<div class="plant-detail-row">${siteIcon('si-noEntry')} Плохие: ${nb.bad.map(esc).join(', ')}</div>` : '')
+      : '';
+    const famHtml = fam
+      ? `<div class="plant-detail-row">${siteIcon('si-rotate')} <b>Севооборот:</b> семья ${fam} — не сажайте подряд после культур той же семьи</div>` : '';
+    return `<div class="plant-detail-overlay" id="plantDetail">` +
+      `<div class="plant-detail-modal" style="margin:auto;max-height:86vh;overflow:auto">` +
+      `<div class="plant-detail-head"><span class="plant-emoji-lg">${cultureIcon(p, 56)}</span>` +
+      `<div><h3>${esc(p.name)}</h3><div class="plant-type-lg">${esc(p.type || '')}</div></div>` +
+      `<button type="button" class="plant-detail-close" id="pdClose">${siteIcon('si-close')}</button></div>` +
+      `<div class="plant-detail-body">` +
+      `<div class="plant-detail-row">${siteIcon('si-sprout')} Посев: ${esc(p.sowing_timing || p.sowing || '—')}</div>` +
+      `<div class="plant-detail-row">${siteIcon('si-basket')} Сбор: ${esc(p.harvest_timing || p.harvest || '—')}</div>` +
+      careHtml + disHtml + nbHtml + famHtml +
+      `</div>` +
+      `<div class="plant-detail-actions"><button type="button" class="btn btn-olive" id="pdAdd">Добавить на схему</button></div>` +
+      `</div></div>`;
+  }
+  function bind(){
+    if (!root) return;
+    const search = root.querySelector('#plantSearch');
+    if (search) search.addEventListener('input', e => { query = (e.target.value || '').toLowerCase().trim(); render(); });
+    root.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.type; render(); }));
+    root.querySelectorAll('[data-light]').forEach(b => b.addEventListener('click', () => { light = b.dataset.light; render(); }));
+    root.querySelectorAll('.plant-detail-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); detailName = b.dataset.detail; render(); }));
+    root.querySelectorAll('.plant-card').forEach(c => c.addEventListener('click', () => { detailName = c.dataset.name; render(); }));
+    const ov = root.querySelector('#plantDetail');
+    if (ov) {
+      ov.addEventListener('click', e => { if (e.target === ov) { detailName = null; render(); } });
+      const cl = ov.querySelector('#pdClose'); if (cl) cl.addEventListener('click', () => { detailName = null; render(); });
+      const add = ov.querySelector('#pdAdd'); if (add) add.addEventListener('click', () => { const p = plants.find(p => p.name === detailName); if (p && onAddToScheme) onAddToScheme(p.name, p.type); });
+    }
+  }
   function render(){
-    if(!root) return;
-    const list = filtered();
-    root.innerHTML =
-      screenHintHTML('Ищите по названию и фильтруйте по типу/свету. Клик по карточке откроет карточку растения: регион, сроки посева и урожая, уход, болезни, соседей и севооборот. Кнопка «Добавить на схему» сама найдёт свободное место и запишет дату посадки в календарь.<br>Цыплёнок на карточке 🐤 подскажет культуру, которую можно сажать в этом месяце.') +
-      `<div class="plants-toolbar">
-        <input id="plantsSearch" type="search" placeholder="Поиск культуры…" value="${query.replace(/"/g,'&quot;')}" />
-        <div class="plants-type-filter">
-          ${TYPES.map(([k,label])=>`<button type="button" class="plants-type-btn ${typeFilter===k?'active':''}" data-type="${k}">${label}</button>`).join('')}
-        </div>
-      </div>
-      <div class="plants-toolbar" style="margin-top:0">
-        <div class="plants-type-filter">
-          ${LIGHTS.map(([k,label])=>`<button type="button" class="plants-type-btn ${lightFilter===k?'active':''}" data-light="${k}">☀ ${label}</button>`).join('')}
-        </div>
-      </div>` +
-      (list.length
-        ? `<div class="plants-grid">${list.map(cardHTML).join('')}</div>`
-        : emptyStateHTML({ icon:'🔍', title:'Ничего не найдено', text:'Попробуйте изменить запрос или сбросить фильтры типа/света.', actionLabel:'Сбросить фильтры', actionId:'reset-filters' }));
-
-    const search = root.querySelector('#plantsSearch');
-    if(search) search.addEventListener('input', ()=>{ query = search.value; render(); });
-    root.querySelectorAll('[data-type]').forEach(b=>b.addEventListener('click', ()=>{ typeFilter=b.dataset.type; render(); }));
-    root.querySelectorAll('[data-light]').forEach(b=>b.addEventListener('click', ()=>{ lightFilter=b.dataset.light; render(); }));
-    root.querySelectorAll('[data-ux-action="reset-filters"]').forEach(b=>b.addEventListener('click', ()=>{ query=''; typeFilter='all'; lightFilter='any'; render(); }));
-    root.querySelectorAll('.plant-card').forEach(c=>c.addEventListener('click', ()=>openPlantCard(c.dataset.name)));
+    if (!root) return;
+    const list = plants.filter(matches);
+    root.innerHTML = screenHintHTML('Выберите культуру — откроется карточка; цыплёнок отмечает культуры, которые сеют в текущем месяце.') +
+      `<div class="plants-toolbar"><input id="plantSearch" type="text" placeholder="Поиск культуры…" value="${esc(query)}" />` +
+      `<div class="plants-type-filter">${TYPE_FILTERS.map(f => `<button type="button" class="plants-type-btn ${filter === f.key ? 'active' : ''}" data-type="${f.key}">${f.label}</button>`).join('')}</div>` +
+      `<div class="plants-type-filter">${LIGHT_FILTERS.map(f => `<button type="button" class="plants-type-btn ${light === f.key ? 'active' : ''}" data-light="${f.key}">${f.label}</button>`).join('')}</div></div>` +
+      (list.length ? `<div class="plants-grid">${list.map(cardHTML).join('')}</div>`
+                   : emptyStateHTML({ icon:'', title:'Ничего не найдено', text:'Измените фильтр или запрос.' })) +
+      (detailName ? detailHTML(plants.find(p => p.name === detailName)) : '');
+    bind();
   }
-
-  function openPlantCard(name){
-    const p = plants.find(pp=>norm(pp.name)===norm(name));
-    if(!p) return;
-    document.querySelectorAll('.plant-detail-overlay').forEach(o=>o.remove());
-    const care = p.care||{};
-    const ic = cropIconHTML(String(p.name).trim(), 56);
-    const nb = neighborsOf(String(p.name).trim());
-    const fam = familyOfName(String(p.name).trim());
-    const overlay=document.createElement('div');
-    overlay.className='plant-detail-overlay';
-    overlay.innerHTML=`
-      <div class="plant-detail-modal">
-        <div class="plant-detail-head">
-          <span class="plant-emoji-lg">${ic || plantEmoji(p)}</span>
-          <div>
-            <h3>${String(p.name).trim()}</h3>
-            <div class="plant-type-lg">${String(p.type||'').trim()} · регион: ${p.region||'—'}</div>
-          </div>
-          <button type="button" class="plant-detail-close">✕</button>
-        </div>
-        <div class="plant-detail-body">
-          <div class="plant-detail-row"><b>Посев:</b> ${p.sowing_timing||'—'}</div>
-          <div class="plant-detail-row"><b>Урожай:</b> ${p.harvest_timing||'—'}</div>
-          <div class="plant-detail-row"><b>Свет:</b> ${lightLabel(p.light_requirements)}</div>
-          <div class="plant-detail-row" style="margin-top:6px"><b>Уход:</b></div>
-          <ul class="care-list">
-            ${care.watering?`<li>💧 <b>Полив:</b> ${care.watering}</li>`:''}
-            ${care.fertilizer?`<li>🧪 <b>Подкормка:</b> ${care.fertilizer}</li>`:''}
-            ${care.pruning?`<li>✂️ <b>Обрезка:</b> ${care.pruning}</li>`:''}
-            ${care.other?`<li>🌿 <b>Прочее:</b> ${care.other}</li>`:''}
-          </ul>
-          ${(p.diseases&&p.diseases.length)?`<div class="plant-detail-row" style="margin-top:8px"><b>Болезни и вредители:</b></div><div class="disease-pills">${p.diseases.map(d=>`<span>${d}</span>`).join('')}</div>`:''}
-          <div class="plant-detail-row" style="margin-top:8px"><b>🤝 Соседи:</b></div>
-          <div class="plant-detail-row">✅ Хорошие: ${nb.good.join(', ')||'—'}</div>
-          <div class="plant-detail-row">⛔ Плохие: ${nb.bad.join(', ')||'—'}</div>
-          <div class="plant-detail-row">🔄 Севооборот: ${fam ? `семья ${fam} — не сажайте подряд после культур той же семьи` : 'данных о семье нет'}</div>
-        </div>
-        <div class="plant-detail-actions">
-          <button type="button" class="btn btn-olive" id="pdAdd">🌿 Добавить на схему</button>
-          <button type="button" class="btn" id="pdClose">Закрыть</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    overlay.querySelector('.plant-detail-close').addEventListener('click',()=>overlay.remove());
-    overlay.querySelector('#pdClose').addEventListener('click',()=>overlay.remove());
-    overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.remove(); });
-    overlay.querySelector('#pdAdd').addEventListener('click',()=>{ if(onAddToScheme) onAddToScheme(String(p.name).trim(), p.type); overlay.remove(); });
-  }
-
-  return { render };
+  function openPlantCard(name){ detailName = name; render(); }
+  return { render, openPlantCard };
 }
