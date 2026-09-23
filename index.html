@@ -404,6 +404,11 @@
     #sunDir { width:100%; }
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
+    /* 2.176: мобильный — кнопки 3D/2D и Советчик в одном ряду */
+    .palette-right { flex-wrap:wrap; gap:8px; }
+    .palette-right #compatBtn { flex:1 1 100%; justify-content:center; }
+    .palette-right #isoBtn,
+    .palette-right #advisorBtnMob { flex:1 1 30%; min-width:0; padding:10px 6px; justify-content:center; }
     .pal-btn { padding:10px 14px; min-height:40px; }
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
     .plot-wrap { padding:26px 22px 22px; }
