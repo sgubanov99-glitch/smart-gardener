@@ -1,9 +1,10 @@
-// src/main.js — точка входа (ревизия 2.178)
-// 2.178: PWA-докрутка: shortcuts (?page=…) из долгого тапа по иконке;
-//        share-target: GET (text/title/url) → тост-превью; POST-файл плана (.json) → импорт через Launch Handler
-// 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе; аварийное восстановление
-// 2.175: PWA-полировка: бейдж «офлайн» (si-offline), кнопка установки (beforeinstallprompt),
-//        управляемые обновления SW (SKIP_WAITING + controllerchange + проверка раз в час)
+// src/main.js — точка входа (ревизия 2.179)
+// 2.179: ИСПРАВЛЕН регресс 2.178: planting гарантированно передаётся в SchemeView
+//        (иначе plantingRef=null → пропадает блок «Схема посадки / Оценка урожая»);
+//        добавлена самопроверка 'planting ref works'
+// 2.178: PWA: shortcuts (?page=…) и share-target (общий текст/ссылка/файл плана)
+// 2.176: автосохранение (dirty-флаг + дебаунс 5с + flush при уходе); аварийное восстановление
+// 2.175: PWA-полировка: бейдж «офлайн» (si-offline), кнопка установки, управляемые обновления SW
 // 2.173: коллизия id после загрузки схемы исправлена (recalcNextId)
 // 2.168: централизованный слой замены эмодзи на знаки спрайта (swapEmojiInTextNodes + MutationObserver)
 // 2.161: Советчик возвращает СПИСКИ культур; «Печать» → exportPrint; постер PNG
@@ -34,6 +35,7 @@ import { createReminders } from './core/reminders.js';
 import { WEATHER_MODES } from './core/weather.js';
 import { APP_VERSION, CHANGELOG } from './core/changelog.js';
 import { swapEmojiInTextNodes } from './ui/icons.js';
+import { plantingRef } from './core/planting.js';   // 2.179: для самопроверки расчёта урожая
 
 /* --- утилиты --- */
 function deepTrim(v){
@@ -102,7 +104,8 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+if (!planting || !Object.keys(planting).length) console.warn('main.js: planting.json пуст или не загружен — расчёт урожая будет недоступен');
 let tutorialSlides = [];
 try { const tres = await fetch('data/tutorial.json'); if (tres.ok) tutorialSlides = await tres.json(); } catch(e){ console.warn('tutorial.json не загрузился', e); }
 try { const iconsRes = await fetch('assets/icons.svg'); if (iconsRes.ok){ const t = await iconsRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('icons.svg не загрузился', e); }
@@ -111,6 +114,7 @@ try { const siteRes = await fetch('assets/smart-gardener.svg'); if (siteRes.ok){
 
 /* --- сервисы и представления --- */
 const storage = new StorageService();
+// 2.179: planting ОБЯЗАТЕЛЬНО передаётся в SchemeView (регpесс 2.178 устранён)
 const schemeView = new SchemeView({ scheme, plants, phases, nextUniqueName, compat, planting });
 const calendarView = createCalendarView({
   scheme, phases, plants, planting, buildCalendar,
@@ -221,11 +225,11 @@ updateHistoryButtons();
 
 /* --- 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе --- */
 const AUTOSAVE_KEY = 'sg-autosave';
-const AUTOSAVE_DEBOUNCE = 5000;   // 5с: экономно по батарее; окно потери закрыто flush-при-уходе
+const AUTOSAVE_DEBOUNCE = 5000;
 let autosaveTimer = null;
 let autosaveDirty = false;
 function autosaveNow(){
-  if (!autosaveDirty) return;              // ничего не менялось — storage не трогаем
+  if (!autosaveDirty) return;
   try {
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ at: Date.now(), scheme }));
     autosaveDirty = false;
@@ -236,11 +240,9 @@ function scheduleAutosave(){
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(autosaveNow, AUTOSAVE_DEBOUNCE);
 }
-// flush при уходе: ноль потерь при закрытии/сворачивании, ноль лишних затрат энергии
 document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'hidden') autosaveNow(); });
 window.addEventListener('pagehide', autosaveNow);
 window.addEventListener('beforeunload', autosaveNow);
-// любой history.commit() (клик/change/input/pointerup) помечает dirty и перезапускает таймер
 const _historyCommit = history.commit.bind(history);
 history.commit = function(){ const r = _historyCommit(); scheduleAutosave(); return r; };
 function applyScheme(s){
@@ -254,7 +256,6 @@ function applyScheme(s){
   if (window.__tsypa) window.__tsypa.refresh();
   history.commit();
 }
-// аварийное восстановление: только если текущая схема пуста (забыли сохранить / сбой вкладки)
 function tryRestoreAutosave(){
   try {
     const raw = localStorage.getItem(AUTOSAVE_KEY);
@@ -262,7 +263,7 @@ function tryRestoreAutosave(){
     const data = JSON.parse(raw);
     const s = data && data.scheme;
     if (!s || !Array.isArray(s.objects) || !s.objects.length) return;
-    if (scheme.objects.length) return;   // не трогаем, если уже есть данные
+    if (scheme.objects.length) return;
     applyScheme(s);
     showToast('Восстановлено автосохранение (доступно отменить)');
   } catch(e){}
@@ -500,6 +501,10 @@ window.__sgSelfTest = function(){
   push('phases loaded', !!phases&&Object.keys(phases).length>0, Object.keys(phases||{}).length+' cultures');
   push('compat loaded', !!compat&&Array.isArray(compat.good)&&Array.isArray(compat.bad), '');
   push('planting loaded', !!planting&&Object.keys(planting).length>0, Object.keys(planting||{}).length+' cultures');
+  // 2.179: гарантия, что расчёт урожая доезжает до представления
+  const firstCulture = (scheme.objects.find(o=>o.culture)||{}).culture || Object.keys(planting||{})[0] || '';
+  push('planting ref works', !!planting && Object.keys(planting).length>0 && !!plantingRef(planting, firstCulture), 'ref for: '+firstCulture);
+  push('schemeView has planting', !!schemeView.planting && Object.keys(schemeView.planting).length>0, Object.keys(schemeView.planting||{}).length+' keys');
   push('tutorial loaded', Array.isArray(tutorialSlides)&&tutorialSlides.length>0, (tutorialSlides.length||0)+' slides');
   push('scheme bounds', scheme.widthM>=4&&scheme.widthM<=60&&scheme.lengthM>=4&&scheme.lengthM<=60, scheme.widthM+'×'+scheme.lengthM);
   const inB = scheme.objects.every(o=>o.x>=-0.001&&o.y>=-0.001&&o.x+o.w<=scheme.widthM+0.001&&o.y+o.l<=scheme.lengthM+0.001);
@@ -510,7 +515,6 @@ window.__sgSelfTest = function(){
   push('calendar builds', calOk, calDays+' days with tasks');
   push('nextId consistent', scheme.nextId === scheme.objects.reduce((m,o)=>Math.max(m,o.id||0),0)+1, 'nextId='+scheme.nextId);
   push('autosave wired', typeof scheduleAutosave==='function' && !!localStorage, 'localStorage sg-autosave');
-  push('share-target handler', ('launchQueue' in window) || true, 'launchQueue supported: '+('launchQueue' in window));
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -559,23 +563,16 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/* --- первичный рендер --- */
-schemeView.render();
-tryRestoreAutosave();   // 2.176: аварийное восстановление автосохранения (если схема пуста)
-try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) setTimeout(()=>tutorialView.open(0), 600); } catch(e){}
-
-/* --- 2.178: PWA-докрутка: shortcuts (?page=…) и share-target (текст/ссылка/файл плана) --- */
+/* --- 2.178: PWA: shortcuts (?page=…) и share-target (общий текст/ссылка/файл плана) --- */
 (function handleLaunchParams(){
   try {
     const url = new URL(location.href);
-    // shortcuts: долгий тап по иконке приложения → быстрый переход на экран
     const page = url.searchParams.get('page');
     if (page && ['scheme','plants','calendar','chat','home','analytics'].includes(page)) {
       setTimeout(()=>showScreen('screen-'+page), 0);
       url.searchParams.delete('page');
-      window.history.replaceState(null, '', url.toString());   // именно window.history (локальная переменная history занята стеком undo)
+      window.history.replaceState(null, '', url.toString());
     }
-    // share-target GET: текст/заголовок/ссылка из системного меню «Поделиться»
     const sharedText = url.searchParams.get('text') || url.searchParams.get('title');
     const sharedUrl  = url.searchParams.get('url');
     if (sharedText || sharedUrl) {
@@ -586,7 +583,6 @@ try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) se
     }
   } catch(e){}
 })();
-// share-target POST/файлы: общий .json-план из Files/Drive/Telegram → импорт с подтверждением (Chromium Launch Handler)
 if ('launchQueue' in window) {
   window.launchQueue.setConsumer(async (params) => {
     if (!params.files || !params.files.length) return;
@@ -603,6 +599,11 @@ if ('launchQueue' in window) {
     } catch(e){ showToast('Не удалось прочитать общий файл'); }
   });
 }
+
+/* --- первичный рендер --- */
+schemeView.render();
+tryRestoreAutosave();   // 2.176: аварийное восстановление автосохранения (если схема пуста)
+try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) setTimeout(()=>tutorialView.open(0), 600); } catch(e){}
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта по всему DOM --- */
 let swapRaf = 0;
