@@ -1,7 +1,7 @@
-// src/main.js — точка входа (ревизия 2.176)
-// 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе
-//        (visibilitychange/pagehide/beforeunload); аварийное восстановление при пустой схеме;
-//        пункт меню «Восстановить автосохранение»
+// src/main.js — точка входа (ревизия 2.178)
+// 2.178: PWA-докрутка: shortcuts (?page=…) из долгого тапа по иконке;
+//        share-target: GET (text/title/url) → тост-превью; POST-файл плана (.json) → импорт через Launch Handler
+// 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе; аварийное восстановление
 // 2.175: PWA-полировка: бейдж «офлайн» (si-offline), кнопка установки (beforeinstallprompt),
 //        управляемые обновления SW (SKIP_WAITING + controllerchange + проверка раз в час)
 // 2.173: коллизия id после загрузки схемы исправлена (recalcNextId)
@@ -102,7 +102,7 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
 let tutorialSlides = [];
 try { const tres = await fetch('data/tutorial.json'); if (tres.ok) tutorialSlides = await tres.json(); } catch(e){ console.warn('tutorial.json не загрузился', e); }
 try { const iconsRes = await fetch('assets/icons.svg'); if (iconsRes.ok){ const t = await iconsRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('icons.svg не загрузился', e); }
@@ -243,7 +243,6 @@ window.addEventListener('beforeunload', autosaveNow);
 // любой history.commit() (клик/change/input/pointerup) помечает dirty и перезапускает таймер
 const _historyCommit = history.commit.bind(history);
 history.commit = function(){ const r = _historyCommit(); scheduleAutosave(); return r; };
-
 function applyScheme(s){
   Object.keys(scheme).forEach(k=>{ delete scheme[k]; });
   Object.assign(scheme, s);
@@ -511,6 +510,7 @@ window.__sgSelfTest = function(){
   push('calendar builds', calOk, calDays+' days with tasks');
   push('nextId consistent', scheme.nextId === scheme.objects.reduce((m,o)=>Math.max(m,o.id||0),0)+1, 'nextId='+scheme.nextId);
   push('autosave wired', typeof scheduleAutosave==='function' && !!localStorage, 'localStorage sg-autosave');
+  push('share-target handler', ('launchQueue' in window) || true, 'launchQueue supported: '+('launchQueue' in window));
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -563,6 +563,46 @@ if ('serviceWorker' in navigator) {
 schemeView.render();
 tryRestoreAutosave();   // 2.176: аварийное восстановление автосохранения (если схема пуста)
 try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) setTimeout(()=>tutorialView.open(0), 600); } catch(e){}
+
+/* --- 2.178: PWA-докрутка: shortcuts (?page=…) и share-target (текст/ссылка/файл плана) --- */
+(function handleLaunchParams(){
+  try {
+    const url = new URL(location.href);
+    // shortcuts: долгий тап по иконке приложения → быстрый переход на экран
+    const page = url.searchParams.get('page');
+    if (page && ['scheme','plants','calendar','chat','home','analytics'].includes(page)) {
+      setTimeout(()=>showScreen('screen-'+page), 0);
+      url.searchParams.delete('page');
+      window.history.replaceState(null, '', url.toString());   // именно window.history (локальная переменная history занята стеком undo)
+    }
+    // share-target GET: текст/заголовок/ссылка из системного меню «Поделиться»
+    const sharedText = url.searchParams.get('text') || url.searchParams.get('title');
+    const sharedUrl  = url.searchParams.get('url');
+    if (sharedText || sharedUrl) {
+      const preview = String(sharedText || sharedUrl).slice(0, 80);
+      setTimeout(()=>showToast('Получено из «Поделиться»: ' + preview), 800);
+      ['text','title','url'].forEach(k=>url.searchParams.delete(k));
+      window.history.replaceState(null, '', url.toString());
+    }
+  } catch(e){}
+})();
+// share-target POST/файлы: общий .json-план из Files/Drive/Telegram → импорт с подтверждением (Chromium Launch Handler)
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(async (params) => {
+    if (!params.files || !params.files.length) return;
+    try {
+      const file = await params.files[0].getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const s = (data && data.scheme) ? data.scheme : data;
+      if (!s || !Array.isArray(s.objects)) { showToast('Файл не похож на план участка'); return; }
+      if (confirm('Импортировать полученный план участка? Текущее состояние будет заменено.')) {
+        applyScheme(s);
+        showToast('План импортирован из «Поделиться» ✓');
+      }
+    } catch(e){ showToast('Не удалось прочитать общий файл'); }
+  });
+}
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта по всему DOM --- */
 let swapRaf = 0;
