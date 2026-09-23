@@ -1,7 +1,14 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.180';
+export const APP_VERSION = '2.181';
 
 export const CHANGELOG = [
+  { v:'2.181', date:'24.09.2026', title:'Журнал заметок по объекту', notes:[
+    'Блок «Журнал объекта (N)» в панели настроек для любого типа объекта (грядка/теплица/дерево/куст/постройка)',
+    'Заметка: дата (по умолчанию сегодня) + тип (Полив/Подкормка/Обрезка/Обработка/Сбор/Другое со значками si-water/si-fertilize/si-prune/si-warning/si-basket/si-leaf) + текст до 120 символов',
+    'Список заметок: новые сверху, удаление ✕ с подтверждением; счётчик заметок в чипах списка объектов',
+    'Хранение obj.notes=[{id,date,type,text}] → попадает в автосохранение, файл Сохранить/Загрузить и undo/redo; в печать и постер не попадает',
+    'Миграция: старые объекты без notes читаются как пустой журнал'
+  ]},
   { v:'2.180', date:'23.09.2026', title:'PWA-докрутка: screenshots, share-target, shortcuts', notes:[
     'manifest: screenshots (3 narrow 1080x2220: схема/календарь/аналитика + 1 wide 1280x720 схема) с form_factor и label',
     'manifest: share_target GET (title/text/url) + shortcuts (Схема/Календарь/Каталог) с ?page=…',
