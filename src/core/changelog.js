@@ -1,7 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.178';
+export const APP_VERSION = '2.179';
 
 export const CHANGELOG = [
+  { v:'2.179', date:'23.09.2026', title:'Автосохранение battery-safe: dirty-флаг, дебаунс 5с, flush при уходе', notes:[
+    'Запись в localStorage только если были изменения (dirty-флаг) — пустых записей нет',
+    'Дебаунс 5с вместо 1.5с: меньше записей во время правок; разница энергии пренебрежима, окно потери меньше чем при 30с',
+    'Flush при visibilitychange(hidden)/pagehide/beforeunload: ноль потерь при закрытии/сворачивании без затрат энергии',
+    'Пояснение: батарею в таком приложении ест экран и активные циклы, а не редкие мелкие записи localStorage'
+  ]},
   { v:'2.178', date:'22.09.2026', title:'PWA-полировка: бейдж «офлайн» на si-offline (без 📴), кнопка установки, управляемые обновления', notes:[
     'index.html: бейдж «офлайн» в шапке на спрайт-иконке si-offline; CSS .offline-badge; пункт меню «Установить приложение»',
     'main.js: setOfflineBadge() по offline/online; beforeinstallprompt/appinstalled; SKIP_WAITING + controllerchange + проверка обновлений раз в час',
