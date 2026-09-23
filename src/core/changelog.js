@@ -1,7 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.179';
+export const APP_VERSION = '2.180';
 
 export const CHANGELOG = [
+  { v:'2.180', date:'23.09.2026', title:'PWA-докрутка: screenshots, share-target, shortcuts', notes:[
+    'manifest: screenshots (3 narrow 1080x2220: схема/календарь/аналитика + 1 wide 1280x720 схема) с form_factor и label',
+    'manifest: share_target GET (title/text/url) + shortcuts (Схема/Календарь/Каталог) с ?page=…',
+    'main.js: handleLaunchParams — переход по ?page= и тост для общего текста/ссылки; launchQueue.setConsumer — импорт общего .json-плана с подтверждением',
+    'Инструкция по скриншотам: custom device 360x740 DPR3 (narrow) и 1280x720 DPR1 (wide), Capture screenshot; демо-данные для «живых» кадров'
+  ]},
   { v:'2.179', date:'23.09.2026', title:'Автосохранение battery-safe: dirty-флаг, дебаунс 5с, flush при уходе', notes:[
     'Запись в localStorage только если были изменения (dirty-флаг) — пустых записей нет',
     'Дебаунс 5с вместо 1.5с: меньше записей во время правок; разница энергии пренебрежима, окно потери меньше чем при 30с',
