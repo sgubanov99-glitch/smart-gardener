@@ -16,5 +16,22 @@
     { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "assets/logo-mono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "assets/screenshots/mobile-scheme.png",    "sizes": "720x1356", "type": "image/png", "form_factor": "narrow", "label": "Схема участка с объектами и фазами культур" },
+    { "src": "assets/screenshots/mobile-calendar.png",  "sizes": "720x1356", "type": "image/png", "form_factor": "narrow", "label": "Календарь задач на ближайшие недели" },
+    { "src": "assets/screenshots/mobile-analytics.png", "sizes": "720x1356", "type": "image/png", "form_factor": "narrow", "label": "Аналитика: прогноз и факт урожая" },
+    { "src": "assets/screenshots/desktop-scheme.png",   "sizes": "2560x1356",  "type": "image/png", "form_factor": "wide",   "label": "План участка на компьютере" }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
+  "shortcuts": [
+    { "name": "Схема участка",     "short_name": "Схема",     "url": "./?page=scheme",   "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Календарь задач",   "short_name": "Календарь", "url": "./?page=calendar", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Каталог растений",  "short_name": "Каталог",   "url": "./?page=plants",   "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] }
   ]
 }
