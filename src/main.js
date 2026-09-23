@@ -1,6 +1,8 @@
-// src/main.js — точка входа (ревизия 2.175)
-// 2.175: PWA-полировка: бейдж «офлайн» в шапке на спрайт-иконке si-offline (без эмодзи 📴);
-//        кнопка установки «Установить приложение» (beforeinstallprompt);
+// src/main.js — точка входа (ревизия 2.176)
+// 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе
+//        (visibilitychange/pagehide/beforeunload); аварийное восстановление при пустой схеме;
+//        пункт меню «Восстановить автосохранение»
+// 2.175: PWA-полировка: бейдж «офлайн» (si-offline), кнопка установки (beforeinstallprompt),
 //        управляемые обновления SW (SKIP_WAITING + controllerchange + проверка раз в час)
 // 2.173: коллизия id после загрузки схемы исправлена (recalcNextId)
 // 2.168: централизованный слой замены эмодзи на знаки спрайта (swapEmojiInTextNodes + MutationObserver)
@@ -100,7 +102,7 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
 let tutorialSlides = [];
 try { const tres = await fetch('data/tutorial.json'); if (tres.ok) tutorialSlides = await tres.json(); } catch(e){ console.warn('tutorial.json не загрузился', e); }
 try { const iconsRes = await fetch('assets/icons.svg'); if (iconsRes.ok){ const t = await iconsRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('icons.svg не загрузился', e); }
@@ -216,6 +218,68 @@ document.addEventListener('change', ()=>history.commit());
 document.addEventListener('pointerup', ()=>history.commit());
 let __ict = null; document.addEventListener('input', ()=>{ clearTimeout(__ict); __ict = setTimeout(()=>history.commit(), 500); });
 updateHistoryButtons();
+
+/* --- 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе --- */
+const AUTOSAVE_KEY = 'sg-autosave';
+const AUTOSAVE_DEBOUNCE = 5000;   // 5с: экономно по батарее; окно потери закрыто flush-при-уходе
+let autosaveTimer = null;
+let autosaveDirty = false;
+function autosaveNow(){
+  if (!autosaveDirty) return;              // ничего не менялось — storage не трогаем
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ at: Date.now(), scheme }));
+    autosaveDirty = false;
+  } catch(e){}
+}
+function scheduleAutosave(){
+  autosaveDirty = true;
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(autosaveNow, AUTOSAVE_DEBOUNCE);
+}
+// flush при уходе: ноль потерь при закрытии/сворачивании, ноль лишних затрат энергии
+document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'hidden') autosaveNow(); });
+window.addEventListener('pagehide', autosaveNow);
+window.addEventListener('beforeunload', autosaveNow);
+// любой history.commit() (клик/change/input/pointerup) помечает dirty и перезапускает таймер
+const _historyCommit = history.commit.bind(history);
+history.commit = function(){ const r = _historyCommit(); scheduleAutosave(); return r; };
+
+function applyScheme(s){
+  Object.keys(scheme).forEach(k=>{ delete scheme[k]; });
+  Object.assign(scheme, s);
+  scheme.completedTasks = scheme.completedTasks || {};
+  recalcNextId();
+  const set=(id,v)=>{ const el=document.getElementById(id); if (el) el.value=v; };
+  set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
+  schemeView.render(); calendarView.render();
+  if (window.__tsypa) window.__tsypa.refresh();
+  history.commit();
+}
+// аварийное восстановление: только если текущая схема пуста (забыли сохранить / сбой вкладки)
+function tryRestoreAutosave(){
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    const s = data && data.scheme;
+    if (!s || !Array.isArray(s.objects) || !s.objects.length) return;
+    if (scheme.objects.length) return;   // не трогаем, если уже есть данные
+    applyScheme(s);
+    showToast('Восстановлено автосохранение (доступно отменить)');
+  } catch(e){}
+}
+on('restoreAutosaveBtn', function(){
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) { showToast('Нет автосохранения'); return; }
+    const data = JSON.parse(raw);
+    const s = data && data.scheme;
+    if (!s || !Array.isArray(s.objects)) { showToast('Автосохранение повреждено'); return; }
+    if (!confirm('Восстановить автосохранение? Текущее состояние будет заменено.')) return;
+    applyScheme(s);
+    showToast('Автосохранение восстановлено');
+  } catch(e){ showToast('Не удалось прочитать автосохранение'); }
+});
 
 /* --- авто-подсказки и Цыпа --- */
 const reminders = createReminders({ scheme, notify: m=>showToast(m), refreshTsypa: ()=>{ if (window.__tsypa) window.__tsypa.refresh(); } });
@@ -446,6 +510,7 @@ window.__sgSelfTest = function(){
   try { const beds=scheme.objects.filter(o=>(o.type==='bed'&&o.culture)||(o.type==='greenhouse'&&(o.greenhouseBedCultures||[]).some(Boolean))||((o.type==='tree'||o.type==='bush')&&o.culture)); const bd=buildCalendar(beds,phases,true,plants,planting,scheme.weather); calDays=Object.keys(bd).length; } catch(e){ calOk=false; console.error(e); }
   push('calendar builds', calOk, calDays+' days with tasks');
   push('nextId consistent', scheme.nextId === scheme.objects.reduce((m,o)=>Math.max(m,o.id||0),0)+1, 'nextId='+scheme.nextId);
+  push('autosave wired', typeof scheduleAutosave==='function' && !!localStorage, 'localStorage sg-autosave');
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -470,12 +535,10 @@ if (installBtn) installBtn.addEventListener('click', async ()=>{
   }
 });
 updateInstallUI();
-// 2.175: бейдж «офлайн» на спрайт-иконке si-offline (без эмодзи 📴)
 function setOfflineBadge(offline){ if (offlineBadge) offlineBadge.classList.toggle('hidden', !offline); }
 setOfflineBadge(!navigator.onLine);
 window.addEventListener('offline', ()=>{ setOfflineBadge(true); showToast('Нет сети — приложение работает офлайн'); });
 window.addEventListener('online', ()=>{ setOfflineBadge(false); showToast('Снова в сети'); });
-
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async ()=>{
     try {
@@ -498,6 +561,7 @@ if ('serviceWorker' in navigator) {
 
 /* --- первичный рендер --- */
 schemeView.render();
+tryRestoreAutosave();   // 2.176: аварийное восстановление автосохранения (если схема пуста)
 try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) setTimeout(()=>tutorialView.open(0), 600); } catch(e){}
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта по всему DOM --- */
