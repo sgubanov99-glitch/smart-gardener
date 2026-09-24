@@ -1,7 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.188';
+export const APP_VERSION = '2.189';
 
 export const CHANGELOG = [
+  { v:'2.189', date:'24.09.2026', title:'og:image подключён: обложка №3 (assets/preview-1200x630.png)', notes:[
+    'og:image / twitter:image → https://sgubanov99-glitch.github.io/smart-gardener/assets/preview-1200x630.png (обложка №3, 1200×630)',
+    'twitter:card = summary_large_image (крупная карточка в превью ссылки)',
+    'og:image:width/height и og:image:alt для корректного рендера превью; og:site_name добавлен',
+    'Дизайнер продолжает итерации по обложкам; замена файла превью — одной подменой assets/preview-1200x630.png'
+  ]},
   { v:'2.188', date:'24.09.2026', title:'Консолидация: авто-заметки из всех задач кроме полива, красный для авто, предпросмотр печати без дубля «Выйти»', notes:[
     'main.js: авто-заметки для ВСЕХ выполненных задач кроме полива (подкормка/обработка/обрезка/сбор/посадка/прочее→Другое); пакетная кнопка даёт заметки только для вновь отмеченных (snapshot+diff)',
     'schemeView: авто-заметки auto:true красные (#C0392B); после ручной редакции auto:false и обычный цвет; ручные auto:false; редактирование/показать все/фильтры сохранены',
