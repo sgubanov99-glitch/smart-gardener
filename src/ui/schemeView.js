@@ -1,11 +1,8 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.180)
-// 2.180: ЖУРНАЛ ЗАМЕТОК ПО ОБЪЕКТУ (База + Авто-заметки):
-//        - сворачиваемый <details> «Журнал объекта (N)» в панели настроек (свёрнут по умолчанию);
-//        - ручные заметки: дата + тип (Полив/Подкормка/Обрезка/Обработка/Сбор/Постройка/Другое) + текст ≤120;
-//        - АВТО-заметки: Посадка (выбор культуры), Фаза (смена фазы), Сбор (факт. урожай);
-//        - ПОЛИВ — только ручной ввод, в авто-заметки НЕ добавляется;
-//        - хранение в obj.notes → автосохранение/файл/undo; миграция старых объектов (без notes = пусто);
-//        - счётчик заметок в чипах списка объектов
+// src/ui/schemeView.js — представление схемы (ревизия 2.182)
+// 2.182: кнопка «Добавить» в журнале получает mousedown→preventDefault — фокус остаётся в тексте,
+//        клик не теряется между перерисовками; ручные заметки добавляются корректно
+// 2.180: ЖУРНАЛ ЗАМЕТОК ПО ОБЪЕКТУ (База + Авто-заметки): сворачиваемый <details>,
+//        ручные заметки (дата+тип+текст), авто-заметки (Посадка/Фаза/Сбор), полив только вручную
 // 2.159: легенда фаз; 2.153: зум/pinch; 2.140: bottom-sheet; 2.66: имя участка; 2.64: схема посадки/урожай
 import { objValid, clampNum, norm } from '../domain/scheme.js';
 import { computeShade, drawShade, SUN_MARKER_POS } from '../core/shade.js';
@@ -83,13 +80,9 @@ export class SchemeView {
     this._bindPlotName();
     this._initZoom();
   }
-
-  /* ---------- мобильность панели ---------- */
   _isMobile() { return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches); }
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
-
-  /* ---------- зум/панорама ---------- */
   setZoom(z) { this.zoom = Math.max(1, Math.min(4, z || 1)); this.render(); }
   _initZoom() {
     const wrap = this.plotBox ? this.plotBox.parentElement : null;
@@ -119,15 +112,12 @@ export class SchemeView {
     wrap.addEventListener('pointerup', end);
     wrap.addEventListener('pointercancel', end);
   }
-
-  /* ---------- имя участка ---------- */
   _bindPlotName() {
     const input = document.getElementById('plotNameInput');
     if (!input) return;
     input.value = this.scheme.plotName || '';
     input.addEventListener('input', () => { this.scheme.plotName = input.value; });
   }
-
   _plantEmoji(cultureName) {
     const n = norm(cultureName);
     const fromMap = PLANT_EMOJI[n];
@@ -158,8 +148,6 @@ export class SchemeView {
     }
     return first;
   }
-
-  /* ---------- совместимость / севооборот ---------- */
   _familyOf(c){ return familyOf(this.compat, c); }
   _pairResult(a,b){ return pairResult(this.compat, a, b); }
   _rectGap(A,B){
@@ -216,8 +204,6 @@ export class SchemeView {
     });
     return out;
   }
-
-  /* ---------- световые зоны ---------- */
   _sunShadeDir(){
     const map = { N:[0,1], S:[0,-1], E:[-1,0], W:[1,0], NE:[-1,1], SW:[1,-1], NW:[1,1], SE:[-1,-1] };
     return map[this.scheme.sunDir || 'S'] || map.S;
@@ -304,8 +290,6 @@ export class SchemeView {
     const hc = modal.querySelector('#compatClose');
     if (hc) hc.addEventListener('click', () => overlay.classList.add('hidden'));
   }
-
-  /* ---------- справка ---------- */
   _lightInfo(plant){
     if (!plant || !Array.isArray(plant.light_requirements) || !plant.light_requirements.length) return null;
     const map = { full_sun:'солнечное место', partial_shade:'допустима лёгкая полутень', full_shade:'теневыносливо' };
@@ -338,8 +322,6 @@ export class SchemeView {
   _phaseLegendHtml(order){
     return `<div class="phase-legend">${order.map(ph => `<span class="pl-item"><span class="pl-ico">${PHASE_META[ph].icon}</span>${PHASE_META[ph].label}</span>`).join('')}</div>`;
   }
-
-  /* ---------- схема посадки/урожай для грядки теплицы ---------- */
   _ghPlantingHtml(obj, i, culture) {
     const pRef = plantingRef(this.planting, culture);
     if (!pRef) return '';
@@ -358,7 +340,6 @@ export class SchemeView {
       `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input class="opGhYield" data-i="${i}" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${yields[i] != null ? yields[i] : ''}" placeholder="—" /></label>` +
       `</div>`;
   }
-
   /* ---------- 2.180: журнал заметок ---------- */
   _noteIcon(id){ return `<svg class="ic-site" aria-hidden="true" style="width:14px;height:14px;vertical-align:-2px;flex:none;margin-top:2px"><use href="#${id}"></use></svg>`; }
   _addNote(obj, type, text){
@@ -399,18 +380,23 @@ export class SchemeView {
     const det = opExtra.querySelector('details.notes-box');
     if (det) det.addEventListener('toggle', () => { this._notesOpen = det.open; });
     const addBtn = opExtra.querySelector('#opNoteAdd');
-    if (addBtn) addBtn.addEventListener('click', () => {
-      const d = document.getElementById('opNoteDate');
-      const t = document.getElementById('opNoteType');
-      const x = document.getElementById('opNoteText');
-      const text = (x.value || '').trim();
-      if (!text) { x.focus(); return; }
-      obj.notes = obj.notes || [];
-      const id = obj.notes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
-      obj.notes.push({ id, date: (d.value || toDateStrLocal(new Date())), type: (t.value || 'other'), text });
-      this._notesOpen = true;
-      this._renderPanel();
-    });
+    if (addBtn) {
+      // 2.182: не отнимаем фокус при нажатии → текст не blur'ится → нет преждевременной
+      //        перерисовки и клик по «Добавить» не теряется
+      addBtn.addEventListener('mousedown', (e) => e.preventDefault());
+      addBtn.addEventListener('click', () => {
+        const d = document.getElementById('opNoteDate');
+        const t = document.getElementById('opNoteType');
+        const x = document.getElementById('opNoteText');
+        const text = (x.value || '').trim();
+        if (!text) { x.focus(); return; }
+        obj.notes = obj.notes || [];
+        const id = obj.notes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
+        obj.notes.push({ id, date: (d.value || toDateStrLocal(new Date())), type: (t.value || 'other'), text });
+        this._notesOpen = true;
+        this._renderPanel();
+      });
+    }
     opExtra.querySelectorAll('.note-del').forEach(btn => btn.addEventListener('click', () => {
       const id = Number(btn.dataset.id);
       if (!confirm('Удалить заметку?')) return;
@@ -418,7 +404,6 @@ export class SchemeView {
       this._renderPanel();
     }));
   }
-
   render() {
     const pn = document.getElementById('plotNameInput');
     if (pn && document.activeElement !== pn) pn.value = this.scheme.plotName || '';
@@ -524,7 +509,6 @@ export class SchemeView {
     }
     return { html: `<span style="font-size:${fontSize}px;line-height:1">${OBJ_TYPES[o.type].emoji}</span>`, tip: '' };
   }
-
   /* ---------- панель настроек: один innerHTML, обработчики после ---------- */
   _renderPanel() {
     const obj = this.scheme.objects.find(o => o.id === this.selectedObjId);
@@ -584,8 +568,8 @@ export class SchemeView {
           const count = obj.planted_count != null ? obj.planted_count : (est ? est.count : null);
           const estKg = estimateYieldKg(pRef, count);
           const detail = (est && est.rows)
-            ? ` → ${est.rows} ряд(а) × ${est.perRow} = <b>${est.count}</b> раст.`
-            : (est ? ` → <b>${est.count}</b> раст.` : '');
+            ? `→ ${est.rows} ряд(а) × ${est.perRow} = <b>${est.count}</b> раст.`
+            : (est ? `→ <b>${est.count}</b> раст.` : '');
           extraHtml += `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:12px;background:rgba(232,160,92,.10);border-radius:10px;padding:8px 10px"><b>🌱 Схема посадки:</b><div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см${detail}${pRef.note ? ` · ${pRef.note}` : ''}</div><label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label><div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div><label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" /></label></div>`;
         }
         const cropPhases = this._phaseDataFor(obj.culture);
@@ -693,7 +677,6 @@ export class SchemeView {
     }
     this._bindNotes(obj);
   }
-
   _renderGhPhaseControls(obj, bedIndex, culture) {
     const cropPhases = this._phaseDataFor(culture);
     if (!cropPhases) return '';
@@ -712,7 +695,6 @@ export class SchemeView {
       `<span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span></div>` +
       this._phaseLegendHtml(order);
   }
-
   _setGreenhouseBedCount(obj, newCount) {
     newCount = Math.max(1, Math.min(4, newCount));
     obj.greenhouseBedCount = newCount;
@@ -876,7 +858,6 @@ export class SchemeView {
       return `<button type="button" class="obj-chip ${o.id === this.selectedObjId ? 'selected' : ''}" data-id="${o.id}">${OBJ_TYPES[o.type].emoji} ${o.name}${extra}</button>`;
     }).join('');
   }
-
   /* ---------- размещение нового объекта ---------- */
   _gapOk(o, gap = 0.5){
     return this.scheme.objects.every(other => other.id === o.id || this._rectGap(o, other) >= gap - 0.001);
