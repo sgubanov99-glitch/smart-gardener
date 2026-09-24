@@ -1,8 +1,9 @@
-// src/main.js — точка входа (ревизия 2.179)
-// 2.179: ИСПРАВЛЕН регресс 2.178: planting гарантированно передаётся в SchemeView
-//        (иначе plantingRef=null → пропадает блок «Схема посадки / Оценка урожая»);
-//        добавлена самопроверка 'planting ref works'
-// 2.178: PWA: shortcuts (?page=…) и share-target (общий текст/ссылка/файл плана)
+// src/main.js — точка входа (ревизия 2.182)
+// 2.182: глобальный change-слушатель opExtra перерисовывает панель ТОЛЬКО по полям расчёта
+//        (opPlantedCount/opActualYield/opGhPlanted/opGhYield); форма заметок (дата/тип/текст)
+//        НЕ вызывает перерисовку и не сбрасывается — ручные заметки добавляются корректно
+// 2.179: planting гарантированно передаётся в SchemeView; самопроверка 'planting ref works'
+// 2.178: PWA shortcuts (?page=…) и share-target (общий текст/ссылка/файл плана)
 // 2.176: автосохранение (dirty-флаг + дебаунс 5с + flush при уходе); аварийное восстановление
 // 2.175: PWA-полировка: бейдж «офлайн» (si-offline), кнопка установки, управляемые обновления SW
 // 2.173: коллизия id после загрузки схемы исправлена (recalcNextId)
@@ -114,7 +115,7 @@ try { const siteRes = await fetch('assets/smart-gardener.svg'); if (siteRes.ok){
 
 /* --- сервисы и представления --- */
 const storage = new StorageService();
-// 2.179: planting ОБЯЗАТЕЛЬНО передаётся в SchemeView (регpесс 2.178 устранён)
+// 2.179: planting ОБЯЗАТЕЛЬНО передаётся в SchemeView
 const schemeView = new SchemeView({ scheme, plants, phases, nextUniqueName, compat, planting });
 const calendarView = createCalendarView({
   scheme, phases, plants, planting, buildCalendar,
@@ -362,8 +363,16 @@ document.addEventListener('pointerup', scheduleSchemeHooks);
 })();
 
 /* --- перерисовка панели при изменениях --- */
+// 2.182: перерисовка ТОЛЬКО по полям расчёта урожая/числа растений;
+//        форма заметок (дата/тип/текст) НЕ вызывает перерисовку и не сбрасывается
 const opExtraEl = document.getElementById('opExtra');
-if (opExtraEl) opExtraEl.addEventListener('change', ()=>{ setTimeout(()=>{ try { schemeView.render(); } catch(e){} scheduleSchemeHooks(); }, 0); });
+if (opExtraEl) opExtraEl.addEventListener('change', (e)=>{
+  const id = e.target && e.target.id;
+  const cls = e.target && e.target.className;
+  const isEstimate = (id === 'opPlantedCount' || id === 'opActualYield' || cls === 'opGhPlanted' || cls === 'opGhYield');
+  if (!isEstimate) return;
+  setTimeout(()=>{ try { schemeView.render(); } catch(e){} scheduleSchemeHooks(); }, 0);
+});
 
 /* --- постер PNG --- */
 on('exportBtn', async function(){
@@ -404,8 +413,8 @@ function showScreen(id){
   const only = (id==='screen-scheme');
   if (fab) fab.style.display = only ? '' : 'none';
   if (ur) ur.style.display = only ? '' : 'none';
-  // 2.181+: гарантированный верх окна на десктопе И мобильном
-  if (isFormEl(document.activeElement)) document.activeElement.blur();   // не даём input'у тянуть прокрутку вниз
+  // 2.181: окно всегда открывается с самой верхней позиции
+  if (isFormEl(document.activeElement)) document.activeElement.blur();
   const resetScroll = ()=>{
     try { window.scrollTo({ top:0, left:0, behavior:'auto' }); } catch(e){ window.scrollTo(0,0); }
     const se = document.scrollingElement || document.documentElement;
@@ -413,13 +422,13 @@ function showScreen(id){
     const act = document.getElementById(id);
     if (act){
       act.scrollTop = 0;
-      act.querySelectorAll('*').forEach(el=>{ if (el.scrollTop) el.scrollTop = 0; });  // внутренние скролл-контейнеры (чат и т.п.)
+      act.querySelectorAll('*').forEach(el=>{ if (el.scrollTop) el.scrollTop = 0; });
     }
   };
-  resetScroll();                  // сразу после рендеров
-  requestAnimationFrame(resetScroll);   // после layout/viewport-коррекций мобильного браузера
-  setTimeout(resetScroll, 80);          // страховка от поздних подстроек прокрутки
-  resetViewOffset();              // горизонталь + мобильный зум (как прежде)
+  resetScroll();
+  requestAnimationFrame(resetScroll);
+  setTimeout(resetScroll, 80);
+  resetViewOffset();
 }
 document.addEventListener('click', function(e){ const g=e.target.closest('[data-goto]'); if (g) showScreen(g.dataset.goto); });
 document.addEventListener('click', function(e){
@@ -516,7 +525,6 @@ window.__sgSelfTest = function(){
   push('phases loaded', !!phases&&Object.keys(phases).length>0, Object.keys(phases||{}).length+' cultures');
   push('compat loaded', !!compat&&Array.isArray(compat.good)&&Array.isArray(compat.bad), '');
   push('planting loaded', !!planting&&Object.keys(planting).length>0, Object.keys(planting||{}).length+' cultures');
-  // 2.179: гарантия, что расчёт урожая доезжает до представления
   const firstCulture = (scheme.objects.find(o=>o.culture)||{}).culture || Object.keys(planting||{})[0] || '';
   push('planting ref works', !!planting && Object.keys(planting).length>0 && !!plantingRef(planting, firstCulture), 'ref for: '+firstCulture);
   push('schemeView has planting', !!schemeView.planting && Object.keys(schemeView.planting).length>0, Object.keys(schemeView.planting||{}).length+' keys');
