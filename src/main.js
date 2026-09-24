@@ -1,17 +1,12 @@
-// src/main.js — точка входа (ревизия 2.182)
-// 2.182: глобальный change-слушатель opExtra перерисовывает панель ТОЛЬКО по полям расчёта
-//        (opPlantedCount/opActualYield/opGhPlanted/opGhYield); форма заметок (дата/тип/текст)
-//        НЕ вызывает перерисовку и не сбрасывается — ручные заметки добавляются корректно
+// src/main.js — точка входа (ревизия 2.189)
+// 2.189: авто-заметки из ВСЕХ выполненных задач календаря/обзора, КРОМЕ полива;
+//        пакетная кнопка «Отметить задачи выполненными» даёт авто-заметки только для вновь отмеченных
+//        (snapshot completedTasks до отметки + diff после события sg-tasks-bulk-done)
+// 2.182: opExtra-слушатель ограничен полями расчёта (форма заметок не сбрасывается)
+// 2.181: окно всегда открывается с верхней позиции (blur + resetScroll + rAF + страховка)
 // 2.179: planting гарантированно передаётся в SchemeView; самопроверка 'planting ref works'
-// 2.178: PWA shortcuts (?page=…) и share-target (общий текст/ссылка/файл плана)
-// 2.176: автосохранение (dirty-флаг + дебаунс 5с + flush при уходе); аварийное восстановление
-// 2.175: PWA-полировка: бейдж «офлайн» (si-offline), кнопка установки, управляемые обновления SW
-// 2.173: коллизия id после загрузки схемы исправлена (recalcNextId)
-// 2.168: централизованный слой замены эмодзи на знаки спрайта (swapEmojiInTextNodes + MutationObserver)
-// 2.161: Советчик возвращает СПИСКИ культур; «Печать» → exportPrint; постер PNG
-// 2.157: карточки культур из настроек схемы открываются в экране «Растения»
-// 2.153: схема: pinch-зум, двойной тап по свободному = 1:1
-// 2.140: bottom-sheet настроек; 2.131: Обзор; 2.117: мобильный каркас
+// 2.178: PWA shortcuts (?page=…) и share-target; 2.176: автосохранение; 2.175: PWA-полировка;
+// 2.173: recalcNextId; 2.168: слой замены эмодзи на знаки спрайта
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
 import { advancePhase, PHASE_META } from './core/phaseMachine.js';
@@ -72,7 +67,7 @@ document.addEventListener('focusout', (e)=>{ if (!isFormEl(e.target)) return; se
 document.addEventListener('change', (e)=>{ if (!isFormEl(e.target)) return; setTimeout(resetMobileZoom, 300); });
 if (window.visualViewport) window.visualViewport.addEventListener('resize', ()=>{ if (!isFormEl(document.activeElement)) resetMobileZoom(); });
 
-/* --- 2.173: пересчёт nextId (защита от коллизии id после загрузки/undo) --- */
+/* --- 2.173: пересчёт nextId --- */
 function recalcNextId(){
   scheme.nextId = scheme.objects.reduce((m,o)=>Math.max(m, o.id||0), 0) + 1;
 }
@@ -110,12 +105,10 @@ if (!planting || !Object.keys(planting).length) console.warn('main.js: planting.
 let tutorialSlides = [];
 try { const tres = await fetch('data/tutorial.json'); if (tres.ok) tutorialSlides = await tres.json(); } catch(e){ console.warn('tutorial.json не загрузился', e); }
 try { const iconsRes = await fetch('assets/icons.svg'); if (iconsRes.ok){ const t = await iconsRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('icons.svg не загрузился', e); }
-// 2.162: инлайн спрайта служебных иконок сайта (si-*)
 try { const siteRes = await fetch('assets/smart-gardener.svg'); if (siteRes.ok){ const t = await siteRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('smart-gardener.svg не загрузился', e); }
 
 /* --- сервисы и представления --- */
 const storage = new StorageService();
-// 2.179: planting ОБЯЗАТЕЛЬНО передаётся в SchemeView
 const schemeView = new SchemeView({ scheme, plants, phases, nextUniqueName, compat, planting });
 const calendarView = createCalendarView({
   scheme, phases, plants, planting, buildCalendar,
@@ -131,7 +124,6 @@ const bot = createBot({
 });
 const chatView = createChatView({ bot });
 const plantsView = createPlantsView({ plants, compat, onAddToScheme: function(plantName, plantType){ schemeView.addNewObjectForPlant(plantName, plantType); showScreen('screen-scheme'); } });
-// 2.157: карточка культуры из настроек схемы открывается в экране «Растения» (центрированно)
 schemeView.onOpenPlantCard = function(plantName){
   showScreen('screen-plants');
   setTimeout(()=>{ if (plantsView.openPlantCard) plantsView.openPlantCard(plantName); }, 80);
@@ -212,7 +204,7 @@ function applySchemeState(parsed){
   Object.keys(scheme).forEach(k=>{ delete scheme[k]; });
   Object.assign(scheme, parsed);
   scheme.completedTasks = scheme.completedTasks || {};
-  recalcNextId();   // 2.173
+  recalcNextId();
   refreshAfterHistory();
 }
 const history = createHistory({ getState: ()=>scheme, applyState: applySchemeState, limit: 60 });
@@ -224,7 +216,7 @@ document.addEventListener('pointerup', ()=>history.commit());
 let __ict = null; document.addEventListener('input', ()=>{ clearTimeout(__ict); __ict = setTimeout(()=>history.commit(), 500); });
 updateHistoryButtons();
 
-/* --- 2.176: АВТОСОХРАНЕНИЕ (без бэкапа): dirty-флаг + дебаунс 5с + flush при уходе --- */
+/* --- 2.176: АВТОСОХРАНЕНИЕ --- */
 const AUTOSAVE_KEY = 'sg-autosave';
 const AUTOSAVE_DEBOUNCE = 5000;
 let autosaveTimer = null;
@@ -363,8 +355,7 @@ document.addEventListener('pointerup', scheduleSchemeHooks);
 })();
 
 /* --- перерисовка панели при изменениях --- */
-// 2.182: перерисовка ТОЛЬКО по полям расчёта урожая/числа растений;
-//        форма заметок (дата/тип/текст) НЕ вызывает перерисовку и не сбрасывается
+// 2.182: перерисовка ТОЛЬКО по полям расчёта; форма заметок не сбрасывается
 const opExtraEl = document.getElementById('opExtra');
 if (opExtraEl) opExtraEl.addEventListener('change', (e)=>{
   const id = e.target && e.target.id;
@@ -381,7 +372,7 @@ on('exportBtn', async function(){
   catch(e){ console.error('exportPosterPNG:', e); showToast('Не удалось собрать постер'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = '🖼 Постер PNG'; } }
 });
-/* --- 2.170: печатная версия (буклет A4) --- */
+/* --- печать --- */
 on('printBtn', async function(){
   try { showToast('Готовлю печатную версию…'); await exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion: APP_VERSION }); }
   catch(e){ console.error('exportPrint:', e); showToast('Не удалось подготовить печать'); }
@@ -413,7 +404,7 @@ function showScreen(id){
   const only = (id==='screen-scheme');
   if (fab) fab.style.display = only ? '' : 'none';
   if (ur) ur.style.display = only ? '' : 'none';
-  // 2.181: окно всегда открывается с самой верхней позиции
+  // 2.181: гарантированный верх окна на десктопе И мобильном
   if (isFormEl(document.activeElement)) document.activeElement.blur();
   const resetScroll = ()=>{
     try { window.scrollTo({ top:0, left:0, behavior:'auto' }); } catch(e){ window.scrollTo(0,0); }
@@ -450,7 +441,7 @@ document.addEventListener('change', function(e){
 on('saveBtn', function(){ storage.save(scheme); const pn=(scheme.plotName||'').trim(); showToast(pn ? 'План «'+pn+'» сохранён ✓' : 'План сохранён ✓'); });
 on('loadBtn', function(){
   storage.load(scheme, function(){
-    recalcNextId();   // 2.173
+    recalcNextId();
     const set=(id,v)=>{ const el=document.getElementById(id); if (el) el.value=v; };
     set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
     schemeView.render(); calendarView.render();
@@ -462,7 +453,7 @@ on('loadBtn', function(){
 on('gridStep', function(){ const el=document.getElementById('gridStep'); scheme.gridStepM = Number(el&&el.value)||0.5; schemeView.render(); }, 'change');
 on('resetBtn', function(){ if (!confirm('Очистить схему участка?')) return; scheme.objects=[]; scheme.plotName=''; const pn=document.getElementById('plotNameInput'); if (pn) pn.value=''; scheme.nextId=1; schemeView.render(); showToast('Схема очищена ✓'); });
 
-/* --- Советчик (2.161: списки культур по типам) --- */
+/* --- Советчик --- */
 on('advisorBtn', function(){
   const bubble = document.getElementById('tipBubble'); if (!bubble) return;
   if (!bubble.classList.contains('hidden')) { bubble.classList.add('hidden'); return; }
@@ -542,7 +533,53 @@ window.__sgSelfTest = function(){
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
 
-/* --- 2.175: PWA-полировка: установка, бейдж офлайна (si-offline), управляемые обновления --- */
+/* --- 2.189: авто-заметки из выполненных задач (полив — только вручную) --- */
+function autoNoteFromTask(key){
+  const parts = String(key||'').split('|');
+  if (parts.length < 3) return;
+  const bid = parts[1];
+  const name = parts.slice(2).join('|');
+  const low = name.toLowerCase();
+  if (low.includes('полив')) return;   // полив — только ручной ввод
+  let type;
+  if (low.includes('подкорм')) type = 'fertilizing';
+  else if (low.includes('обработ') || low.includes('опрыск')) type = 'treatment';
+  else if (low.includes('обрез') || low.includes('пасын')) type = 'pruning';
+  else if (low.includes('сбор') || low.includes('урожай')) type = 'harvest';
+  else if (low.includes('посев') || low.includes('посадк') || low.includes('высад') || low.includes('рассад')) type = 'planting';
+  else type = 'other';
+  const m = String(bid).match(/^(\d+)(?:-gh|:)(\d+)$/);
+  let objId, suffix = '';
+  if (m){ objId = Number(m[1]); suffix = ` (грядка ${+m[2]+1})`; }
+  else objId = Number(bid);
+  if (!Number.isFinite(objId)) return;
+  if (!scheme.objects.some(o => o.id === objId)) return;
+  schemeView.addNote(objId, type, `${name}${suffix}`);
+}
+// любая отмеченная галочка задачи (Обзор + Календарь) → авто-заметка
+document.addEventListener('change', function(e){
+  const cb = e.target.closest('input[data-task-key]');
+  if (!cb || !cb.checked) return;
+  autoNoteFromTask(cb.dataset.taskKey);
+});
+// пакетная кнопка «Отметить задачи выполненными» → авто-заметки только для ВНОВЬ отмеченных
+let __bulkSnapshot = null;
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if ((btn.textContent||'').includes('Отметить задачи')) {
+    __bulkSnapshot = new Set(Object.keys(scheme.completedTasks||{}));
+  }
+}, true);   // capture: снимок ДО обработчика календаря
+window.addEventListener('sg-tasks-bulk-done', function(){
+  if (!__bulkSnapshot) return;
+  const snap = __bulkSnapshot; __bulkSnapshot = null;
+  Object.keys(scheme.completedTasks||{}).forEach(key=>{
+    if (!snap.has(key)) autoNoteFromTask(key);
+  });
+});
+
+/* --- 2.175: PWA-полировка --- */
 let deferredInstall = null;
 const installBtn = document.getElementById('installAppBtn');
 const offlineBadge = document.getElementById('offlineBadge');
@@ -586,7 +623,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/* --- 2.178: PWA: shortcuts (?page=…) и share-target (общий текст/ссылка/файл плана) --- */
+/* --- 2.178: shortcuts и share-target --- */
 (function handleLaunchParams(){
   try {
     const url = new URL(location.href);
@@ -625,10 +662,10 @@ if ('launchQueue' in window) {
 
 /* --- первичный рендер --- */
 schemeView.render();
-tryRestoreAutosave();   // 2.176: аварийное восстановление автосохранения (если схема пуста)
+tryRestoreAutosave();
 try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) setTimeout(()=>tutorialView.open(0), 600); } catch(e){}
 
-/* --- 2.168: рантайм-замена эмодзи на знаки спрайта по всему DOM --- */
+/* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
 function scheduleSwap(){
   if (swapRaf) return;
