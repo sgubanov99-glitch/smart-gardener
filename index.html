@@ -4,7 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="description" content="Умный садовод — планировщик дачного участка: схема грядок и теплиц, календарь работ по фазам, прогноз урожая, погода и книга отзывов." />
-<title>Умный садовод — прототип</title>
+<!-- 2.189: имя без «прототип» -->
+<title>Умный садовод — планировщик дачного участка</title>
 <link rel="icon" type="image/svg+xml" href="assets/logo-mono.svg" />
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#8A9B6E" />
@@ -12,6 +13,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="apple-touch-icon" href="assets/icon-192.png" />
+<!-- 2.189: Open Graph — в карточке ссылки мессенджеров показывается ЛОГОТИП, а не Цыпа -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Умный садовод — планировщик дачного участка" />
+<meta property="og:description" content="Схема участка, календарь работ по фазам, прогноз урожая и погода. Работает офлайн на даче." />
+<meta property="og:image" content="https://sgubanov99-glitch.github.io/smart-gardener/assets/icon-512.png" />
+<meta property="og:image:width" content="512" />
+<meta property="og:image:height" content="512" />
+<meta property="og:url" content="https://sgubanov99-glitch.github.io/smart-gardener/" />
+<meta name="twitter:card" content="summary" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Neucha&display=swap" rel="stylesheet" />
@@ -46,7 +56,6 @@
   .obj-chip .ic-site { width:16px; height:16px; }
   .plot-name-emoji .ic-site { width:24px; height:24px; }
   #sunMarker .ic-site { width:24px; height:24px; vertical-align:0; }
-  /* 2.175: бейдж «офлайн» */
   .offline-badge { display:inline-flex; align-items:center; gap:6px; font:700 11px "Manrope",sans-serif; color:#9A635E; background:rgba(217,165,160,.25); border-radius:999px; padding:3px 10px; align-self:center; }
   .offline-badge .ic-site { width:14px; height:14px; vertical-align:0; }
   .topbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
@@ -404,11 +413,6 @@
     #sunDir { width:100%; }
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
-    /* 2.176: мобильный — кнопки 3D/2D и Советчик в одном ряду */
-    .palette-right { flex-wrap:wrap; gap:8px; }
-    .palette-right #compatBtn { flex:1 1 100%; justify-content:center; }
-    .palette-right #isoBtn,
-    .palette-right #advisorBtnMob { flex:1 1 30%; min-width:0; padding:10px 6px; justify-content:center; }
     .pal-btn { padding:10px 14px; min-height:40px; }
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
     .plot-wrap { padding:26px 22px 22px; }
@@ -713,7 +717,6 @@
       <button type="button" class="m-item" data-mact="printBtn"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
       <button type="button" class="m-item" data-mact="exportBtn"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
       <button type="button" class="m-item" id="installAppBtn" style="display:none"><span class="mi"><svg class="ic-site"><use href="#si-install"/></svg></span>Установить приложение</button>
-      <!-- 2.176: автосохранение — ручное восстановление -->
       <button type="button" class="m-item" id="restoreAutosaveBtn"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Восстановить автосохранение</button>
       <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
