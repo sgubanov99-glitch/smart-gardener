@@ -404,16 +404,22 @@ function showScreen(id){
   const only = (id==='screen-scheme');
   if (fab) fab.style.display = only ? '' : 'none';
   if (ur) ur.style.display = only ? '' : 'none';
-  // 2.181: окно всегда открывается с самой верхней позиции
-  try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch(e){ window.scrollTo(0, 0); }
-  const act = document.getElementById(id);
-  if (act){
-    act.scrollTop = 0;                                   // сам экран (если когда-либо станет скролл-контейнером)
-    act.querySelectorAll('*').forEach(el => {            // внутренние скролл-контейнеры (чат, списки, модалки внутри экрана)
-      if (el.scrollTop) el.scrollTop = 0;
-    });
-  }
-  resetViewOffset();                                     // горизонталь + мобильный зум (как прежде)
+  // 2.181+: гарантированный верх окна на десктопе И мобильном
+  if (isFormEl(document.activeElement)) document.activeElement.blur();   // не даём input'у тянуть прокрутку вниз
+  const resetScroll = ()=>{
+    try { window.scrollTo({ top:0, left:0, behavior:'auto' }); } catch(e){ window.scrollTo(0,0); }
+    const se = document.scrollingElement || document.documentElement;
+    if (se){ se.scrollTop = 0; se.scrollLeft = 0; }
+    const act = document.getElementById(id);
+    if (act){
+      act.scrollTop = 0;
+      act.querySelectorAll('*').forEach(el=>{ if (el.scrollTop) el.scrollTop = 0; });  // внутренние скролл-контейнеры (чат и т.п.)
+    }
+  };
+  resetScroll();                  // сразу после рендеров
+  requestAnimationFrame(resetScroll);   // после layout/viewport-коррекций мобильного браузера
+  setTimeout(resetScroll, 80);          // страховка от поздних подстроек прокрутки
+  resetViewOffset();              // горизонталь + мобильный зум (как прежде)
 }
 document.addEventListener('click', function(e){ const g=e.target.closest('[data-goto]'); if (g) showScreen(g.dataset.goto); });
 document.addEventListener('click', function(e){
