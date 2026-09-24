@@ -1,13 +1,12 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.182)
-// 2.182: блок учёта растений/урожая виден ВСЕГДА для культур и грядок теплицы;
-//        расчётная часть (интервалы → число растений → оценка ≈ кг) — при наличии справочника
-//        planting.json, иначе явная подсказка вместо тихого «—»
-// 2.181: журнал заметок в сворачиваемом <details> (свёрнут по умолчанию); тип «Постройка» (si-house)
-//        для построек (по умолчанию), состояние раскрытия сохраняется, после добавления блок раскрыт
-// 2.180: постройки/теплицы/деревья/кусты/грядки без культуры — явные site-иконки спрайта
-// 2.173: уникальный id нового объекта даже если nextId не восстановился после загрузки
-// 2.159: легенда фаз под иконками (мобильный); 2.153: зум/pinch/панорама; 2.140: bottom-sheet
-// 2.66: имя участка; 2.64: схема посадки/урожай; 2.52: справка; 2.46: тултипы; 2.38: свет; 2.34: севооборот
+// src/ui/schemeView.js — представление схемы (ревизия 2.180)
+// 2.180: ЖУРНАЛ ЗАМЕТОК ПО ОБЪЕКТУ (База + Авто-заметки):
+//        - сворачиваемый <details> «Журнал объекта (N)» в панели настроек (свёрнут по умолчанию);
+//        - ручные заметки: дата + тип (Полив/Подкормка/Обрезка/Обработка/Сбор/Постройка/Другое) + текст ≤120;
+//        - АВТО-заметки: Посадка (выбор культуры), Фаза (смена фазы), Сбор (факт. урожай);
+//        - ПОЛИВ — только ручной ввод, в авто-заметки НЕ добавляется;
+//        - хранение в obj.notes → автосохранение/файл/undo; миграция старых объектов (без notes = пусто);
+//        - счётчик заметок в чипах списка объектов
+// 2.159: легенда фаз; 2.153: зум/pinch; 2.140: bottom-sheet; 2.66: имя участка; 2.64: схема посадки/урожай
 import { objValid, clampNum, norm } from '../domain/scheme.js';
 import { computeShade, drawShade, SUN_MARKER_POS } from '../core/shade.js';
 import { PHASE_META, PHASE_ORDER } from '../core/phaseMachine.js';
@@ -22,8 +21,6 @@ const OBJ_TYPES = {
   tree:       { label: 'Дерево',     emoji: '🌳', w: 2, l: 2, h: 3 },
   bush:       { label: 'Кустарник',  emoji: '🌵', w: 1, l: 1, h: 1.5 }
 };
-// 2.180: явные site-иконки типов объектов (спрайт smart-gardener.svg)
-const TYPE_SITE_ICON = { building:'si-house', greenhouse:'si-greenhouse', bed:'si-bed', tree:'si-tree', bush:'si-bush' };
 const PLANT_EMOJI = {
   'томат':'🍅','огурец':'🥒','перец':'🫑','капуста':'🥬','редис':'🌶',
   'морковь':'🥕','свёкла':'🟣','лук':'🧅','чеснок':'🧄','картофель':'🥔',
@@ -32,7 +29,7 @@ const PLANT_EMOJI = {
   'дыня':'🍈','арбуз':'🍉','баклажан':'🍆','горох':'🫛','фасоль':'🫘',
   'репа':'🍠','рукола':'🌿','щавель':'🍃','кинза':'🌿'
 };
-// 2.181: типы заметок журнала; 'house' (si-house) показывается только для построек
+// 2.180: типы заметок. planting/phase — только авто-заметки (в ручном селекте их нет)
 const NOTE_TYPES = {
   watering:    { label: 'Полив',     icon: 'si-water' },
   fertilizing: { label: 'Подкормка', icon: 'si-fertilize' },
@@ -40,8 +37,11 @@ const NOTE_TYPES = {
   treatment:   { label: 'Обработка', icon: 'si-warning' },
   harvest:     { label: 'Сбор',      icon: 'si-basket' },
   house:       { label: 'Постройка', icon: 'si-house' },
-  other:       { label: 'Другое',    icon: 'si-leaf' }
+  other:       { label: 'Другое',    icon: 'si-leaf' },
+  planting:    { label: 'Посадка',   icon: 'si-planting' },
+  phase:       { label: 'Фаза',      icon: 'si-growth' }
 };
+const MANUAL_NOTE_TYPES = ['watering','fertilizing','pruning','treatment','harvest','house','other'];
 function toDateStrLocal(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -57,7 +57,7 @@ export class SchemeView {
     this.phases = phases;
     this.nextUniqueName = nextUniqueName;
     this.compat = compat || null;
-    this.planting = planting || null;   // 2.64: справочник схем посадки
+    this.planting = planting || null;
     this.selectedObjId = null;
     this.drag = null;
     this.ppm = 30;
@@ -65,11 +65,11 @@ export class SchemeView {
     this.onOpenPlantCard = null;
     this.lastTapId = null;
     this.lastTapTime = 0;
-    this._panelOpen = false;   // 2.140: открыта ли панель настроек
-    this.zoom = 1;             // 2.153: множитель масштаба (1..4)
+    this._panelOpen = false;
+    this.zoom = 1;
     this._zoomRaf = 0;
-    this._lastEmptyTap = 0;    // 2.153: метка тапа по свободному месту
-    this._notesOpen = false;   // 2.181: раскрыт ли блок заметок
+    this._lastEmptyTap = 0;
+    this._notesOpen = false;   // 2.180: раскрыт ли блок заметок
     this._pairs = [];
     this._badIds = new Set();
     this._ghBadIds = new Set();
@@ -80,16 +80,16 @@ export class SchemeView {
     this.plotBox = document.getElementById('plotBox');
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind();
-    this._bindPlotName();   // 2.66
-    this._initZoom();       // 2.153
+    this._bindPlotName();
+    this._initZoom();
   }
 
-  /* ---------- 2.140: мобильность панели настроек ---------- */
+  /* ---------- мобильность панели ---------- */
   _isMobile() { return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches); }
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
 
-  /* ---------- 2.153: масштаб и панорама (pinch) ---------- */
+  /* ---------- зум/панорама ---------- */
   setZoom(z) { this.zoom = Math.max(1, Math.min(4, z || 1)); this.render(); }
   _initZoom() {
     const wrap = this.plotBox ? this.plotBox.parentElement : null;
@@ -120,7 +120,7 @@ export class SchemeView {
     wrap.addEventListener('pointercancel', end);
   }
 
-  /* ---------- 2.66: имя участка ---------- */
+  /* ---------- имя участка ---------- */
   _bindPlotName() {
     const input = document.getElementById('plotNameInput');
     if (!input) return;
@@ -159,7 +159,7 @@ export class SchemeView {
     return first;
   }
 
-  /* ---------- совместимость и севооборот ---------- */
+  /* ---------- совместимость / севооборот ---------- */
   _familyOf(c){ return familyOf(this.compat, c); }
   _pairResult(a,b){ return pairResult(this.compat, a, b); }
   _rectGap(A,B){
@@ -335,34 +335,39 @@ export class SchemeView {
     html += '</div>';
     return html;
   }
-
-  /* ---------- 2.159: легенда фаз ---------- */
   _phaseLegendHtml(order){
     return `<div class="phase-legend">${order.map(ph => `<span class="pl-item"><span class="pl-ico">${PHASE_META[ph].icon}</span>${PHASE_META[ph].label}</span>`).join('')}</div>`;
   }
 
-  /* ---------- 2.182: схема посадки и урожай для грядки теплицы (всегда) ---------- */
+  /* ---------- схема посадки/урожай для грядки теплицы ---------- */
   _ghPlantingHtml(obj, i, culture) {
     const pRef = plantingRef(this.planting, culture);
+    if (!pRef) return '';
     const bedsN = obj.greenhouseBedCount || 1;
     const area = Math.max(0.5, (obj.w * obj.l) / bedsN * 0.6);
-    const est = pRef ? estimateCount(pRef, { kind: 'greenhouseBed', areaM2: area }) : null;
+    const est = estimateCount(pRef, { kind: 'greenhouseBed', areaM2: area });
     const counts = obj.greenhouseBedPlantedCounts || [];
     const yields = obj.greenhouseBedYields || [];
     const count = counts[i] != null ? counts[i] : (est ? est.count : null);
-    const estKg = (pRef && count != null) ? estimateYieldKg(pRef, count) : null;
+    const estKg = estimateYieldKg(pRef, count);
     return `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:12px;background:rgba(232,160,92,.10);border-radius:10px;padding:8px 10px">` +
-      (pRef
-        ? `<b>🌱 Схема посадки:</b><div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см · грядка ≈ ${Math.round(area*10)/10} м² → около <b>${est ? est.count : '—'}</b> раст.${pRef.note ? ` · ${pRef.note}` : ''}</div>`
-        : `<b>🌱 Учёт растений и урожая:</b><div style="color:#9A635E">Нет справочника схемы посадки для «${escHtml(culture)}» — расчёт оценки недоступен (проверьте data/planting.json).</div>`) +
+      `<b>🌱 Схема посадки:</b>` +
+      `<div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см · грядка ≈ ${Math.round(area*10)/10} м² → около <b>${est ? est.count : '—'}</b> раст.${pRef.note ? ` · ${pRef.note}` : ''}</div>` +
       `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input class="opGhPlanted" data-i="${i}" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
       `<div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div>` +
       `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input class="opGhYield" data-i="${i}" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${yields[i] != null ? yields[i] : ''}" placeholder="—" /></label>` +
       `</div>`;
   }
 
-  /* ---------- 2.181: журнал заметок в сворачиваемом <details> ---------- */
+  /* ---------- 2.180: журнал заметок ---------- */
   _noteIcon(id){ return `<svg class="ic-site" aria-hidden="true" style="width:14px;height:14px;vertical-align:-2px;flex:none;margin-top:2px"><use href="#${id}"></use></svg>`; }
+  _addNote(obj, type, text){
+    obj.notes = obj.notes || [];
+    const last = obj.notes[obj.notes.length - 1];
+    if (last && last.type === type && last.text === text) return;   // защита от дублей
+    const id = obj.notes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
+    obj.notes.push({ id, date: toDateStrLocal(new Date()), type, text });
+  }
   _notesHtml(obj){
     const notes = (obj.notes || []).slice().sort((a,b) => (b.date||'').localeCompare(a.date||'') || ((b.id||0)-(a.id||0)));
     const rows = notes.map(n => {
@@ -375,9 +380,9 @@ export class SchemeView {
     }).join('');
     const today = toDateStrLocal(new Date());
     const isBuilding = obj.type === 'building';
-    const keys = Object.keys(NOTE_TYPES).filter(k => isBuilding ? true : k !== 'house');
-    const defType = isBuilding ? 'house' : keys[0];
-    const opts = keys.map(k => `<option value="${k}" ${k === defType ? 'selected' : ''}>${NOTE_TYPES[k].label}</option>`).join('');
+    const keys = MANUAL_NOTE_TYPES.filter(k => isBuilding ? true : k !== 'house');
+    const def = isBuilding ? 'house' : keys[0];
+    const opts = keys.map(k => `<option value="${k}" ${k === def ? 'selected' : ''}>${NOTE_TYPES[k].label}</option>`).join('');
     return `<details class="notes-box" ${this._notesOpen ? 'open' : ''} style="grid-column:1/-1;margin-top:8px">` +
       `<summary style="cursor:pointer;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft);display:flex;align-items:center;gap:6px;list-style:none">${this._noteIcon('si-history')} Журнал объекта (${notes.length})</summary>` +
       `<div>` + (rows || '<div style="font-size:12px;color:var(--ink-soft);margin-top:4px">Заметок пока нет.</div>') +
@@ -395,15 +400,15 @@ export class SchemeView {
     if (det) det.addEventListener('toggle', () => { this._notesOpen = det.open; });
     const addBtn = opExtra.querySelector('#opNoteAdd');
     if (addBtn) addBtn.addEventListener('click', () => {
-      const dateEl = document.getElementById('opNoteDate');
-      const typeEl = document.getElementById('opNoteType');
-      const textEl = document.getElementById('opNoteText');
-      const text = (textEl.value || '').trim();
-      if (!text) { textEl.focus(); return; }
+      const d = document.getElementById('opNoteDate');
+      const t = document.getElementById('opNoteType');
+      const x = document.getElementById('opNoteText');
+      const text = (x.value || '').trim();
+      if (!text) { x.focus(); return; }
       obj.notes = obj.notes || [];
-      const nextId = obj.notes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
-      obj.notes.push({ id: nextId, date: (dateEl.value || toDateStrLocal(new Date())), type: (typeEl.value || 'other'), text });
-      this._notesOpen = true;   // после добавления блок остаётся раскрытым
+      const id = obj.notes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
+      obj.notes.push({ id, date: (d.value || toDateStrLocal(new Date())), type: (t.value || 'other'), text });
+      this._notesOpen = true;
       this._renderPanel();
     });
     opExtra.querySelectorAll('.note-del').forEach(btn => btn.addEventListener('click', () => {
@@ -465,7 +470,6 @@ export class SchemeView {
     const p = SUN_MARKER_POS[this.scheme.sunDir || 'S'] || SUN_MARKER_POS.S;
     m.style.left = p.left; m.style.top = p.top; m.style.transform = p.transform;
   }
-  _typeIcon(type){ return `<svg class="ic-site" aria-hidden="true"><use href="#${TYPE_SITE_ICON[type] || 'si-bed'}"></use></svg>`; }
   _objectVisual(o) {
     const minPx = Math.min(o.w, o.l) * this.ppm;
     const fontSize = Math.max(16, minPx * 0.5);
@@ -494,7 +498,7 @@ export class SchemeView {
         }
         return { html, tip };
       }
-      return { html: `<span style="font-size:${fontSize}px;line-height:1;display:inline-flex;align-items:center;justify-content:center">${this._typeIcon('greenhouse')}</span>`, tip: 'Теплица' };
+      return { html: `<span style="font-size:${fontSize}px;line-height:1">${OBJ_TYPES.greenhouse.emoji}</span>`, tip: 'Теплица' };
     }
     if ((o.type === 'bed' || o.type === 'tree' || o.type === 'bush') && o.culture) {
       const plantEmoji = this._plantEmoji(o.culture);
@@ -518,8 +522,7 @@ export class SchemeView {
       }
       return { html, tip };
     }
-    // 2.180: постройки/деревья/кусты/грядки без культуры — явные site-иконки
-    return { html: `<span style="font-size:${fontSize}px;line-height:1;display:inline-flex;align-items:center;justify-content:center">${this._typeIcon(o.type)}</span>`, tip: '' };
+    return { html: `<span style="font-size:${fontSize}px;line-height:1">${OBJ_TYPES[o.type].emoji}</span>`, tip: '' };
   }
 
   /* ---------- панель настроек: один innerHTML, обработчики после ---------- */
@@ -574,23 +577,17 @@ export class SchemeView {
             warns.map(w => `<div>${w}</div>`).join('') + `</div>`;
         }
         extraHtml += this._refHtml(obj.culture);
-        // 2.182: блок учёта растений/урожая ВСЕГДА; расчёт — только при наличии справочника
         const pRef = plantingRef(this.planting, obj.culture);
-        const kind = (obj.type === 'tree' || obj.type === 'bush') ? 'perennial' : 'bed';
-        const est = pRef ? estimateCount(pRef, { kind, wM: obj.w, lM: obj.l }) : null;
-        const count = obj.planted_count != null ? obj.planted_count : (est ? est.count : null);
-        const estKg = (pRef && count != null) ? estimateYieldKg(pRef, count) : null;
-        const detail = (est && est.rows)
-          ? ` → ${est.rows} ряд(а) × ${est.perRow} = <b>${est.count}</b> раст.`
-          : (est ? ` → <b>${est.count}</b> раст.` : '');
-        extraHtml += `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:12px;background:rgba(232,160,92,.10);border-radius:10px;padding:8px 10px">` +
-          (pRef
-            ? `<b>🌱 Схема посадки:</b><div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см${detail}${pRef.note ? ` · ${pRef.note}` : ''}</div>`
-            : `<b>🌱 Учёт растений и урожая:</b><div style="color:#9A635E">Нет справочника схемы посадки для «${escHtml(obj.culture)}» — расчёт оценки недоступен (проверьте data/planting.json).</div>`) +
-          `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
-          `<div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div>` +
-          `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" /></label>` +
-          `</div>`;
+        if (pRef) {
+          const kind = (obj.type === 'tree' || obj.type === 'bush') ? 'perennial' : 'bed';
+          const est = estimateCount(pRef, { kind, wM: obj.w, lM: obj.l });
+          const count = obj.planted_count != null ? obj.planted_count : (est ? est.count : null);
+          const estKg = estimateYieldKg(pRef, count);
+          const detail = (est && est.rows)
+            ? ` → ${est.rows} ряд(а) × ${est.perRow} = <b>${est.count}</b> раст.`
+            : (est ? ` → <b>${est.count}</b> раст.` : '');
+          extraHtml += `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:12px;background:rgba(232,160,92,.10);border-radius:10px;padding:8px 10px"><b>🌱 Схема посадки:</b><div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см${detail}${pRef.note ? ` · ${pRef.note}` : ''}</div><label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label><div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div><label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" /></label></div>`;
+        }
         const cropPhases = this._phaseDataFor(obj.culture);
         if (cropPhases) {
           const order = PHASE_ORDER.filter(ph => cropPhases[ph]);
@@ -616,11 +613,10 @@ export class SchemeView {
           ghWarns.map(w => `<div>⚠ Совместимость: ${w}</div>`).join('') + `</div>` + extraHtml;
       }
     }
-    // 2.181: журнал заметок — сворачиваемый блок для любого типа объекта
+    // 2.180: журнал заметок — сворачиваемый блок для любого типа объекта
     extraHtml += this._notesHtml(obj);
     opExtra.innerHTML = extraHtml;
     opExtra.classList.toggle('hidden', !extraHtml.trim());
-    // обработчики привязываются ПОСЛЕ единственной записи innerHTML
     if (mode === 'plant') {
       const plantDateInput = document.getElementById('opPlantDate');
       if (plantDateInput) plantDateInput.addEventListener('change', (e) => { obj.plantingDate = e.target.value || null; });
@@ -628,12 +624,28 @@ export class SchemeView {
       if (plantCardBtn) plantCardBtn.addEventListener('click', () => { if (this.onOpenPlantCard) this.onOpenPlantCard(obj.culture); });
       opExtra.querySelectorAll('.ph-next').forEach(btn => btn.addEventListener('click', () => this._changePhase(obj, btn.dataset.phase)));
       const pcInput = document.getElementById('opPlantedCount');
-      if (pcInput) pcInput.addEventListener('change', (e) => { const v = parseInt(e.target.value, 10); obj.planted_count = isNaN(v) ? null : v; this._renderPanel(); });
+      if (pcInput) pcInput.addEventListener('change', (e) => {
+        const v = parseInt(e.target.value, 10);
+        obj.planted_count = isNaN(v) ? null : v;
+        this._renderPanel();
+      });
       const ayInput = document.getElementById('opActualYield');
-      if (ayInput) ayInput.addEventListener('change', (e) => { const v = parseFloat(e.target.value); obj.actual_yield_kg = isNaN(v) ? null : v; if (obj.actual_yield_kg != null) obj.yield_date = toDateStrLocal(new Date()); });
+      if (ayInput) ayInput.addEventListener('change', (e) => {
+        const v = parseFloat(e.target.value);
+        obj.actual_yield_kg = isNaN(v) ? null : v;
+        if (obj.actual_yield_kg != null) {
+          obj.yield_date = toDateStrLocal(new Date());
+          this._addNote(obj, 'harvest', `Фактический урожай: ${obj.actual_yield_kg} кг`);   // 2.180 авто-заметка
+        }
+        this._renderPanel();
+      });
     }
     if (mode === 'greenhouse') {
-      document.getElementById('opGhCount').addEventListener('change', (e) => { this._setGreenhouseBedCount(obj, parseInt(e.target.value, 10)); this.render(); if (this.onPhaseChange) this.onPhaseChange(); });
+      document.getElementById('opGhCount').addEventListener('change', (e) => {
+        this._setGreenhouseBedCount(obj, parseInt(e.target.value, 10));
+        this.render();
+        if (this.onPhaseChange) this.onPhaseChange();
+      });
       opExtra.querySelectorAll('.opGhCulture').forEach(sel => sel.addEventListener('change', () => {
         const i = parseInt(sel.dataset.i, 10);
         const newCulture = sel.value || null;
@@ -646,15 +658,38 @@ export class SchemeView {
           const first = PHASE_ORDER.find(ph => cropPhases[ph]);
           if (first) obj.greenhouseBedPhases[i] = { phase: first, phase_started: toDateStrLocal(new Date()), phase_history: [{ phase: first, started: toDateStrLocal(new Date()), ended: null }] };
           if (!obj.greenhouseBedPlantingDates[i]) obj.greenhouseBedPlantingDates[i] = toDateStrLocal(new Date());
-        } else obj.greenhouseBedPhases[i] = null;
+        } else {
+          obj.greenhouseBedPhases[i] = null;
+        }
         this.render();
         if (this.onPhaseChange) this.onPhaseChange();
       }));
-      opExtra.querySelectorAll('.opGhDate').forEach(inp => inp.addEventListener('change', () => { obj.greenhouseBedPlantingDates = obj.greenhouseBedPlantingDates || []; obj.greenhouseBedPlantingDates[parseInt(inp.dataset.i, 10)] = inp.value || null; }));
-      opExtra.querySelectorAll('.gh-plant-card').forEach(btn => btn.addEventListener('click', () => { const c = (obj.greenhouseBedCultures || [])[parseInt(btn.dataset.i, 10)]; if (c && this.onOpenPlantCard) this.onOpenPlantCard(c); }));
-      opExtra.querySelectorAll('.gh-phase-btn.ph-next').forEach(btn => btn.addEventListener('click', () => { this._changeGreenhouseBedPhase(obj, parseInt(btn.dataset.i, 10), btn.dataset.phase); }));
-      opExtra.querySelectorAll('.opGhPlanted').forEach(inp => inp.addEventListener('change', () => { const i = parseInt(inp.dataset.i, 10); const v = parseInt(inp.value, 10); (obj.greenhouseBedPlantedCounts = obj.greenhouseBedPlantedCounts || [])[i] = isNaN(v) ? null : v; this._renderPanel(); }));
-      opExtra.querySelectorAll('.opGhYield').forEach(inp => inp.addEventListener('change', () => { const i = parseInt(inp.dataset.i, 10); const v = parseFloat(inp.value); (obj.greenhouseBedYields = obj.greenhouseBedYields || [])[i] = isNaN(v) ? null : v; }));
+      opExtra.querySelectorAll('.opGhDate').forEach(inp => inp.addEventListener('change', () => {
+        obj.greenhouseBedPlantingDates = obj.greenhouseBedPlantingDates || [];
+        obj.greenhouseBedPlantingDates[parseInt(inp.dataset.i, 10)] = inp.value || null;
+      }));
+      opExtra.querySelectorAll('.gh-plant-card').forEach(btn => btn.addEventListener('click', () => {
+        const c = (obj.greenhouseBedCultures || [])[parseInt(btn.dataset.i, 10)];
+        if (c && this.onOpenPlantCard) this.onOpenPlantCard(c);
+      }));
+      opExtra.querySelectorAll('.gh-phase-btn.ph-next').forEach(btn => btn.addEventListener('click', () => {
+        this._changeGreenhouseBedPhase(obj, parseInt(btn.dataset.i, 10), btn.dataset.phase);
+      }));
+      opExtra.querySelectorAll('.opGhPlanted').forEach(inp => inp.addEventListener('change', () => {
+        const i = parseInt(inp.dataset.i, 10);
+        const v = parseInt(inp.value, 10);
+        (obj.greenhouseBedPlantedCounts = obj.greenhouseBedPlantedCounts || [])[i] = isNaN(v) ? null : v;
+        this._renderPanel();
+      }));
+      opExtra.querySelectorAll('.opGhYield').forEach(inp => inp.addEventListener('change', () => {
+        const i = parseInt(inp.dataset.i, 10);
+        const v = parseFloat(inp.value);
+        (obj.greenhouseBedYields = obj.greenhouseBedYields || [])[i] = isNaN(v) ? null : v;
+        if (obj.greenhouseBedYields[i] != null) {
+          this._addNote(obj, 'harvest', `Фактический урожай: ${obj.greenhouseBedYields[i]} кг (грядка ${i + 1})`);   // 2.180 авто-заметка
+        }
+        this._renderPanel();
+      }));
     }
     this._bindNotes(obj);
   }
@@ -700,6 +735,7 @@ export class SchemeView {
     (obj.phase_history = obj.phase_history || []).forEach(h => { if (!h.ended) h.ended = today; });
     obj.phase = newPhase; obj.phase_started = today;
     obj.phase_history.push({ phase: newPhase, started: today, ended: null });
+    this._addNote(obj, 'phase', `Фаза: ${PHASE_META[newPhase].label}`);   // 2.180 авто-заметка
     this.render();
     if (this.onPhaseChange) this.onPhaseChange();
   }
@@ -721,6 +757,7 @@ export class SchemeView {
       bp.phase = newPhase; bp.phase_started = today;
       bp.phase_history.push({ phase: newPhase, started: today, ended: null });
     }
+    this._addNote(obj, 'phase', `Фаза: ${PHASE_META[newPhase].label} (грядка ${bedIndex + 1})`);   // 2.180 авто-заметка
     this.render();
     if (this.onPhaseChange) this.onPhaseChange();
   }
@@ -742,10 +779,12 @@ export class SchemeView {
   _setCulture() {
     const obj = this.scheme.objects.find(o => o.id === this.selectedObjId);
     if (!obj) return;
+    const prev = obj.culture;
     obj.culture = document.getElementById('opCulture').value || null;
-    if (obj.culture) {
+    if (obj.culture && obj.culture !== prev) {
       if (!obj.plantingDate) obj.plantingDate = toDateStrLocal(new Date());
       if (obj.type === 'bed') this._pushHistory(obj);
+      this._addNote(obj, 'planting', `Культура: ${obj.culture}`);   // 2.180 авто-заметка
       const cropPhases = this._phaseDataFor(obj.culture);
       if (cropPhases && !obj.phase) {
         const first = this._initialPhaseFor(obj, cropPhases);
@@ -777,6 +816,7 @@ export class SchemeView {
       obj.culture = plantName;
       obj.plantingDate = toDateStrLocal(new Date());
       if (obj.type === 'bed') this._pushHistory(obj);
+      this._addNote(obj, 'planting', `Культура: ${plantName}`);   // 2.180 авто-заметка
       const cropPhases = this._phaseDataFor(plantName);
       if (cropPhases && !obj.phase) {
         const first = this._initialPhaseFor(obj, cropPhases);
@@ -799,6 +839,7 @@ export class SchemeView {
       obj.greenhouseBedCultures = [plantName];
       obj.greenhouseBedPlantingDates = [toDateStrLocal(new Date())];
       obj.greenhouseBedPhases = [null];
+      this._addNote(obj, 'planting', `Культура: ${plantName} (грядка 1)`);   // 2.180 авто-заметка
       const cropPhases = this._phaseDataFor(plantName);
       if (cropPhases) {
         const first = PHASE_ORDER.find(ph => cropPhases[ph]);
@@ -836,7 +877,7 @@ export class SchemeView {
     }).join('');
   }
 
-  /* ---------- 2.58: зазор >= 0.5 м ---------- */
+  /* ---------- размещение нового объекта ---------- */
   _gapOk(o, gap = 0.5){
     return this.scheme.objects.every(other => other.id === o.id || this._rectGap(o, other) >= gap - 0.001);
   }
@@ -856,7 +897,6 @@ export class SchemeView {
     }
     o.x = 0; o.y = 0;
   }
-
   _bind() {
     document.getElementById('plotW').addEventListener('change', () => { this.scheme.widthM = clampNum(Number(document.getElementById('plotW').value) || 12, 4, 60); this.render(); });
     document.getElementById('plotL').addEventListener('change', () => { this.scheme.lengthM = clampNum(Number(document.getElementById('plotL').value) || 8, 4, 60); this.render(); });
@@ -918,7 +958,6 @@ export class SchemeView {
   addObject(type) {
     const t = OBJ_TYPES[type];
     if (!t) return;
-    // 2.173: гарантируем уникальный id даже если nextId не восстановился после загрузки
     const maxId = this.scheme.objects.reduce((m,o) => Math.max(m, o.id||0), 0);
     if (!Number.isFinite(this.scheme.nextId) || this.scheme.nextId <= maxId) this.scheme.nextId = maxId + 1;
     const obj = { id: this.scheme.nextId++, type, name: this.nextUniqueName(this.scheme, t.label), culture: null, plantingDate: null, w: Math.min(t.w, this.scheme.widthM), l: Math.min(t.l, this.scheme.lengthM), x: 0, y: 0 };
