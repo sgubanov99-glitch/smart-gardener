@@ -1,9 +1,10 @@
-// src/core/exportPrint.js — печатная версия постера «Мой участок» (ревизия 2.187)
-// 2.187: ВОЗВРАЩЕНА группировка задач ПО МЕСЯЦАМ; добавлен предпросмотр печати со
-//        СВОРACHИВАЕМЫМИ листами: каждый лист = <details open>; свёрнутый лист не печатается;
-//        предпросмотр — модальное окно с интерактивным iframe и кнопкой «Печать»
-// 2.185: 4-я страница «Журнал объектов»; 2.172: полные имена объектов, иконки культур/фаз,
-//        урожай с фактическим числом растений, спрайты инлайнятся в печатный документ
+// src/core/exportPrint.js — печатная версия постера «Мой участок» (ревизия 2.189)
+// 2.189: предпросмотр в модалке: в шапке рядом «🖨 Печать выбранных листов» и «✕ Закрыть»
+//        (дублирующая нижняя кнопка «Выйти» убрана); выход также по клику на фон и Esc
+// 2.188: сворачиваемые листы (<details>): в печать идут ТОЛЬКО раскрытые; каждый раскрытый — с новой страницы
+// 2.187: группировка задач ПО МЕСЯЦАМ; 4-й лист «Журнал объектов» (последние 5 заметок)
+// 2.184: краткие коды объектов внутри (Д1/К2/Т1/Г3); постройки — полное имя + иконка si-house
+// 2.172: полные имена в таблицах, иконки культур/фаз, спрайты инлайнятся в печатный документ
 import { PHASE_META } from './phaseMachine.js';
 import { getCropIconId } from '../ui/ux.js';
 import { plantingRef, estimateCount, estimateYieldKg } from './planting.js';
@@ -19,6 +20,14 @@ const DIR_NAME = { N:'Север', S:'Юг', E:'Восток', W:'Запад', N
 const PHASE_ICON = {
   seed:'si-seed', seedling:'si-shoots', planting:'si-planting',
   vegetative:'si-growth', flowering:'si-flowering', fruiting:'si-fruiting', senescence:'si-wilting'
+};
+const NOTE_LABEL = {
+  watering:'Полив', fertilizing:'Подкормка', pruning:'Обрезка', treatment:'Обработка',
+  harvest:'Сбор', house:'Постройка', other:'Другое', planting:'Посадка', phase:'Фаза'
+};
+const NOTE_ICON = {
+  watering:'si-water', fertilizing:'si-fertilize', pruning:'si-prune', treatment:'si-warning',
+  harvest:'si-basket', house:'si-house', other:'si-leaf', planting:'si-planting', phase:'si-growth'
 };
 
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -39,7 +48,7 @@ function monthName(mk){
   return NOM[parseInt(mk.slice(5,7),10)-1] + ' ' + mk.slice(0,4);
 }
 
-/* ---------- полное имя объекта для колонки «Объект» ---------- */
+/* ---------- полное имя объекта для колонок таблиц ---------- */
 function resolveObjName(scheme, t){
   if (t.bed_name) return t.bed_name;
   const bid = t.bed_id;
@@ -87,7 +96,6 @@ function collectPrintData(scheme, plants, phases, planting, buildCalendar){
     }
   });
   const store = scheme.completedTasks || {};
-  // 2.187: группировка задач ПО МЕСЯЦАМ (как было)
   const tasksByMonth = new Map();
   Object.keys(byDay).sort().forEach(d=>{
     (byDay[d]||[]).forEach(t=>{
@@ -121,7 +129,7 @@ function collectPrintData(scheme, plants, phases, planting, buildCalendar){
   return { today, entries, tasksByMonth, harvestRows, notesByObj, estTotal:Math.round(estTotal), actTotal:Math.round(actTotal*10)/10, actCount };
 }
 
-/* ---------- схема (SVG) ---------- */
+/* ---------- схема (SVG): имя/код ВНУТРИ объекта внизу + иконки ---------- */
 function schemeSVG(scheme){
   const W=scheme.widthM, L=scheme.lengthM, S=10;
   const p=[];
@@ -209,8 +217,6 @@ function buildPreviewHTML(scheme, D, spriteText, appVersion){
       D.harvestRows.map(r=>`<tr><td>${esc(r.culture)}</td><td>${r.count||'—'}</td><td>${r.est?('≈ '+r.est):'—'}</td><td class="write">${r.act!=null?r.act:''}</td></tr>`).join('') +
       `<tr class="total"><td colspan="2">Итого</td><td>≈ ${D.estTotal} кг</td><td class="write">${D.actTotal||''}</td></tr></tbody></table>`
     : `<p class="note">Добавьте культуры и запишите урожай — здесь появится сводка.</p>`;
-  const NOTE_LABEL = { watering:'Полив', fertilizing:'Подкормка', pruning:'Обрезка', treatment:'Обработка', harvest:'Сбор', house:'Постройка', other:'Другое', planting:'Посадка', phase:'Фаза' };
-  const NOTE_ICON = { watering:'si-water', fertilizing:'si-fertilize', pruning:'si-prune', treatment:'si-warning', harvest:'si-basket', house:'si-house', other:'si-leaf', planting:'si-planting', phase:'si-growth' };
   const notesHTML = D.notesByObj.length
     ? D.notesByObj.map(s =>
         `<div class="section"><h3>${esc(s.name)} · ${esc(s.typeLabel)}</h3>` +
@@ -262,12 +268,10 @@ tr.total td { font-weight:700; background:#F4F1E6; }
 .ni { width:3.5mm; height:3.5mm; vertical-align:-1mm; }
 .note { color:#6B6A64; font-size:11px; }
 .footer { margin-top:6mm; font-size:10px; color:#8A7A5A; }
-/* экран: сворачиваемые листы */
 .pv-hint { font:600 12px 'Manrope',sans-serif; color:#6B6A64; margin:0 0 4mm; }
 .psec { border:1px solid #ccc; border-radius:8px; margin:0 0 6mm; }
 .psec > summary { cursor:pointer; font:700 14px 'Manrope',sans-serif; padding:8px 10px; background:#EEE; border-radius:8px; }
 .psec-body { padding:8px 4px; }
-/* печать: свёрнутые листы не печатаются; раскрытые — каждый с новой страницы */
 @media print {
   .pv-hint { display:none; }
   .psec > summary { display:none; }
@@ -287,7 +291,7 @@ ${sec('sec-notes',  'Лист 4 — Журнал объектов', sheet4)}
 </body></html>`;
 }
 
-/* ---------- главный вход: предпросмотр в модалке + печать выбранного ---------- */
+/* ---------- главный вход: предпросмотр в модалке + печать выбранных листов ---------- */
 export async function exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion }){
   const D = collectPrintData(scheme, plants, phases, planting, buildCalendar);
   let spriteText = '';
@@ -302,21 +306,24 @@ export async function exportPrint({ scheme, plants, phases, planting, compat, bu
     overlay.style.cssText = 'position:fixed;inset:0;z-index:95;background:rgba(40,35,25,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;';
     overlay.innerHTML =
       `<div style="display:flex;flex-direction:column;gap:10px;width:min(1000px,96vw);height:90vh;">` +
-      `<div style="display:flex;align-items:center;gap:10px;">` +
-      `<b style="font:700 16px 'Manrope',sans-serif;color:#fff;">Предпросмотр печати</b>` +
-      `<span style="flex:1"></span>` +
-      `<button type="button" id="pvPrint" style="border:none;border-radius:10px;padding:10px 18px;background:#8A9B6E;color:#fff;font:700 14px 'Manrope',sans-serif;cursor:pointer;">🖨 Печать выбранных листов</button>` +
-      `<button type="button" id="pvClose" style="border:none;border-radius:10px;padding:10px 14px;background:#fff;color:#3F3E3A;font:700 14px 'Manrope',sans-serif;cursor:pointer;">✕ Закрыть</button>` +
-      `</div>` +
-      `<iframe id="pvFrame" style="flex:1;width:100%;border:none;border-radius:12px;background:#fff;"></iframe>` +
+        `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">` +
+          `<b style="font:700 16px 'Manrope',sans-serif;color:#fff;">Предпросмотр печати</b>` +
+          `<span style="flex:1"></span>` +
+          `<button type="button" id="pvPrint" style="border:none;border-radius:10px;padding:10px 16px;background:#8A9B6E;color:#fff;font:700 14px 'Manrope',sans-serif;cursor:pointer;">🖨 Печать выбранных листов</button>` +
+          `<button type="button" id="pvClose" style="border:none;border-radius:10px;padding:10px 14px;background:#fff;color:#3F3E3A;font:700 14px 'Manrope',sans-serif;cursor:pointer;">✕ Закрыть</button>` +
+        `</div>` +
+        `<iframe id="pvFrame" style="flex:1;width:100%;border:none;border-radius:12px;background:#fff;"></iframe>` +
       `</div>`;
     document.body.appendChild(overlay);
-    overlay.querySelector('#pvClose').addEventListener('click', ()=> overlay.classList.add('hidden'));
+    const closePreview = ()=> overlay.classList.add('hidden');
+    overlay.querySelector('#pvClose').addEventListener('click', closePreview);
+    overlay.addEventListener('click', (e)=>{ if (e.target === overlay) closePreview(); });
+    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closePreview(); });
     overlay.querySelector('#pvPrint').addEventListener('click', ()=>{
       const frame = overlay.querySelector('#pvFrame');
       const doc = frame.contentDocument;
       const opens = Array.from(doc.querySelectorAll('details.psec[open]'));
-      opens.forEach((d,i)=> d.classList.toggle('no-break', i===0));   // первый раскрытый лист — без разрыва страницы
+      opens.forEach((d,i)=> d.classList.toggle('no-break', i===0));
       frame.contentWindow.focus();
       frame.contentWindow.print();
     });
