@@ -404,7 +404,16 @@ function showScreen(id){
   const only = (id==='screen-scheme');
   if (fab) fab.style.display = only ? '' : 'none';
   if (ur) ur.style.display = only ? '' : 'none';
-  resetViewOffset();
+  // 2.181: окно всегда открывается с самой верхней позиции
+  try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch(e){ window.scrollTo(0, 0); }
+  const act = document.getElementById(id);
+  if (act){
+    act.scrollTop = 0;                                   // сам экран (если когда-либо станет скролл-контейнером)
+    act.querySelectorAll('*').forEach(el => {            // внутренние скролл-контейнеры (чат, списки, модалки внутри экрана)
+      if (el.scrollTop) el.scrollTop = 0;
+    });
+  }
+  resetViewOffset();                                     // горизонталь + мобильный зум (как прежде)
 }
 document.addEventListener('click', function(e){ const g=e.target.closest('[data-goto]'); if (g) showScreen(g.dataset.goto); });
 document.addEventListener('click', function(e){
