@@ -1,9 +1,14 @@
-// src/ui/schemeView.js — представление схемы (ревизия 2.189)
-// 2.189: авто-заметки помечены auto:true и рисуются КРАСНЫМ; после ручной редакции auto:false
-//        и цвет как у ручных; ручные заметки auto:false
-// 2.188: редактирование заметки (✎ → форма «Сохранить»+«Отмена»); «показать все (N)/свернуть»
-//        (по умолчанию последние 5); чипы-фильтр по типу (+«Авто»); публичный addNote()
-// 2.180: сворачиваемый <details> «Журнал объекта (N)»; авто-заметки Посадка/Фаза/Сбор; полив только вручную
+// src/ui/schemeView.js — представление схемы (ревизия 2.195)
+// 2.195: тени выкл — drawShade НЕ вызываем вообще (его внутренности не уважают переданный
+//        пустой набор теней); сетку рисуем сами (_drawGridOnly) на shadeCanvas — тень исчезает,
+//        сетка остаётся; расчёт световых зон (_shadeRects/_lightZoneFor/_lightViolations)
+//        НЕ зависит от переключателя и учитывает тени всегда
+// 2.194: переключатель «Тени» и селект «Ориентация» подключены: _bind() вешает слушатель на
+//        #shadesBtn (с console.warn, если кнопки нет); _renderPanel() синхронизирует #opRotate
+// 2.192: кнопка «Тени» (localStorage sg-shades-visible); селект «Ориентация» (мена w/l с дожимом)
+// 2.189: авто-заметки auto:true красные; после ручной редакции auto:false и цвет как у ручных
+// 2.188: редактирование заметки (✎), «показать все (N)/свернуть», чипы-фильтр по типу, addNote()
+// 2.180: сворачиваемый <details> «Журнал объекта (N)»; авто-заметки Посадка/Фаза/Сбор; полив вручную
 // 2.159: легенда фаз; 2.153: зум/pinch; 2.140: bottom-sheet; 2.66: имя участка; 2.64: схема посадки/урожай
 import { objValid, clampNum, norm } from '../domain/scheme.js';
 import { computeShade, drawShade, SUN_MARKER_POS } from '../core/shade.js';
@@ -59,17 +64,67 @@ export class SchemeView {
     this._notesExpanded = false;    // 2.188: показаны ли все заметки
     this._notesFilter = null;       // 2.188: фильтр по типу
     this._editingNoteId = null;     // 2.188: id редактируемой заметки
+    this.shadesVisible = SchemeView._readShadesPref();   // 2.192: показ теней на 2D (расчёт света не зависит)
     this._pairs = []; this._badIds = new Set(); this._ghBadIds = new Set();
     this._lightBadIds = new Set(); this._compatNotes = new Map(); this._lightNotes = new Map();
     this.plotEl = document.getElementById('plot');
     this.plotBox = document.getElementById('plotBox');
     this.shadeCanvas = document.getElementById('shadeCanvas');
     this._bind(); this._bindPlotName(); this._initZoom();
+    this._updateShadesBtn();   // 2.192: синхронизировать состояние кнопки «Тени»
   }
+  static _readShadesPref(){ try { return localStorage.getItem('sg-shades-visible') !== '0'; } catch(e){ return true; } }
   _isMobile() { return !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches); }
   closePanel() { this._panelOpen = false; const p = document.getElementById('objPanel'); if (p) p.classList.add('hidden'); }
   openPanel() { this._panelOpen = true; this._renderPanel(); }
   setZoom(z) { this.zoom = Math.max(1, Math.min(4, z || 1)); this.render(); }
+  /* ---------- 2.192/2.194/2.195: тени (только отрисовка) и ориентация объектов ---------- */
+  toggleShades(){
+    this.shadesVisible = !this.shadesVisible;
+    try { localStorage.setItem('sg-shades-visible', this.shadesVisible ? '1' : '0'); } catch(e){}
+    this._updateShadesBtn();
+    this.render();
+  }
+  _updateShadesBtn(){
+    const b = document.getElementById('shadesBtn');
+    if (!b) { console.warn('schemeView: кнопка #shadesBtn не найдена в DOM — переключатель теней недоступен'); return; }
+    b.setAttribute('aria-pressed', this.shadesVisible ? 'true' : 'false');
+    b.style.opacity = this.shadesVisible ? '' : '.55';
+    b.title = this.shadesVisible
+      ? 'Тени на схеме: включены (клик — скрыть для читаемости; расчёт света не меняется)'
+      : 'Тени на схеме: скрыты (клик — показать; расчёт света не меняется)';
+  }
+  /* ---------- 2.195: сетка без теней (режим выключенного drawShade) ---------- */
+  _drawGridOnly(){
+    const c = this.shadeCanvas;
+    if (!c) return;
+    const w = Math.round(this.scheme.widthM * this.ppm);
+    const h = Math.round(this.scheme.lengthM * this.ppm);
+    if (c.width !== w) c.width = w;
+    if (c.height !== h) c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(138,155,110,.35)';
+    ctx.lineWidth = 1;
+    const step = Math.max(0.1, this.scheme.gridStepM || 0.5) * this.ppm;
+    ctx.beginPath();
+    for (let x = step; x < w - 0.5; x += step){ ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); }
+    for (let y = step; y < h - 0.5; y += step){ ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); }
+    ctx.stroke();
+  }
+  _rotateSelected(mode){
+    const obj = this.scheme.objects.find(o => o.id === this.selectedObjId);
+    if (!obj) return;
+    const isH = obj.w > obj.l;
+    const wantH = (mode === 'h');
+    if (isH === wantH || obj.w === obj.l) return;   // квадрат поворачивать бессмысленно
+    const w = obj.w, l = obj.l;
+    obj.w = l; obj.l = w;
+    obj.x = clampNum(obj.x, 0, this.scheme.widthM - obj.w);
+    obj.y = clampNum(obj.y, 0, this.scheme.lengthM - obj.l);
+    this.render();   // глобальный change-listener вызовет history.commit → undo/autosave подхватят
+  }
   _initZoom() {
     const wrap = this.plotBox ? this.plotBox.parentElement : null;
     if (!wrap) return;
@@ -278,7 +333,7 @@ export class SchemeView {
   _addNote(obj, type, text){
     obj.notes = obj.notes || [];
     const last = obj.notes[obj.notes.length - 1];
-    if (last && last.type === type && last.text === text) return;
+    if (last && last.type === type && last.text === text) return;   // защита от дублей
     const id = obj.notes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
     obj.notes.push({ id, date: toDateStrLocal(new Date()), type, text, auto:true });   // 2.189: авто-заметка красная
   }
@@ -418,8 +473,15 @@ export class SchemeView {
       const vis = this._objectVisual(o);
       return `<div class="obj o-${o.type} ${o.id === this.selectedObjId ? 'selected' : ''}" data-id="${o.id}" title="${o.name}${vis.tip ? ' • ' + vis.tip : ''}" style="left:${o.x * this.ppm}px; top:${o.y * this.ppm}px; width:${o.w * this.ppm}px; height:${o.l * this.ppm}px;">${vis.html}</div>`;
     }).join('');
-    const shade = computeShade(this.scheme);
-    drawShade(this.shadeCanvas, this.scheme, shade, this.ppm, this.scheme.gridStepM);
+    // 2.195: тени выкл — drawShade НЕ вызываем вообще (его внутренности не уважают
+    //         переданный пустой набор теней); сетку рисуем сами на shadeCanvas.
+    //         Расчёт световых зон (_lightViolations выше) от переключателя НЕ зависит.
+    if (this.shadesVisible) {
+      const shade = computeShade(this.scheme);
+      drawShade(this.shadeCanvas, this.scheme, shade, this.ppm, this.scheme.gridStepM);
+    } else {
+      this._drawGridOnly();
+    }
     this._positionSunMarker();
     this._renderPanel();
     this._renderObjList();
@@ -479,6 +541,13 @@ export class SchemeView {
     if (isCaster) document.getElementById('opHeight').value = obj.height_m || OBJ_TYPES[obj.type].h || 2;
     const isPlant = ['bed', 'tree', 'bush'].includes(obj.type);
     document.getElementById('opCultureWrap').classList.toggle('hidden', !isPlant);
+    // 2.192/2.194: ориентация объекта (вертикальная/горизонтальная)
+    const rotSel = document.getElementById('opRotate');
+    if (rotSel) {
+      rotSel.value = (obj.w > obj.l) ? 'h' : 'v';
+      rotSel.disabled = (obj.w === obj.l);   // квадратные объекты поворачивать нечего
+      rotSel.onchange = () => this._rotateSelected(rotSel.value);
+    }
     const opExtra = document.getElementById('opExtra');
     let extraHtml = '';
     let mode = null;
@@ -700,6 +769,10 @@ export class SchemeView {
     document.getElementById('sunDir').addEventListener('change', () => { this.scheme.sunDir = document.getElementById('sunDir').value || 'S'; this.render(); });
     document.querySelectorAll('.pal-btn[data-add]').forEach(b => b.addEventListener('click', () => this.addObject(b.dataset.add)));
     const compatBtn = document.getElementById('compatBtn'); if (compatBtn) compatBtn.addEventListener('click', () => this._openCompatModal());
+    // 2.194: переключатель отрисовки теней (+ warn, если кнопки нет в DOM)
+    const shadesBtn = document.getElementById('shadesBtn');
+    if (shadesBtn) shadesBtn.addEventListener('click', () => this.toggleShades());
+    else console.warn('schemeView: нет кнопки #shadesBtn в DOM — переключатель теней не подключён');
     document.getElementById('objDelete').addEventListener('click', () => this.deleteSelected());
     document.getElementById('opName').addEventListener('change', () => this._renameSelected());
     ['opX', 'opY', 'opW', 'opL'].forEach(id => document.getElementById(id).addEventListener('change', () => this._updateGeom()));
