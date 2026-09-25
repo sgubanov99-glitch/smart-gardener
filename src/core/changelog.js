@@ -1,7 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
-export const APP_VERSION = '2.189';
+export const APP_VERSION = '2.190';
 
 export const CHANGELOG = [
+  { v:'2.190', date:'24.09.2026', title:'Обложки по схеме cover-*: og:image/twitter:image → cover-og-1200x630.png', notes:[
+    'og:image и twitter:image указывают на assets/cover-og-1200x630.png (обложка №3, финал итерации 2)',
+    'Квадрат assets/cover-square-1024x1024.png хранится для SMM/соцсетей, в коде не referenced',
+    'Старый файл preview-1200x630.png удалён из репозитория; имена приведены к схеме из ТЗ (cover-<назначение>-<W>x<H>)'
+  ]},
   { v:'2.189', date:'24.09.2026', title:'og:image подключён: обложка №3 (assets/preview-1200x630.png)', notes:[
     'og:image / twitter:image → https://sgubanov99-glitch.github.io/smart-gardener/assets/preview-1200x630.png (обложка №3, 1200×630)',
     'twitter:card = summary_large_image (крупная карточка в превью ссылки)',
