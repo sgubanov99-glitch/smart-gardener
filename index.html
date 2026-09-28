@@ -12,8 +12,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="apple-touch-icon" href="assets/icon-192.png" />
-<!-- 2.191: обложки по схеме cover-*; og:image → горизонтальная обложка №3 (1200×630).
-     Квадрат assets/cover-square-1024x1024.png в коде не используется — склад для SMM/соцсетей. -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Умный садовод" />
 <meta property="og:title" content="Умный садовод — планировщик дачного участка" />
@@ -63,7 +61,8 @@
   #sunMarker .ic-site { width:24px; height:24px; vertical-align:0; }
   .offline-badge { display:inline-flex; align-items:center; gap:6px; font:700 11px "Manrope",sans-serif; color:#9A635E; background:rgba(217,165,160,.25); border-radius:999px; padding:3px 10px; align-self:center; }
   .offline-badge .ic-site { width:14px; height:14px; vertical-align:0; }
-  .topbar { position:sticky; top:0; z-index:40; display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
+  .topbar { position:sticky; top:0; z-index:40; padding:12px 22px; background:rgba(241,232,215,.86); backdrop-filter:blur(6px); box-shadow:0 6px 16px rgba(62,62,58,.08); }
+  .topbar-inner { display:flex; align-items:center; flex-wrap:wrap; gap:10px; width:100%; max-width:1180px; margin:0 auto; }
   .logo { font-family:"Neucha",cursive; font-size:clamp(30px,4.5vw,42px); display:flex; align-items:center; gap:10px; margin-right:auto; }
   .logo-img { width:52px; height:52px; flex:none; }
   .version { font:700 12px "Manrope",sans-serif; color:var(--ink-soft); background:rgba(63,62,58,.08); border-radius:999px; padding:3px 10px; align-self:center; }
@@ -97,12 +96,9 @@
   .plot-name-emoji { font-size:24px; display:inline-flex; }
   .plot-name-bar input { flex:1; min-width:0; border:none; background:transparent; font-family:"Neucha",cursive; font-size:22px; color:var(--olive-dark); outline:none; }
   .plot-name-bar input::placeholder { color:rgba(111,130,87,.45); }
-  .zoom-hint { display:flex; align-items:center; gap:8px; margin:0 0 10px; padding:8px 10px; border-radius:10px; background:rgba(138,155,110,.12); color:var(--ink-soft); font-size:12px; line-height:1.35; }
-  .zoom-hint button { margin-left:auto; border:none; background:transparent; color:var(--ink-soft); font-size:14px; cursor:pointer; padding:4px; }
   .scheme-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:14px; }
   .scheme-toolbar label { display:flex; align-items:center; gap:6px; font-weight:700; font-size:13.5px; }
   .scheme-toolbar input, .scheme-toolbar select { width:76px; border:none; border-radius:10px; padding:8px 10px; font:700 14px "Manrope",sans-serif; background:var(--panel); box-shadow:var(--shadow-s); color:var(--ink); }
-  #sunDir { width:auto; min-width:76px; }
   .palette { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
   .pal-btn { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:8px 14px; font:600 13.5px "Manrope",sans-serif; color:var(--ink); cursor:pointer; transition:transform .15s ease; display:inline-flex; align-items:center; gap:6px; }
   .pal-btn:hover { transform:translateY(-2px); box-shadow:var(--shadow-s); }
@@ -118,6 +114,14 @@
   .obj { position:absolute; display:grid; place-items:center; z-index:2; border:2px solid rgba(63,62,58,.15); border-radius:12px; cursor:grab; user-select:none; touch-action:none; overflow:hidden; }
   .obj:active { cursor:grabbing; } .obj.selected { outline:3px solid rgba(138,155,110,.5); }
   .obj.invalid { border-color:var(--rose-dark); background:rgba(217,165,160,.2) !important; }
+  /* 3.12: анимации объектов и плавное выделение */
+  .obj { transition: outline-color .12s ease, box-shadow .12s ease; }
+  @keyframes obj-in { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
+  @keyframes obj-flash { 0%,100% { outline-color:rgba(138,155,110,.5); } 50% { outline-color:rgba(138,155,110,.95); } }
+  @keyframes obj-out { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(.95); } }
+  .obj-just-added { animation: obj-in .24s ease-out; }
+  .obj-flash { outline:3px solid rgba(138,155,110,.5); animation: obj-flash .5s ease-in-out 2; }
+  .obj-removing { animation: obj-out .16s ease-in forwards; pointer-events:none; }
   .phase-badge { position:absolute; left:4px; top:4px; z-index:3; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; box-shadow:var(--shadow-s); }
   .greenhouse-plants { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:2px; width:100%; height:100%; overflow:hidden; }
   .gh-phases { position:absolute; left:4px; top:4px; display:flex; gap:2px; flex-wrap:wrap; max-width:70%; z-index:3; }
@@ -143,6 +147,7 @@
   .obj-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
   .obj-chip { border:1.5px solid rgba(63,62,58,.14); background:var(--panel); border-radius:999px; padding:6px 12px; font:600 12.5px "Manrope",sans-serif; cursor:pointer; color:var(--ink); display:inline-flex; align-items:center; gap:6px; }
   .obj-chip.selected { background:var(--olive); color:#fff; border-color:transparent; }
+  .obj-group-title { flex-basis:100%; font:800 11px 'Manrope',sans-serif; color:var(--ink-soft); margin:8px 0 -2px; }
   .phase-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .phase-controls .ph { border:none; border-radius:8px; padding:5px 7px; font-size:15px; cursor:pointer; background:#fff; box-shadow:var(--shadow-s); display:inline-flex; align-items:center; justify-content:center; }
   .phase-controls .ph .ic-site { width:16px; height:16px; vertical-align:0; }
@@ -160,6 +165,55 @@
   @media (min-width:901px) { .phase-legend { display:none; } }
   .gh-plant-card { grid-column:1/-1; border:none; border-radius:var(--radius-s); padding:9px 14px; background:linear-gradient(180deg,#C9F3B9,#A9E8A0); color:#274A22; font:700 13px "Manrope",sans-serif; cursor:pointer; box-shadow:var(--shadow-s); transition:transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
   .gh-plant-card:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
+  .op-more { margin-top:10px; border-radius:12px; background:rgba(138,155,110,.08); padding:8px 10px; }
+  .op-more > summary { cursor:pointer; font:700 12px 'Manrope',sans-serif; color:var(--ink-soft); list-style:none; display:flex; align-items:center; gap:6px; }
+  .op-more > summary::before { content:''; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid var(--ink-soft); transition:transform .15s; }
+  .op-more[open] > summary::before { transform:rotate(180deg); }
+  .op-more .op-grid { margin-top:8px; }
+  .ss-section { margin:0 0 14px; display:flex; flex-direction:column; gap:8px; }
+  .ss-section > b { font:700 13px 'Manrope',sans-serif; color:var(--ink-soft); }
+  .ss-presets { display:flex; flex-wrap:wrap; gap:8px; }
+  .ss-custom { display:flex; gap:10px; flex-wrap:wrap; }
+  .ss-custom label { display:flex; flex-direction:column; gap:4px; font:700 12px 'Manrope',sans-serif; color:var(--ink-soft); }
+  .ss-custom input { width:120px; border:none; border-radius:10px; padding:8px 10px; font:700 14px 'Manrope',sans-serif; background:#fff; box-shadow:var(--shadow-s); color:var(--ink); }
+  .ss-section label { display:flex; align-items:center; gap:8px; font:700 13px 'Manrope',sans-serif; color:var(--ink-soft); }
+  .ss-section select { border:none; border-radius:10px; padding:8px 10px; font:700 14px "Manrope",sans-serif; background:#fff; box-shadow:var(--shadow-s); color:var(--ink); }
+  .ss-compass { display:grid; grid-template-columns:repeat(3,56px); gap:6px; }
+  .ss-compass button { width:56px; height:56px; border:none; border-radius:12px; background:#fff; box-shadow:var(--shadow-s); font:700 20px 'Manrope',sans-serif; color:var(--ink); cursor:pointer; }
+  .ss-compass button.active { background:var(--olive); color:#fff; }
+  .ss-compass-center { display:flex; align-items:center; justify-content:center; background:rgba(138,155,110,.12); border-radius:12px; font:700 12px 'Manrope',sans-serif; color:var(--olive-dark); }
+  .ss-check { display:flex; align-items:center; gap:10px; font:700 13px 'Manrope',sans-serif; color:var(--ink); cursor:pointer; }
+  .ss-check input { width:20px; height:20px; margin:0; }
+  /* 3.7: тёплое приветствие */
+  .welcome-modal { max-width:560px; }
+  .welcome-hero { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .welcome-logo { width:56px; height:56px; flex:none; }
+  .welcome-title { margin:0; font-family:"Neucha",cursive; font-size:34px; color:var(--olive-dark); }
+  .welcome-tagline { margin:2px 0 0; font:700 14px 'Manrope',sans-serif; color:var(--ink-soft); }
+  .welcome-cast { display:flex; gap:12px; flex-wrap:wrap; margin:0 0 12px; }
+  .welcome-person { flex:1 1 220px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .welcome-avatar { width:110px; height:auto; filter:drop-shadow(0 4px 8px rgba(0,0,0,.15)); }
+  .welcome-avatar-chick { width:84px; }
+  .welcome-bubble { border-radius:14px 14px 14px 4px; padding:10px 12px; font-family:"Neucha",cursive; font-size:16px; line-height:1.35; color:var(--ink); background:#FFFDF4; border:1px solid rgba(138,155,110,.35); box-shadow:var(--shadow-s); }
+  .welcome-bubble-boy { border-radius:14px 14px 4px 14px; background:rgba(191,216,232,.35); border-color:rgba(47,74,92,.25); }
+  .welcome-points { display:flex; flex-direction:column; gap:6px; margin:0 0 10px; }
+  .welcome-advice { margin:0 0 14px; font:600 13px 'Manrope',sans-serif; color:var(--olive-dark); background:rgba(138,155,110,.12); border-radius:10px; padding:8px 12px; }
+  /* 3.8: диалоговая Цыпа демо-режима + фокус на выделенном объекте */
+  .demo-tsypa { position:fixed; z-index:47; display:flex; align-items:flex-end; gap:8px; max-width:280px; cursor:pointer; }
+  .demo-tsypa.hidden { display:none; }
+  .demo-tsypa-bubble { background:#FFFDF4; border:1px solid rgba(138,155,110,.4); border-radius:14px 14px 4px 14px; padding:10px 12px; font-family:"Neucha",cursive; font-size:15px; line-height:1.35; color:#5E7247; box-shadow:var(--shadow-s); }
+  .demo-tsypa-avatar { width:64px; height:64px; object-fit:contain; filter:drop-shadow(0 3px 6px rgba(0,0,0,.18)); flex:none; }
+  .demo-tsypa.flip { flex-direction:row-reverse; }
+  .demo-tsypa.flip .demo-tsypa-bubble { border-radius:14px 14px 14px 4px; }
+  #plotBox.demo-focus .obj:not(.selected) { opacity:.45; filter:saturate(.75); }
+  /* 3.9: экран «Статистика» и FAB чата */
+  .stats-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:0 0 14px; }
+  .stats-toggle { display:flex; gap:6px; }
+  .stats-tab { border-radius:999px; }
+  .stats-tab.active { background:var(--olive); color:#fff; }
+  .chat-fab { position:fixed; right:22px; bottom:22px; z-index:44; width:56px; height:56px; border:none; border-radius:50%; background:#5A4668; color:#fff; box-shadow:var(--shadow); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .chat-fab .ic-site { width:26px; height:26px; vertical-align:0; }
+  .chat-fab:active { transform:scale(.95); }
   .stub-note { padding:40px; text-align:center; color:var(--ink-soft); background:var(--panel); border-radius:var(--radius); }
   .plants-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .plants-toolbar input { flex:1; min-width:180px; border:none; border-radius:10px; padding:9px 12px; font:600 14px "Manrope",sans-serif; background:#fff; box-shadow:var(--shadow-s); }
@@ -227,6 +281,8 @@
   .cal-stickers img { width:84px; height:auto; filter:drop-shadow(0 4px 8px rgba(0,0,0,.18)); }
   .cal-stickers .stickers-row2 { grid-column:1/-1; justify-self:center; margin-top:-16px; }
   .analytics-sticker { position:absolute; top:-14px; right:0; width:128px; height:auto; z-index:5; pointer-events:none; filter:drop-shadow(0 4px 8px rgba(0,0,0,.18)); }
+  /* 3.10: стикеры «Статистики» начинаются ниже строки подвкладок — не накрывают кнопки */
+  .stats-sticker { top:2px; }
   .an-section { background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow-s); padding:18px 20px; margin-bottom:18px; }
   .an-section h3 { font-family:"Neucha",cursive; font-weight:400; font-size:24px; color:var(--olive-dark); margin:0 0 14px; display:flex; align-items:center; gap:8px; }
   .an-plot-name { font-family:"Neucha",cursive; font-size:20px; color:var(--olive-dark); margin:0 0 14px; display:flex; align-items:center; gap:8px; }
@@ -293,6 +349,10 @@
   #tsypa.pos-3 { left:16px;  top:84px; bottom:auto; right:auto; }
   #tsypa.pos-4 { left:16px;  top:45%;  bottom:auto; right:auto; }
   #tsypa.pos-5 { left:16px;  bottom:96px; top:auto; right:auto; }
+  /* 3.11: тихая Цыпа на десктопе — пузырь скрыт до запроса (класс ставит main.js) */
+  @media (min-width:901px){
+    #tsypa.tsypa-silent .tsypa-bubble { display:none; }
+  }
   .tip-season { background:rgba(138,155,110,.14); border-radius:10px; padding:8px 10px; margin:8px 0; font-size:13px; color:var(--ink); }
   .tip-season b { display:block; margin-bottom:2px; font-family:"Neucha",cursive; font-size:16px; color:var(--olive-dark); }
   .calendar-modal { position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; background:rgba(40,35,25,.45); backdrop-filter:blur(3px); }
@@ -395,13 +455,15 @@
   .m-undoredo { position:fixed; right:14px; top:45%; z-index:44; flex-direction:column; gap:10px; }
   .m-undoredo button { width:48px; height:48px; border:none; border-radius:50%; background:#fff; box-shadow:var(--shadow-s); font-size:20px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
   .m-undoredo button:disabled { opacity:.45; }
-  .fd-exit { display:none; position:fixed; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); z-index:44; align-items:center; gap:8px; border:none; border-radius:999px; padding:12px 16px; background:#5A4668; color:#fff; font:700 14px Manrope,sans-serif; box-shadow:var(--shadow); cursor:pointer; }
+  /* 3.10: пилюля «Мобильная версия» (fd-режим) — на одном уровне с FAB чата */
+  .fd-exit { display:none; position:fixed; left:12px; bottom:22px; z-index:44; align-items:center; gap:8px; border:none; border-radius:999px; padding:12px 16px; background:#5A4668; color:#fff; font:700 14px Manrope,sans-serif; box-shadow:var(--shadow); cursor:pointer; }
   html.fd .fd-exit { display:flex; }
   .m-note { font-size:11.5px; color:var(--ink-soft); margin:2px 0 10px; }
   .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .hm-btn, .gh-phase-btn, .phase-controls .ph { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
   @media (max-width: 900px) {
     body { padding-bottom:96px; -webkit-tap-highlight-color:transparent; }
-    .topbar { padding:10px 12px; gap:8px; }
+    .topbar { padding:10px 12px; }
+    .topbar-inner { gap:8px; }
     .logo { font-size:26px; gap:8px; }
     .logo-img { width:40px; height:40px; }
     .topbar-actions { width:100%; justify-content:flex-start; gap:6px; }
@@ -413,9 +475,6 @@
     .hint-pill { font-size:12px; padding:8px 10px; }
     .plot-name-bar input { font-size:18px; }
     .scheme-toolbar { gap:8px; }
-    .scheme-toolbar label { flex:1 1 42%; font-size:12.5px; }
-    .scheme-toolbar input, .scheme-toolbar select { width:100%; min-height:40px; }
-    #sunDir { width:100%; }
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
     .pal-btn { padding:10px 14px; min-height:40px; }
@@ -460,9 +519,9 @@
     .an-section button, .an-section .btn, .an-section .obj-chip { white-space:normal !important; overflow-wrap:break-word; text-align:left; }
     .an-section table td, .an-section table th { padding:6px 6px; font-size:11.5px; }
     .plant-chick { width:30px; top:-12px; left:4px; }
-    #screen-home .an-section div, #screen-home .an-section li { flex-wrap:wrap !important; }
-    #screen-home .an-section button { width:100%; min-height:40px; margin-top:6px; text-align:center; }
-    #screen-home .an-section li > * { max-width:100%; }
+    #screen-home .an-section div, #screen-home .an-section li, #statsOverview .an-section div, #statsOverview .an-section li { flex-wrap:wrap !important; }
+    #screen-home .an-section button, #statsOverview .an-section button { width:100%; min-height:40px; margin-top:6px; text-align:center; }
+    #screen-home .an-section li > *, #statsOverview .an-section li > * { max-width:100%; }
     #screen-home-body { display:block !important; overflow-x:hidden; max-width:100vw; min-height:120px; }
     #screen-home-body > * { display:block !important; width:100% !important; max-width:100% !important; margin-left:0 !important; margin-right:0 !important; }
     #screen-home-body * { box-sizing:border-box; }
@@ -518,6 +577,8 @@
     .m-undoredo { display:flex; }
     #tsypa { max-width:170px; }
     #tsypa.tsypa-quiet .tsypa-bubble { display:none; }
+    /* 3.9: FAB чата выше FAB «+», позиция стабильна между экранами */
+    .chat-fab { right:14px; bottom:calc(150px + env(safe-area-inset-bottom)); }
     .plant-detail-overlay { padding:0; z-index:95; }
     .plant-detail-modal { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); }
   }
@@ -539,7 +600,6 @@
     .logo { font-size:21px; }
     .logo-img { width:32px; height:32px; }
     .topbar-actions .btn { flex:1 1 auto; text-align:center; }
-    .scheme-toolbar label { flex:1 1 100%; }
     .pal-btn { flex:1 1 46%; text-align:center; }
     .an-gantt-row, .an-gantt-axis { grid-template-columns:96px minmax(0,1fr); }
     .an-kpi { padding:12px; }
@@ -547,25 +607,29 @@
     .m-cell { min-height:46px; }
     .m-badge { font-size:10px; }
     .bottomnav { gap:2px; padding:4px 2px calc(4px + env(safe-area-inset-bottom)); }
-    .nav-btn { font-size:9.5px; padding:6px 1px; min-width:0; }
+    .nav-btn { font-size:10.5px; padding:6px 1px; min-width:0; }
     .nav-btn .ico { font-size:18px; }
     .tut-title { font-size:22px; }
+  }
+  /* 3.4/3.5: на десктопе Меню — компактный дропдаун СПРАВА под шапкой; панель — flex-колонка
+     со stretch, все пункты ОДНОЙ ширины; на мобильном — прежний полноэкранный лист */
+  @media (min-width:901px){
+    .m-sheet { background:rgba(40,35,25,.28); }
+    .m-sheet .m-sheet-panel { position:absolute; inset:auto; left:auto; top:70px; right:22px; width:max-content; min-width:300px; max-height:calc(100vh - 96px); border-radius:16px; box-shadow:0 18px 44px rgba(0,0,0,.28); padding:14px; display:flex; flex-direction:column; align-items:stretch; }
+    .m-sheet-panel .m-item, .m-sheet-panel .m-switch { width:100%; min-height:44px; padding:10px 14px; margin-bottom:6px; }
+    .m-sheet-panel .m-sheet-head { margin-bottom:10px; }
+    .m-sheet-panel .m-note { max-width:320px; }
   }
 </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="logo"><img src="assets/logo.svg" alt="Умный садовод — логотип" class="logo-img" /> Умный садовод <span class="version" id="appVersion"></span></div>
-    <span class="offline-badge hidden" id="offlineBadge"><svg class="ic-site"><use href="#si-offline"/></svg> офлайн</span>
-    <div class="topbar-actions">
-      <button type="button" class="btn m-only" id="menuBtn" aria-label="Меню"><svg class="ic-site"><use href="#si-menu"/></svg> Меню</button>
-      <button type="button" class="btn btn-blue" id="saveBtn"><svg class="ic-site"><use href="#si-save"/></svg> Сохранить</button>
-      <button type="button" class="btn btn-green" id="loadBtn"><svg class="ic-site"><use href="#si-load"/></svg> Загрузить</button>
-      <button type="button" class="btn btn-pink" id="resetBtn"><svg class="ic-site"><use href="#si-reset"/></svg> Сбросить</button>
-      <button type="button" class="btn" id="historyBtn" title="История ревизий"><svg class="ic-site"><use href="#si-history"/></svg> История</button>
-      <button type="button" class="btn" id="tutorialBtn"><svg class="ic-site"><use href="#si-tutorial"/></svg> Обучение</button>
-      <button type="button" class="btn btn-violet" id="guestbookBtn"><svg class="ic-site"><use href="#si-guestbook"/></svg> Книга отзывов</button>
-      <button type="button" class="btn btn-olive advisor" id="advisorBtn">Советчик<img src="assets/chick.svg" alt="" class="advisor-emoji" /></button>
+    <div class="topbar-inner">
+      <div class="logo"><img src="assets/logo.svg" alt="Умный садовод — логотип" class="logo-img" /> Умный садовод <span class="version" id="appVersion"></span></div>
+      <span class="offline-badge hidden" id="offlineBadge"><svg class="ic-site"><use href="#si-offline"/></svg> офлайн</span>
+      <div class="topbar-actions">
+        <button type="button" class="btn" id="menuBtn" aria-label="Меню"><svg class="ic-site"><use href="#si-menu"/></svg> Меню</button>
+      </div>
     </div>
   </header>
 
@@ -584,33 +648,25 @@
       <input id="plotNameInput" type="text" placeholder="Дайте имя вашему участку…" maxlength="60" />
     </div>
     <div class="scheme-toolbar">
-      <label>Ширина, м <input id="plotW" type="number" min="4" max="60" value="12" /></label>
-      <label>Длина, м <input id="plotL" type="number" min="4" max="60" value="8" /></label>
-      <label>Сетка, м
-        <select id="gridStep">
-          <option value="0.1">0.1</option>
-          <option value="0.25">0.25</option>
-          <option value="0.5" selected>0.5</option>
-          <option value="1">1</option>
-        </select>
-      </label>
-      <label>Солнце
-        <select id="sunDir">
-          <option value="N">Север</option><option value="NW">Северо-Запад</option>
-          <option value="W">Запад</option><option value="SW">Юго-Запад</option>
-          <option value="S" selected>Юг</option><option value="SE">Юго-Восток</option>
-          <option value="E">Восток</option><option value="NE">Северо-Восток</option>
-        </select>
-      </label>
       <div class="palette palette-right">
         <button type="button" class="pal-btn" id="compatBtn"><svg class="ic-site"><use href="#si-compatibility"/></svg> Совместимость</button>
-        <!-- 2.192: переключатель отрисовки теней (расчёт света не зависит) -->
-        <button type="button" class="pal-btn" id="shadesBtn" aria-pressed="true" title="Тени на схеме: включены (клик — скрыть для читаемости)"><svg class="ic-site"><use href="#si-sunHalf"/></svg> Тени</button>
         <button type="button" class="pal-btn" id="isoBtn">3D</button>
-        <button type="button" class="pal-btn d-only" id="printBtn"><svg class="ic-site"><use href="#si-print"/></svg> Печать</button>
-        <button type="button" class="pal-btn d-only" id="exportBtn"><svg class="ic-site"><use href="#si-poster"/></svg> Постер PNG</button>
+        <button type="button" class="pal-btn advisor d-only" id="advisorBtn">Советчик<img src="assets/chick.svg" alt="" class="advisor-emoji" /></button>
         <button type="button" class="pal-btn m-only" id="advisorBtnMob"><svg class="ic-site"><use href="#si-chick"/></svg> Советчик</button>
+        <button type="button" class="pal-btn" id="schemeSettingsBtn" title="Настройки схемы: размер, сетка, солнце, тени"><svg class="ic-site"><use href="#si-settings"/></svg> Настройки</button>
       </div>
+    </div>
+    <!-- рабочие кнопки, вызываемые из меню-листа (скрыты на экране); делегирование кликает их по id -->
+    <div class="hidden">
+      <button type="button" id="saveBtn">Сохранить</button>
+      <button type="button" id="loadBtn">Загрузить</button>
+      <button type="button" id="resetBtn">Сбросить</button>
+      <button type="button" id="historyBtn">История ревизий</button>
+      <button type="button" id="tutorialBtn">Обучение</button>
+      <button type="button" id="guestbookBtn">Книга отзывов</button>
+      <button type="button" id="printBtn">Печать</button>
+      <button type="button" id="exportBtn">Постер PNG</button>
+      <button type="button" id="loadDemoBtn">Демо-участок</button>
     </div>
     <div class="scheme-actions">
       <div class="palette palette-left">
@@ -638,20 +694,22 @@
     <div class="obj-panel hidden" id="objPanel">
       <div class="op-grid">
         <label>Название <input id="opName" type="text" /></label>
-        <label>X, м <input id="opX" type="number" step="0.1" /></label>
-        <label>Y, м <input id="opY" type="number" step="0.1" /></label>
-        <label>Ширина, м <input id="opW" type="number" step="0.1" min="0.3" /></label>
-        <label>Длина, м <input id="opL" type="number" step="0.1" min="0.3" /></label>
-        <label id="opHeightWrap">Высота, м <input id="opHeight" type="number" min="0.5" max="15" step="0.5" /></label>
         <label id="opCultureWrap">Культура <select id="opCulture"></select></label>
-        <!-- 2.192: ориентация объекта (вертикальная/горизонтальная) -->
-        <label id="opRotateWrap">Ориентация
-          <select id="opRotate">
-            <option value="v">Вертикальная</option>
-            <option value="h">Горизонтальная</option>
-          </select>
-        </label>
       </div>
+      <details id="opMore" class="op-more">
+        <summary>Ещё: размеры и ориентация</summary>
+        <div class="op-grid">
+          <label>Ширина, м <input id="opW" type="number" step="0.1" min="0.3" /></label>
+          <label>Длина, м <input id="opL" type="number" step="0.1" min="0.3" /></label>
+          <label id="opHeightWrap">Высота, м <input id="opHeight" type="number" min="0.5" max="15" step="0.5" /></label>
+          <label id="opRotateWrap">Ориентация
+            <select id="opRotate">
+              <option value="v">Вертикальная</option>
+              <option value="h">Горизонтальная</option>
+            </select>
+          </label>
+        </div>
+      </details>
       <div class="op-extra hidden" id="opExtra"></div>
       <div class="op-footer">
         <span class="obj-info" id="objInfo"></span>
@@ -660,6 +718,91 @@
     </div>
     <div class="obj-list" id="objList"></div>
   </section>
+
+  <!-- 3.7: Приветствие — тёплое знакомство: Мальчик-садовод и Цыпа представляются -->
+  <div class="overlay hidden" id="welcomeOverlay">
+    <div class="modal welcome-modal">
+      <div class="welcome-hero">
+        <img src="assets/logo.svg" alt="" class="welcome-logo" />
+        <div>
+          <h2 class="welcome-title">Умный садовод</h2>
+          <p class="welcome-tagline">Посадил — и следишь, всё по плану.</p>
+        </div>
+      </div>
+      <div class="welcome-cast">
+        <div class="welcome-person">
+          <img src="assets/boy.svg" alt="Мальчик-садовод" class="welcome-avatar" />
+          <div class="welcome-bubble welcome-bubble-boy">Здравствуй! Я Садовод Семён. Разложим твой участок по полочкам: грядки, теплица, деревья — всё на своих местах, с тенями и совместимостью культур.</div>
+        </div>
+        <div class="welcome-person">
+          <img src="assets/chick_full.svg" alt="Цыпа" class="welcome-avatar welcome-avatar-chick" />
+          <div class="welcome-bubble welcome-bubble-chick">А я — Цыпа! Подскажу, когда поливать и подкармливать, напомню про сбор урожая и порадуюсь вместе с тобой первому ведру томатов!</div>
+        </div>
+      </div>
+      <div class="welcome-points">
+        <div class="m-row"><svg class="ic-site"><use href="#si-map"/></svg> <b>Схема участка</b> — объекты, тени и световые зоны</div>
+        <div class="m-row"><svg class="ic-site"><use href="#si-calendar"/></svg> <b>Календарь задач</b> по фазам растений — без пропусков</div>
+        <div class="m-row"><svg class="ic-site"><use href="#si-basket"/></svg> <b>Прогноз урожая</b> и журнал заметок по каждому объекту</div>
+      </div>
+      <p class="welcome-advice">Советуем новичкам: пройди короткую Обучающую слайд‑программу и посмотри Демо‑участок — сразу станет понятно, как всё работает.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-olive" id="welcomeStart"><svg class="ic-site"><use href="#si-sprout"/></svg> Начать знакомство</button>
+        <button type="button" class="btn" id="welcomeSkip">Осмотрюсь сам</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- настройки схемы (размер/сетка/отображение/солнце) -->
+  <div class="overlay hidden" id="schemeSettingsOverlay">
+    <div class="modal">
+      <div class="modal-head"><h2><svg class="ic-site"><use href="#si-settings"/></svg> Настройки схемы</h2><button type="button" class="m-close" id="schemeSettingsClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button></div>
+      <div class="ss-section">
+        <b>Размер участка</b>
+        <div class="ss-presets">
+          <button type="button" class="btn ss-preset" data-preset="6,4">Маленький 6×4</button>
+          <button type="button" class="btn ss-preset" data-preset="12,8">Средний 12×8</button>
+          <button type="button" class="btn ss-preset" data-preset="20,15">Большой 20×15</button>
+        </div>
+        <div class="ss-custom">
+          <label>Своя ширина, м <input id="plotW" type="number" min="4" max="60" value="12" /></label>
+          <label>Своя длина, м <input id="plotL" type="number" min="4" max="60" value="8" /></label>
+        </div>
+      </div>
+      <div class="ss-section">
+        <label>Сетка, м
+          <select id="gridStep">
+            <option value="0.5" selected>0.5</option>
+            <option value="1">1</option>
+          </select>
+        </label>
+      </div>
+      <div class="ss-section">
+        <b>Отображение схемы</b>
+        <label class="ss-check"><input type="checkbox" id="shadesToggle" checked /> Тени от объектов</label>
+        <label class="ss-check"><input type="checkbox" id="gridHideToggle" /> Убрать сетку</label>
+      </div>
+      <div class="ss-section">
+        <b>Солнце (направление теней)</b>
+        <div class="ss-compass" id="sunCompass">
+          <button type="button" data-sun="NW" title="Северо-запад">↖</button>
+          <button type="button" data-sun="N" title="Север">↑</button>
+          <button type="button" data-sun="NE" title="Северо-восток">↗</button>
+          <button type="button" data-sun="W" title="Запад">←</button>
+          <div class="ss-compass-center">Юг</div>
+          <button type="button" data-sun="E" title="Восток">→</button>
+          <button type="button" data-sun="SW" title="Юго-запад">↙</button>
+          <button type="button" data-sun="S" title="Юг">↓</button>
+          <button type="button" data-sun="SE" title="Юго-восток">↘</button>
+        </div>
+        <select id="sunDir" class="hidden">
+          <option value="N">Север</option><option value="NW">Северо-Запад</option>
+          <option value="W">Запад</option><option value="SW">Юго-Запад</option>
+          <option value="S" selected>Юг</option><option value="SE">Юго-Восток</option>
+          <option value="E">Восток</option><option value="NE">Северо-Восток</option>
+        </select>
+      </div>
+    </div>
+  </div>
 
   <section class="screen" id="screen-plants">
     <div style="position:relative">
@@ -689,26 +832,36 @@
     </div>
   </section>
 
-  <section class="screen" id="screen-home">
-    <div class="an-plot-name" id="homePlotName"></div>
-    <div id="screen-home-body"></div>
-  </section>
-
-  <section class="screen" id="screen-analytics">
-    <div style="position:relative">
-      <img src="stickers/cat.png" alt="" class="analytics-sticker" />
-      <h2 class="screen-title">Аналитика <span class="accent">сезона</span></h2>
-      <div id="screen-analytics-body"></div>
+  <!-- 3.9: Статистика = бывший Обзор + бывшая Аналитика подвкладками -->
+  <section class="screen" id="screen-stats">
+    <div class="stats-head">
+      <div class="an-plot-name" id="homePlotName"></div>
+      <div class="stats-toggle" role="tablist">
+        <button type="button" class="btn stats-tab active" data-stats="overview">Обзор</button>
+        <button type="button" class="btn stats-tab" data-stats="analytics">Аналитика</button>
+      </div>
+    </div>
+    <div id="statsOverview">
+      <div style="position:relative">
+        <!-- 3.10: Собака на «Обзоре» — тот же стиль/позиция, что Кот на «Аналитике» -->
+        <img src="stickers/puppy.png" alt="" class="analytics-sticker stats-sticker" />
+        <div id="screen-home-body"></div>
+      </div>
+    </div>
+    <div id="statsAnalytics" class="hidden">
+      <div style="position:relative">
+        <img src="stickers/cat.png" alt="" class="analytics-sticker stats-sticker" />
+        <div id="screen-analytics-body"></div>
+      </div>
     </div>
   </section>
 
+  <!-- 3.9: навигация 6 → 4 вкладки; Чат вынесен в FAB -->
   <nav class="bottomnav" id="bottomnav">
     <button type="button" class="nav-btn active" data-goto="screen-scheme"><span class="ico"><svg class="ic-site"><use href="#si-map"/></svg></span>Схема</button>
     <button type="button" class="nav-btn" data-goto="screen-plants"><span class="ico"><svg class="ic-site"><use href="#si-sprout"/></svg></span>Растения</button>
     <button type="button" class="nav-btn" data-goto="screen-calendar"><span class="ico"><svg class="ic-site"><use href="#si-calendar"/></svg></span>Календарь</button>
-    <button type="button" class="nav-btn" data-goto="screen-chat"><span class="ico"><svg class="ic-site"><use href="#si-chat"/></svg></span>Чат</button>
-    <button type="button" class="nav-btn" data-goto="screen-home"><span class="ico"><svg class="ic-site"><use href="#si-overview"/></svg></span>Обзор</button>
-    <button type="button" class="nav-btn" data-goto="screen-analytics"><span class="ico"><svg class="ic-site"><use href="#si-analytics"/></svg></span>Аналитика</button>
+    <button type="button" class="nav-btn" data-goto="screen-stats"><span class="ico"><svg class="ic-site"><use href="#si-analytics"/></svg></span>Статистика</button>
   </nav>
 
   <div class="calendar-modal hidden" id="guestbookOverlay">
@@ -730,11 +883,18 @@
       <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
       <button type="button" class="m-item" data-mact="printBtn"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
       <button type="button" class="m-item" data-mact="exportBtn"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
+      <button type="button" class="m-item" data-mact="loadDemoBtn"><span class="mi"><svg class="ic-site"><use href="#si-map"/></svg></span>Демо-участок</button>
       <button type="button" class="m-item" id="installAppBtn" style="display:none"><span class="mi"><svg class="ic-site"><use href="#si-install"/></svg></span>Установить приложение</button>
       <button type="button" class="m-item" id="restoreAutosaveBtn"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Восстановить автосохранение</button>
       <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
       <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
       <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
+      <!-- 3.11: проактивность Цыпы отдельным тумблером -->
+      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Авто-подсказки Цыпы<input type="checkbox" id="tsypaAutoToggle" checked /></label>
+      <div class="m-note">Выкл — Цыпа молчит и подсказывает по клику на неё (компьютер). Вкл — подсказки сменяются сами.</div>
+      <!-- 3.12: вибро-отклик -->
+      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Вибро-отклик<input type="checkbox" id="hapticsToggle" checked /></label>
+      <div class="m-note">На телефоне: короткая вибрация при добавлении/удалении объекта и выполнении задачи. Звук не используется.</div>
       <div style="text-align:center;color:var(--ink-soft);font-size:12px;margin-top:8px">Умный садовод · v<span id="mVersion"></span></div>
     </div>
   </div>
@@ -754,7 +914,16 @@
     <button type="button" id="redoFab" disabled aria-label="Повторить"><svg class="ic-site"><use href="#si-redo"/></svg></button>
   </div>
 
+  <!-- 3.9: чат — плавающая кнопка, доступна на всех экранах -->
+  <button type="button" class="chat-fab" id="chatFab" aria-label="Чат с садоводом"><svg class="ic-site"><use href="#si-chat"/></svg></button>
+
   <button type="button" class="fd-exit" id="fdExit"><svg class="ic-site"><use href="#si-phone"/></svg> Мобильная версия</button>
+
+  <!-- 3.8: диалоговая Цыпа демо-режима: появляется рядом с выделенным объектом -->
+  <div id="demoTsypa" class="demo-tsypa hidden" aria-live="polite">
+    <div class="demo-tsypa-bubble" id="demoTsypaBubble"></div>
+    <img src="assets/chick_full.svg" alt="Цыпа" class="demo-tsypa-avatar" />
+  </div>
 
   <div class="tip-bubble hidden" id="tipBubble"></div>
   <div id="shadeTip" class="hidden"></div>
