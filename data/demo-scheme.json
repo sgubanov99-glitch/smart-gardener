@@ -1,0 +1,23 @@
+{
+  "plotName": "Демо-участок «Солнечный»",
+  "widthM": 12, "lengthM": 8, "gridStepM": 0.5, "sunDir": "S",
+  "completedTasks": {},
+  "weather": { "mode": "normal" },
+  "objects": [
+    { "id": 1, "type": "building", "name": "Дом", "culture": null, "plantingDate": null, "w": 3, "l": 4, "x": 0, "y": 0, "height_m": 4,
+      "notes": [ { "id": 1, "date": "2026-09-01", "type": "house", "text": "Обработали крышу защитным составом", "auto": false } ] },
+    { "id": 2, "type": "greenhouse", "name": "Теплица", "culture": null, "plantingDate": null, "w": 3, "l": 6, "x": 9, "y": 0, "height_m": 2.5,
+      "greenhouseBedCount": 2,
+      "greenhouseBedCultures": ["Томат", "Огурец"],
+      "greenhouseBedPlantingDates": ["2026-04-20", "2026-04-25"],
+      "greenhouseBedPhases": [null, null],
+      "greenhouseBedPlantedCounts": [null, null],
+      "greenhouseBedYields": [null, null] },
+    { "id": 3, "type": "bed", "name": "Грядка 1", "culture": "Морковь", "plantingDate": "2026-05-10", "w": 1, "l": 3, "x": 4, "y": 0, "history": [] },
+    { "id": 4, "type": "bed", "name": "Грядка 2", "culture": "Лук", "plantingDate": "2026-05-10", "w": 1, "l": 3, "x": 5.5, "y": 0, "history": [] },
+    { "id": 5, "type": "bed", "name": "Грядка 3", "culture": "Клубника", "plantingDate": "2026-04-15", "w": 1, "l": 3, "x": 7, "y": 0, "history": [] },
+    { "id": 6, "type": "tree", "name": "Яблоня", "culture": "Яблоня", "plantingDate": "2023-05-15", "w": 2, "l": 2, "x": 0, "y": 5, "height_m": 3 },
+    { "id": 7, "type": "tree", "name": "Слива", "culture": "Слива", "plantingDate": "2024-05-10", "w": 2, "l": 2, "x": 3, "y": 5, "height_m": 3 },
+    { "id": 8, "type": "bush", "name": "Смородина", "culture": "Смородина", "plantingDate": "2024-09-20", "w": 1, "l": 1, "x": 6, "y": 5, "height_m": 1.5 }
+  ]
+}
