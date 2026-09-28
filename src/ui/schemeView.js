@@ -1,7 +1,10 @@
-// src/ui/schemeView.js — представление схемы (ревизия 3.12)
-// 3.12: анимации: появление объекта (obj-in + obj-flash «прожектор»), удаление через obj-out (160мс)
-//      с событием sg-object-deleted (main: вибро + history.commit — undo не теряет удаление);
-//      авто-скролл к новому объекту при zoom>1; невалидный drop шлёт sg-drag-invalid (вибро-ошибка)
+// src/ui/schemeView.js — представление схемы (ревизия 3.13)
+// 3.13: подзаголовки секций панели настроек (.op-section-title): «Культура и сроки»,
+//      «Совместимость и свет», «Фазы», «Грядки теплицы»; форма добавления заметки отделена
+//      линией (.op-note-form); мобильный bottom-sheet со sticky-шапкой оформлен в index.html
+// 3.12: анимации: появление объекта (obj-in + obj-flash), удаление через obj-out (160мс) с событием
+//      sg-object-deleted (main: вибро + history.commit); авто-скролл к новому объекту при zoom>1;
+//      невалидный drop шлёт sg-drag-invalid (вибро-ошибка)
 // 3.8: sg-object-hint при выделении/создании (диалог Цыпы в демо / одноразово вне демо);
 //      sg-object-deselect при клике по пустому месту; чипы сгруппированы по типам с алфавитом
 // 3.7: блок «Схема посадки и урожай» рендерится ВСЕГДА (при отсутствии справочника — явная причина);
@@ -401,12 +404,12 @@ export class SchemeView {
     const defText = editing ? editing.text : '';
     const opts = keys.map(k => `<option value="${k}" ${k === defType ? 'selected' : ''}>${NOTE_TYPES[k].label}</option>`).join('');
     return `<details class="notes-box" ${this._notesOpen ? 'open' : ''} style="grid-column:1/-1;margin-top:8px">` +
-      `<summary style="cursor:pointer;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft);display:flex;align-items:center;gap:6px;list-style:none">${this._noteIcon('si-history')} Журнал объекта (${all.length})</summary>` +
+      `<summary style="cursor:pointer;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2);display:flex;align-items:center;gap:6px;list-style:none">${this._noteIcon('si-history')} Журнал объекта (${all.length})</summary>` +
       `<div>` +
         `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">${chips}</div>` +
-        (rows || '<div style="font-size:12px;color:var(--ink-soft);margin-top:4px">Заметок пока нет.</div>') +
+        (rows || '<div style="font-size:12px;color:var(--ink-soft-2);margin-top:4px">Заметок пока нет.</div>') +
         moreBtn +
-        `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">` +
+        `<div class="op-note-form" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">` +   // 3.13: отделитель формы
           (editing ? `<span style="flex-basis:100%;font:700 11px 'Manrope',sans-serif;color:#9A635E;">Редактирование заметки</span>` : '') +
           `<input id="opNoteDate" type="date" value="${defDate}" style="border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif"/>` +
           `<select id="opNoteType" style="border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif">${opts}</select>` +
@@ -574,17 +577,18 @@ export class SchemeView {
       document.getElementById('opCulture').innerHTML = '<option value="">— не выбрана —</option>' + cultures.map(p => `<option value="${p.name}" ${p.name === obj.culture ? 'selected' : ''}>${p.name}</option>`).join('');
       if (obj.culture) {
         mode = 'plant';
+        extraHtml += `<div class="op-section-title">Культура и сроки</div>`;   // 3.13
         extraHtml += `<label style="grid-column:1/-1">Дата посадки <input id="opPlantDate" type="date" value="${obj.plantingDate || ''}" /></label>`;
         extraHtml += `<button type="button" id="opPlantCard" class="btn-card" style="grid-column:1/-1">📖 Карточка растения: ${obj.culture}</button>`;
         if (obj.type === 'bed') {
           const fam = this._familyOf(obj.culture); const prev = this._prevHistory(obj);
-          if (fam) extraHtml += `<div style="grid-column:1/-1;font-size:12px;color:var(--ink-soft)">Семья: ${fam}${prev ? ` · в ${prev.year}: ${prev.culture}` : ''}</div>`;
+          if (fam) extraHtml += `<div style="grid-column:1/-1;font-size:12px;color:var(--ink-soft-2)">Семья: ${fam}${prev ? ` · в ${prev.year}: ${prev.culture}` : ''}</div>`;
           if (prev && fam && this._familyOf(prev.culture) === fam) extraHtml += `<div style="grid-column:1/-1;font-size:12px;color:#C0392B">⚠ Севооборот: не рекомендуется сажать «${obj.culture}» после «${prev.culture}» (та же семья).</div>`;
         }
         const warns = [];
         (this._compatNotes.get(obj.id) || []).forEach(s => warns.push('⚠ Совместимость: ' + s));
         const ln = this._lightNotes.get(obj.id); if (ln) warns.push('🌥 Свет: ' + ln);
-        if (warns.length) extraHtml += `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:3px;font-size:12px;background:rgba(217,165,160,.15);border-radius:10px;padding:8px 10px;color:#9A635E">` + warns.map(w => `<div>${w}</div>`).join('') + `</div>`;
+        if (warns.length) extraHtml += `<div class="op-section-title">Совместимость и свет</div>` + `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:3px;font-size:12px;background:rgba(217,165,160,.15);border-radius:10px;padding:8px 10px;color:#9A635E">` + warns.map(w => `<div>${w}</div>`).join('') + `</div>`;   // 3.13
         extraHtml += this._refHtml(obj.culture);
         // 3.7: блок «Схема посадки и урожай» показывается ВСЕГДА для культур
         const pRef = plantingRef(this.planting, obj.culture);
@@ -597,20 +601,22 @@ export class SchemeView {
           (pRef
             ? `<div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см${detail}${pRef.note ? ` · ${pRef.note}` : ''}</div>`
             : `<div style="color:#9A635E">Для культуры «${obj.culture}» нет схемы посадки в справочнике — расчётный урожай недоступен (проверьте data/planting.json).</div>`) +
-          `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
+          `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2)">Посажено растений <input id="opPlantedCount" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
           `<div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div>` +
-          `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" /></label></div>`;
+          `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2)">Фактический урожай, кг <input id="opActualYield" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${obj.actual_yield_kg != null ? obj.actual_yield_kg : ''}" placeholder="по окончании плодоношения" /></label></div>`;
         const cropPhases = this._phaseDataFor(obj.culture);
         if (cropPhases) {
           const order = PHASE_ORDER.filter(ph => cropPhases[ph]);
           const curIdx = order.indexOf(obj.phase);
-          extraHtml += `<div class="phase-controls" style="grid-column:1/-1"><span style="font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фаза:</span>${order.map((ph, i) => { let cls = 'ph'; if (curIdx >= 0 && i < curIdx) cls += ' ph-past'; else if (i === curIdx) cls += ' ph-current'; else cls += ' ph-next'; return `<button type="button" class="${cls}" data-phase="${ph}" ${curIdx >= 0 && i <= curIdx ? 'disabled' : ''} title="${PHASE_META[ph].label}">${PHASE_META[ph].icon}</button>`; }).join('')}<span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span></div>`;
+          extraHtml += `<div class="op-section-title">Фазы</div>`;   // 3.13
+          extraHtml += `<div class="phase-controls" style="grid-column:1/-1"><span style="font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2)">Фаза:</span>${order.map((ph, i) => { let cls = 'ph'; if (curIdx >= 0 && i < curIdx) cls += ' ph-past'; else if (i === curIdx) cls += ' ph-current'; else cls += ' ph-next'; return `<button type="button" class="${cls}" data-phase="${ph}" ${curIdx >= 0 && i <= curIdx ? 'disabled' : ''} title="${PHASE_META[ph].label}">${PHASE_META[ph].icon}</button>`; }).join('')}<span style="flex-basis:100%;font-size:11.5px;color:var(--ink-soft-2)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span></div>`;
           extraHtml += this._phaseLegendHtml(order);
         }
       }
     }
     if (obj.type === 'greenhouse') {
       mode = 'greenhouse';
+      extraHtml += `<div class="op-section-title">Грядки теплицы</div>`;   // 3.13
       const count = obj.greenhouseBedCount || 1;
       extraHtml += `<label style="grid-column:1/-1">Грядок в теплице <select id="opGhCount"><option value="1" ${count === 1 ? 'selected' : ''}>1</option><option value="2" ${count === 2 ? 'selected' : ''}>2</option><option value="3" ${count === 3 ? 'selected' : ''}>3</option><option value="4" ${count === 4 ? 'selected' : ''}>4</option></select></label>`;
       for (let i = 0; i < count; i++) {
@@ -666,9 +672,9 @@ export class SchemeView {
     const curPhase = bedPhase ? bedPhase.phase : null;
     const order = PHASE_ORDER.filter(ph => cropPhases[ph]);
     const curIdx = order.indexOf(curPhase);
-    return `<div class="phase-controls" style="grid-column:1/-1"><span style="font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фаза:</span>` +
+    return `<div class="phase-controls" style="grid-column:1/-1"><span style="font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2)">Фаза:</span>` +
       order.map((ph, i) => { let cls = 'ph gh-phase-btn'; if (curIdx >= 0 && i < curIdx) cls += ' ph-past'; else if (i === curIdx) cls += ' ph-current'; else cls += ' ph-next'; return `<button type="button" class="${cls}" data-i="${bedIndex}" data-phase="${ph}" ${curIdx >= 0 && i <= curIdx ? 'disabled' : ''} title="${PHASE_META[ph].label}">${PHASE_META[ph].icon}</button>`; }).join('') +
-      `<span style="flex-basis:100%;font-size:11px;color:var(--ink-soft)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span></div>` +
+      `<span style="flex-basis:100%;font-size:11.5px;color:var(--ink-soft-2)">💡 Меняйте вручную фазы растения для уточнения фазового календаря</span></div>` +
       this._phaseLegendHtml(order);
   }
   _setGreenhouseBedCount(obj, newCount) {
