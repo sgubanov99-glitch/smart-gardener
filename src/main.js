@@ -1,10 +1,9 @@
 // src/main.js — точка входа (ревизия 3.14)
-// 3.14: мобильный стек FAB справа без перекрытий: «+» 84px → undo/redo 150–256px → чат 266px
-//      (body.on-scheme ставится в showScreen; на прочих экранах чат на 150px);
-//      демо-подсказка Цыпы: после закрытия повторный показ на том же объекте заблокирован 10 с
-//      (demoHintSuppressed) — объект можно свободно перетаскивать
-// 3.13: подписи FAB (одноразовые баблы + long-press aria-label)
-// 3.12: анимации появления/удаления объектов + вибро-отклик (тумблер, sg-haptics);
+// 3.14: мобильные правки: правый стек FAB без перекрытий (undo/redo над «+», чат-FAB поднимается
+//      над undo/redo только на «Схеме» через body.on-scheme); пауза 10с повторного показа
+//      диалоговой подсказки Цыпы на том же объекте демо после её закрытия (demoHintSuppressed)
+// 3.13: финал Задачи 2 — подписи FAB (одноразовые баблы + long-press aria-label)
+// 3.12: анимации появления/удаления объектов + вибро-отклик (тумблер «Вибро-отклик», sg-haptics);
 //      sg-object-deleted → history.commit (undo не теряет удаление); sg-drag-invalid → вибро-ошибка
 // 3.11: Цыпа по запросу: тихий режим для новых (tsypa-silent), пузырь по клику ~10с, тумблер «Авто-подсказки»
 // 3.10: Статистика: Собака на Обзоре; дубль имени удалён из Аналитики; стикеры ниже подвкладок; fd-пилюля на уровне FAB
@@ -650,9 +649,9 @@ document.addEventListener('click', function(e){ if (e.target.closest('#historyBt
 /* --- навигация --- */
 function showScreen(id){
   if (id !== 'screen-scheme') demoHintHide();
-  document.body.classList.toggle('on-scheme', id==='screen-scheme');   // 3.14: стек FAB на Схеме
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.goto===id));
+  document.body.classList.toggle('on-scheme', id==='screen-scheme');   // 3.14: стек FAB на Схеме
   if (id==='screen-scheme'){ schemeView.render(); scheduleSchemeHooks(); }
   if (id==='screen-calendar') calendarView.render();
   if (id==='screen-chat') chatView.render();
@@ -1034,6 +1033,7 @@ if ('launchQueue' in window) {
 schemeView.render();
 tryRestoreAutosave();
 startOnboarding();   // 3.6: Приветствие → Обучение → Демо-участок
+document.body.classList.toggle('on-scheme', true);   // 3.14: стартовый экран — Схема
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
