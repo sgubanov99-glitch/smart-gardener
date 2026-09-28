@@ -1,15 +1,19 @@
-// src/main.js — точка входа (ревизия 2.189)
-// 2.189: авто-заметки из ВСЕХ выполненных задач календаря/обзора, КРОМЕ полива;
-//        пакетная кнопка «Отметить задачи выполненными» даёт авто-заметки только для вновь отмеченных
-//        (snapshot completedTasks до отметки + diff после события sg-tasks-bulk-done)
-// 2.182: opExtra-слушатель ограничен полями расчёта (форма заметок не сбрасывается)
-// 2.181: окно всегда открывается с верхней позиции (blur + resetScroll + rAF + страховка)
-// 2.179: planting гарантированно передаётся в SchemeView; самопроверка 'planting ref works'
-// 2.178: PWA shortcuts (?page=…) и share-target; 2.176: автосохранение; 2.175: PWA-полировка;
-// 2.173: recalcNextId; 2.168: слой замены эмодзи на знаки спрайта
+// src/main.js — точка входа (ревизия 3.12)
+// 3.12: задача 2 (2.1+2.2): анимации появления/удаления объектов (obj-in/obj-flash/obj-out),
+//      авто-скролл к новому объекту при зуме; вибро-отклик (только тач, тумблер «Вибро-отклик»,
+//      флаг sg-haptics): добавление 15мс, удаление 2×20, задача/демо «успех», ошибка drag 40мс;
+//      событие sg-object-deleted даёт history.commit — undo не теряет удаление
+// 3.11: Цыпа по запросу: тихий режим для новых (tsypa-silent), пузырь по клику ~10с, тумблер «Авто-подсказки»
+// 3.10: Статистика: Собака на Обзоре; дубль имени удалён из Аналитики; стикеры ниже подвкладок; fd-пилюля на уровне FAB
+// 3.9: навигация 6→4 (Обзор+Аналитика=«Статистика»), Чат=FAB; deep-link home/analytics→stats
+// 3.8: демо: диалоговая Цыпа у выделенного объекта; приглушение невыделенных; scheme.demoMode
+// 3.7: тёплое приветствие; одноразовые подсказки вне демо; диагностика planting
+// 3.6: первый вход: Приветствие → Обучение → Демо-участок; data/demo-scheme.json + нормализация фаз
+// 3.5: меню/лист сверху; 3.4/3.3: меню кликает скрытые рабочие кнопки; 3.1: упрощённый первый экран
+// 2.189: авто-заметки кроме полива; 2.182: opExtra только расчёт; 2.176: автосохранение; 2.175: PWA
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
-import { advancePhase, PHASE_META } from './core/phaseMachine.js';
+import { advancePhase, PHASE_META, PHASE_ORDER } from './core/phaseMachine.js';
 import { loadCompatibility } from './core/compatibility.js';
 import { loadPlants } from './domain/plant.js';
 import { StorageService } from './storage/storage.js';
@@ -31,7 +35,7 @@ import { createReminders } from './core/reminders.js';
 import { WEATHER_MODES } from './core/weather.js';
 import { APP_VERSION, CHANGELOG } from './core/changelog.js';
 import { swapEmojiInTextNodes } from './ui/icons.js';
-import { plantingRef } from './core/planting.js';   // 2.179: для самопроверки расчёта урожая
+import { plantingRef } from './core/planting.js';
 
 /* --- утилиты --- */
 function deepTrim(v){
@@ -100,8 +104,10 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
 if (!planting || !Object.keys(planting).length) console.warn('main.js: planting.json пуст или не загружен — расчёт урожая будет недоступен');
+// 3.7: видимая диагностика причины «пропавшего урожая»
+setTimeout(()=>{ if (!planting || !Object.keys(planting).length) showToast('Внимание: справочник схем посадки не загрузился — оценка урожая недоступна'); }, 1500);
 let tutorialSlides = [];
 try { const tres = await fetch('data/tutorial.json'); if (tres.ok) tutorialSlides = await tres.json(); } catch(e){ console.warn('tutorial.json не загрузился', e); }
 try { const iconsRes = await fetch('assets/icons.svg'); if (iconsRes.ok){ const t = await iconsRes.text(); if (t) document.body.insertAdjacentHTML('afterbegin', t); } } catch(e){ console.warn('icons.svg не загрузился', e); }
@@ -183,21 +189,62 @@ function restyleHomeBlocks(){
   });
 }
 function emptyHomeHTML(){
-  return '<div class="empty-state"><div class="empty-state-icon">🏡</div><div class="empty-state-title">Участок пока пуст</div><div class="empty-state-text">Добавьте грядки, теплицы, деревья и кустарники на «Схеме» — и здесь появится обзор сезона.</div><button type="button" class="btn btn-olive empty-state-action" data-goto="screen-scheme">Перейти к Схеме</button><button type="button" class="btn empty-state-action" data-goto="screen-plants">Открыть Каталог растений</button><button type="button" class="btn empty-state-action" data-goto="screen-calendar">Посмотреть Календарь</button></div>';
+  return '<div class="empty-state"><div class="empty-state-icon"><svg class="ic-site" style="width:44px;height:44px"><use href="#si-house"/></svg></div><div class="empty-state-title">Участок пока пуст</div><div class="empty-state-text">Добавьте грядки, теплицы, деревья и кустарники на «Схеме» — и здесь появится обзор сезона.</div><button type="button" class="btn btn-olive empty-state-action" data-goto="screen-scheme">Перейти к Схеме</button><button type="button" class="btn empty-state-action" data-goto="screen-plants">Открыть Каталог растений</button><button type="button" class="btn empty-state-action" data-goto="screen-calendar">Посмотреть Календарь</button></div>';
+}
+/* --- 3.9: шапка и подвкладки экрана «Статистика» --- */
+function updateStatsHead(){
+  const hpn = document.getElementById('homePlotName');
+  if (!hpn) return;
+  const pn = (scheme.plotName||'').trim();
+  hpn.innerHTML = pn ? '<svg class="ic-site" style="width:24px;height:24px"><use href="#si-house"/></svg> Участок «'+esc(pn)+'»' : '';
+  hpn.style.display = pn ? '' : 'none';
 }
 function renderHomeBody(){
+  updateStatsHead();
   const body = document.getElementById('screen-home-body');
   const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches;
   if (!(scheme.objects||[]).length) { if (body) body.innerHTML = emptyHomeHTML(); return; }
   homeView.render();
   if (isMob) restyleHomeBlocks();
 }
+/* --- 3.10: Аналитика без дубля имени участка --- */
+function stripAnalyticsDupName(){
+  const body = document.getElementById('screen-analytics-body');
+  if (!body) return;
+  let dup = body.querySelector('.an-plot-name');
+  if (!dup){
+    const pn = (scheme.plotName||'').trim();
+    if (pn){
+      const els = body.querySelectorAll('div,span,h2,h3,b,strong');
+      for (const el of els){
+        if (el.children.length) continue;
+        const t = (el.textContent||'').trim();
+        if (t === pn || t === 'Участок «'+pn+'»'){ dup = el; break; }
+      }
+    }
+  }
+  if (dup && body.contains(dup)) dup.remove();
+}
+function renderAnalytics(){ analyticsView.render(); stripAnalyticsDupName(); }
+let statsTab = 'overview';
+function setStatsTab(tab){
+  statsTab = (tab === 'analytics') ? 'analytics' : 'overview';
+  document.querySelectorAll('.stats-tab').forEach(b=>b.classList.toggle('active', b.dataset.stats === statsTab));
+  const ov = document.getElementById('statsOverview');
+  const an = document.getElementById('statsAnalytics');
+  if (ov) ov.classList.toggle('hidden', statsTab !== 'overview');
+  if (an) an.classList.toggle('hidden', statsTab !== 'analytics');
+  renderStatsCurrent();
+}
+function renderStatsCurrent(){ if (statsTab === 'analytics') renderAnalytics(); else renderHomeBody(); }
+document.addEventListener('click', (e)=>{ const t=e.target.closest('.stats-tab'); if (t) setStatsTab(t.dataset.stats); });
+on('chatFab', function(){ showScreen('screen-chat'); });
 
 /* --- undo/redo --- */
 function refreshAfterHistory(){
   schemeView.render(); calendarView.render();
   const active = document.querySelector('.screen.active');
-  if (active) { if (active.id==='screen-home') renderHomeBody(); if (active.id==='screen-analytics') analyticsView.render(); }
+  if (active && active.id==='screen-stats') renderStatsCurrent();
   if (window.__tsypa) window.__tsypa.refresh();
 }
 function applySchemeState(parsed){
@@ -247,6 +294,7 @@ function applyScheme(s){
   set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
   schemeView.render(); calendarView.render();
   if (window.__tsypa) window.__tsypa.refresh();
+  if (typeof updateCompass === 'function') updateCompass();
   history.commit();
 }
 function tryRestoreAutosave(){
@@ -279,6 +327,151 @@ const reminders = createReminders({ scheme, notify: m=>showToast(m), refreshTsyp
 const tsypa = createTsypa({ scheme, phases, plants, buildCalendar, getReminders: ()=>reminders.list() });
 window.__tsypa = tsypa; reminders.start();
 
+/* --- 3.7/3.8: подсказки Цыпы (одноразовые вне демо) и диалоговая Цыпа демо --- */
+function tsypaSay(text, ms){
+  const el = document.getElementById('tsypa');
+  if (!el) { showToast(text); return; }
+  const b = el.querySelector('.tsypa-bubble');
+  if (b) b.textContent = text;
+  el.classList.remove('tsypa-quiet');
+  el.style.display = '';
+  clearTimeout(el._sayT);
+  el._sayT = setTimeout(()=>{ if (window.__tsypa && window.__tsypa.refresh) window.__tsypa.refresh(); }, ms || 9000);
+}
+function objHintText(d){
+  if (d.type === 'building') return 'Цыпа подсказывает: у постройки вручную заполни Название и Высоту (высота нужна для расчёта теней). Остальное — по желанию!';
+  if (d.type === 'greenhouse') return 'Цыпа подсказывает: у теплицы вручную выбери культуры по грядкам и даты посадки. Фазы, задачи и оценку урожая я посчитаю сама!';
+  return 'Цыпа подсказывает: вручную — Название, Культуру и Дату посадки; «Посажено растений» и «Фактический урожай» — твои записи по сезону. Фазы, задачи, оценку урожая и авто-заметки приложение сформирует само!';
+}
+const DEMO_HINTS = {
+  building: (o)=>`Это Постройка «${o.name}». Вручную Вы можете изменить Название, размеры (длину, ширину, высоту) и ориентацию объекта на схеме. Высота объекта влияет на размер тени — это важно учесть при посадке растений. Также Вы можете добавлять Заметки в Журнал объекта.`,
+  greenhouse: (o)=>`Это Теплица «${o.name}». Вручную задайте количество грядок (1–4), Культуру и Дату посадки для каждой грядки, размеры и ориентацию — по ним приложение построит фазовый календарь и рассчитает оценку урожая. Фазы, задачи и авто-заметки формируются самим приложением; Ваши записи — в Журнале объекта.`,
+  bed: (o)=>`Это Грядка «${o.name}». Вручную укажите Культуру, Дату посадки, размеры и ориентацию — по ним приложение построит фазы и задачи календаря. Поля «Посажено растений» и «Фактический урожай» заполняйте по сезону: они уточняют прогноз и аналитику урожая. Заметки и авто-записи — в Журнале объекта.`,
+  tree: (o)=>`Это Дерево «${o.name}». Вручную укажите Культуру и Дату посадки: по возрасту приложение определит год первого плодоношения и не будет давать лишних задач и прогнозов молодому саженцу. Размеры и высоту можно менять — высота влияет на тень. Заметки — в Журнале объекта.`,
+  bush: (o)=>`Это Кустарник «${o.name}». Вручную укажите Культуру и Дату посадки: возраст учитывается в задачах и оценке урожая. Размеры можно менять; Заметки и авто-записи — в Журнале объекта.`
+};
+let demoHintObjId = null;
+function demoHintShow(obj){
+  const el = document.getElementById('demoTsypa');
+  const bubble = document.getElementById('demoTsypaBubble');
+  if (!el || !bubble) return;
+  demoHintObjId = obj.id;
+  bubble.textContent = (DEMO_HINTS[obj.type] || DEMO_HINTS.bed)(obj);
+  el.classList.remove('hidden');
+  const box = document.getElementById('plotBox');
+  if (box) box.classList.add('demo-focus');
+  demoHintPlace(obj.id);
+}
+function demoHintPlace(id){
+  const el = document.getElementById('demoTsypa');
+  const objEl = document.querySelector('#plot .obj[data-id="' + id + '"]');
+  if (!el || el.classList.contains('hidden') || !objEl) return;
+  const r = objEl.getBoundingClientRect();
+  const ew = el.offsetWidth || 260, eh = el.offsetHeight || 110;
+  let left = r.right + 12, flip = false;
+  if (left + ew > window.innerWidth - 8) { left = r.left - ew - 12; flip = true; }
+  if (left < 8) left = Math.max(8, Math.min(window.innerWidth - ew - 8, r.left));
+  let top = r.top + r.height / 2 - eh / 2;
+  top = Math.max(70, Math.min(window.innerHeight - eh - 90, top));
+  el.style.left = left + 'px'; el.style.top = top + 'px';
+  el.classList.toggle('flip', flip);
+}
+function demoHintSync(){
+  if (demoHintObjId == null) return;
+  const obj = scheme.objects.find(o=>o.id===demoHintObjId);
+  if (!obj || !scheme.demoMode || isoOn || schemeView.selectedObjId !== demoHintObjId) { demoHintHide(); return; }
+  demoHintPlace(demoHintObjId);
+}
+function demoHintHide(){
+  if (demoHintObjId == null) return;
+  demoHintObjId = null;
+  const el = document.getElementById('demoTsypa');
+  if (el) el.classList.add('hidden');
+  const box = document.getElementById('plotBox');
+  if (box) box.classList.remove('demo-focus');
+}
+(function initObjectHints(){
+  let seen = new Set();
+  try { seen = new Set(JSON.parse(localStorage.getItem('sg-obj-hint-seen') || '[]')); } catch(e){}
+  window.addEventListener('sg-object-hint', (e)=>{
+    const d = e.detail || {};
+    if (d.id == null) return;
+    if (scheme.demoMode) { const obj = scheme.objects.find(o=>o.id===d.id); if (obj) demoHintShow(obj); return; }
+    if (seen.has(d.id)) return;
+    seen.add(d.id);
+    try { localStorage.setItem('sg-obj-hint-seen', JSON.stringify(Array.from(seen))); } catch(e){}
+    tsypaSay(objHintText(d), 10000);
+  });
+})();
+(function bindDemoTsypa(){
+  const el = document.getElementById('demoTsypa');
+  if (el) el.addEventListener('click', ()=> demoHintHide());
+  window.addEventListener('sg-object-deselect', ()=> demoHintHide());
+  const wrap = document.getElementById('plotWrap');
+  let raf = 0;
+  const repost = ()=>{ if (raf) return; raf = requestAnimationFrame(()=>{ raf = 0; demoHintSync(); }); };
+  if (wrap) wrap.addEventListener('scroll', repost, { passive:true });
+  window.addEventListener('resize', repost);
+})();
+
+/* --- 3.11: Цыпа по запросу (тихий режим + пузырь по клику) --- */
+const tsypaAutoToggle = document.getElementById('tsypaAutoToggle');
+function tsypaAutoWanted(){
+  let v = null;
+  try { v = localStorage.getItem('sg-tsypa-auto'); } catch(e){}
+  if (v === null){
+    const legacy = ['sg-tutorial-seen','sg-autosave','sg-hints-seen','sg-welcome-seen'].some(k=>{ try { return !!localStorage.getItem(k); } catch(e){ return false; } });
+    v = legacy ? '1' : '0';
+    try { localStorage.setItem('sg-tsypa-auto', v); } catch(e){}
+  }
+  return v === '1';
+}
+let tsypaSilentTimer = 0;
+function applyTsypaMode(){
+  const el = document.getElementById('tsypa');
+  if (!el) return;
+  const auto = tsypaAutoWanted();
+  el.classList.toggle('tsypa-silent', !auto);
+  if (tsypaAutoToggle) tsypaAutoToggle.checked = auto;
+}
+if (tsypaAutoToggle) tsypaAutoToggle.addEventListener('change', ()=>{
+  try { localStorage.setItem('sg-tsypa-auto', tsypaAutoToggle.checked ? '1' : '0'); } catch(e){}
+  clearTimeout(tsypaSilentTimer);
+  applyTsypaMode();
+  showToast(tsypaAutoToggle.checked ? 'Авто-подсказки Цыпы: включены' : 'Авто-подсказки Цыпы: выключены (подсказка по клику)');
+});
+applyTsypaMode();
+(function bindTsypaOnDemand(){
+  const el = document.getElementById('tsypa');
+  if (!el) return;
+  el.addEventListener('click', ()=>{
+    if (tsypaAutoWanted()) return;
+    if (!(window.matchMedia && window.matchMedia('(min-width:901px)').matches)) return;
+    el.classList.remove('tsypa-silent');
+    if (window.__tsypa && window.__tsypa.refresh) window.__tsypa.refresh();
+    clearTimeout(tsypaSilentTimer);
+    tsypaSilentTimer = setTimeout(()=>{ applyTsypaMode(); }, 10000);
+  });
+})();
+
+/* --- 3.12: вибро-отклик (только тач, тумблер в меню; звука нет осознанно) --- */
+function hapticsWanted(){ try { return localStorage.getItem('sg-haptics') !== '0'; } catch(e){ return true; } }
+function vibrate(pattern){
+  if (!hapticsWanted() || !isTouch()) return;
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(e){}
+}
+const hapticsToggle = document.getElementById('hapticsToggle');
+if (hapticsToggle) {
+  hapticsToggle.checked = hapticsWanted();
+  hapticsToggle.addEventListener('change', ()=>{
+    try { localStorage.setItem('sg-haptics', hapticsToggle.checked ? '1' : '0'); } catch(e){}
+    if (hapticsToggle.checked) vibrate(15);
+    showToast(hapticsToggle.checked ? 'Вибро-отклик: включён' : 'Вибро-отклик: выключен');
+  });
+}
+window.addEventListener('sg-object-deleted', ()=>{ vibrate([20,40,20]); history.commit(); });   // undo не теряет удаление
+window.addEventListener('sg-drag-invalid', ()=> vibrate(40));
+
 /* --- обучение, книга отзывов --- */
 const tutorialView = createTutorialView({ slides: tutorialSlides });
 on('tutorialBtn', function(){ if (!tutorialSlides.length){ showToast('Обучение не загрузилось — проверьте data/tutorial.json'); return; } tutorialView.open(0); });
@@ -297,7 +490,13 @@ if (plantsBody && window.MutationObserver) new MutationObserver(()=>fixRelativeI
 const mMenuSheet = document.getElementById('mMenuSheet');
 const mAddSheet = document.getElementById('mAddSheet');
 function mCloseSheets(){ if (mMenuSheet) mMenuSheet.classList.add('hidden'); if (mAddSheet) mAddSheet.classList.add('hidden'); }
-on('menuBtn', function(){ if (mMenuSheet) mMenuSheet.classList.remove('hidden'); });
+on('menuBtn', function(){
+  if (mMenuSheet) {
+    mMenuSheet.classList.remove('hidden');
+    const p = mMenuSheet.querySelector('.m-sheet-panel');
+    if (p) p.scrollTop = 0;
+  }
+});
 on('mMenuClose', mCloseSheets); on('mAddClose', mCloseSheets);
 if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{ if (e.target===mMenuSheet) mCloseSheets(); });
 if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{ if (e.target===mAddSheet) mCloseSheets(); });
@@ -307,7 +506,13 @@ function applyTsypaVisibility(){ const el=document.getElementById('tsypa'); if (
 if (tsypaToggle) tsypaToggle.addEventListener('change', ()=>{ try { localStorage.setItem('sg-tsypa-hidden', tsypaToggle.checked?'0':'1'); } catch(e){} applyTsypaVisibility(); });
 applyTsypaVisibility();
 const mVer = document.getElementById('mVersion'); if (mVer) mVer.textContent = APP_VERSION;
-on('addFab', function(){ if (mAddSheet) mAddSheet.classList.remove('hidden'); });
+on('addFab', function(){
+  if (mAddSheet) {
+    mAddSheet.classList.remove('hidden');
+    const p = mAddSheet.querySelector('.m-sheet-panel');
+    if (p) p.scrollTop = 0;
+  }
+});
 if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{ const b=e.target.closest('[data-addfab]'); if (!b) return; mCloseSheets(); const real=document.querySelector('.palette-left [data-add="'+b.dataset.addfab+'"]'); if (real) setTimeout(()=>real.click(), 60); });
 on('undoFab', function(){ const u=document.getElementById('undoBtn'); if (u) u.click(); });
 on('redoFab', function(){ const r=document.getElementById('redoBtn'); if (r) r.click(); });
@@ -316,14 +521,14 @@ history.onStacksChange(syncFabs); syncFabs();
 
 /* --- поощрения --- */
 const ENCOURAGEMENTS = ['Так держать! Ты молодец! 🌟','Отличная работа! Так и дальше! 💪','Здорово! Участок скажет спасибо! 🌱','Молодец! Ещё одна задача закрыта! ✅','Супер! Цыпа гордится тобой! 🐤','Прекрасно! Урожай будет что надо! 🧺','Есть! Такими темпами весь участок в порядке! 🎉'];
-window.addEventListener('sg-task-done', ()=>{ showToast(ENCOURAGEMENTS[Math.floor(Math.random()*ENCOURAGEMENTS.length)]); if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate(); });
+window.addEventListener('sg-task-done', ()=>{ vibrate([10,30,10]); showToast(ENCOURAGEMENTS[Math.floor(Math.random()*ENCOURAGEMENTS.length)]); if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate(); });   // 3.12
 window.addEventListener('sg-tasks-bulk-done', (e)=>{ const n=(e.detail&&e.detail.count)||0; showToast(`Отмечено выполненными: ${n} просроченных задач ✓`); if (window.__tsypa) window.__tsypa.refresh(); });
 
 /* --- 3D и обёртка рендера --- */
 let isoOn = false;
 const isoView = createIsoView({ scheme, plants, onSelect: id=>schemeView.selectAndShow(id) });
 const _schemeRender = schemeView.render.bind(schemeView);
-schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); fixBadges(); };
+schemeView.render = function(){ _schemeRender(); if (isoOn) isoView.render(); fixBadges(); demoHintSync(); };
 const isoBtn = document.getElementById('isoBtn');
 const plotWrap = document.getElementById('plotWrap');
 const isoWrap = document.getElementById('isoWrap');
@@ -348,14 +553,25 @@ function scheduleSchemeHooks(){ if (schemeHooksRaf) return; schemeHooksRaf = req
 document.addEventListener('click', scheduleSchemeHooks);
 document.addEventListener('pointerup', scheduleSchemeHooks);
 
-/* --- защита теплицы --- */
+/* --- защита теплицы + 3.12 вибро на создание объекта --- */
 (function guardGreenhouse(){
   const _add = schemeView.addObject.bind(schemeView);
-  schemeView.addObject = function(type){ const obj=_add(type); if (obj && type==='greenhouse'){ if (!obj.greenhouseBedCount) obj.greenhouseBedCount=1; if (!Array.isArray(obj.greenhouseBedCultures)) obj.greenhouseBedCultures=[null]; if (!Array.isArray(obj.greenhouseBedPlantingDates)) obj.greenhouseBedPlantingDates=[null]; if (!Array.isArray(obj.greenhouseBedPhases)) obj.greenhouseBedPhases=[null]; } return obj; };
+  schemeView.addObject = function(type){
+    const obj=_add(type);
+    if (obj) {
+      vibrate(15);   // 3.12
+      if (type==='greenhouse'){
+        if (!obj.greenhouseBedCount) obj.greenhouseBedCount=1;
+        if (!Array.isArray(obj.greenhouseBedCultures)) obj.greenhouseBedCultures=[null];
+        if (!Array.isArray(obj.greenhouseBedPlantingDates)) obj.greenhouseBedPlantingDates=[null];
+        if (!Array.isArray(obj.greenhouseBedPhases)) obj.greenhouseBedPhases=[null];
+      }
+    }
+    return obj;
+  };
 })();
 
-/* --- перерисовка панели при изменениях --- */
-// 2.182: перерисовка ТОЛЬКО по полям расчёта; форма заметок не сбрасывается
+/* --- перерисовка панели при изменениях (2.182: только поля расчёта) --- */
 const opExtraEl = document.getElementById('opExtra');
 if (opExtraEl) opExtraEl.addEventListener('change', (e)=>{
   const id = e.target && e.target.id;
@@ -368,9 +584,9 @@ if (opExtraEl) opExtraEl.addEventListener('change', (e)=>{
 /* --- постер PNG --- */
 on('exportBtn', async function(){
   const btn = document.getElementById('exportBtn');
-  try { if (btn) { btn.disabled = true; btn.textContent = '⏳ Рисуем постер…'; } showToast('Готовим постер…'); await exportPosterPNG({ scheme, plants, phases, planting, compat, buildCalendar }); showToast('Постер сохранён ✓'); }
+  try { if (btn) { btn.disabled = true; btn.textContent = 'Рисуем постер…'; } showToast('Готовим постер…'); await exportPosterPNG({ scheme, plants, phases, planting, compat, buildCalendar }); showToast('Постер сохранён ✓'); }
   catch(e){ console.error('exportPosterPNG:', e); showToast('Не удалось собрать постер'); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = '🖼 Постер PNG'; } }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Постер PNG'; } }
 });
 /* --- печать --- */
 on('printBtn', async function(){
@@ -378,9 +594,9 @@ on('printBtn', async function(){
   catch(e){ console.error('exportPrint:', e); showToast('Не удалось подготовить печать'); }
 });
 
-/* --- undo/redo клавиши --- */
-on('undoBtn', function(){ if (history.undo()) showToast('Отменено ↩'); });
-on('redoBtn', function(){ if (history.redo()) showToast('Повторено ↪'); });
+/* --- undo/redo клавиши и кнопки (3.12: +вибро) --- */
+on('undoBtn', function(){ if (history.undo()) { showToast('Отменено ↩'); vibrate(10); } });
+on('redoBtn', function(){ if (history.redo()) { showToast('Повторено ↪'); vibrate(10); } });
 document.addEventListener('keydown', function(e){
   const tag=((e.target&&e.target.tagName)||'').toLowerCase();
   if (tag==='input'||tag==='textarea'||tag==='select') return;
@@ -391,20 +607,19 @@ document.addEventListener('click', function(e){ if (e.target.closest('#historyBt
 
 /* --- навигация --- */
 function showScreen(id){
+  if (id !== 'screen-scheme') demoHintHide();
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.goto===id));
   if (id==='screen-scheme'){ schemeView.render(); scheduleSchemeHooks(); }
   if (id==='screen-calendar') calendarView.render();
   if (id==='screen-chat') chatView.render();
   if (id==='screen-plants'){ plantsView.render(); fixRelativeImages(document); }
-  if (id==='screen-analytics') analyticsView.render();
-  if (id==='screen-home'){ renderHomeBody(); const hpn=document.getElementById('homePlotName'); if (hpn){ const pn=(scheme.plotName||'').trim(); hpn.innerHTML = pn ? '🏡 Участок «'+esc(pn)+'»' : ''; hpn.style.display = pn ? '' : 'none'; } }
+  if (id==='screen-stats'){ updateStatsHead(); renderStatsCurrent(); }
   if (window.__tsypa) window.__tsypa.refresh();
   const fab=document.getElementById('addFab'), ur=document.getElementById('mUndoRedo');
   const only = (id==='screen-scheme');
   if (fab) fab.style.display = only ? '' : 'none';
   if (ur) ur.style.display = only ? '' : 'none';
-  // 2.181: гарантированный верх окна на десктопе И мобильном
   if (isFormEl(document.activeElement)) document.activeElement.blur();
   const resetScroll = ()=>{
     try { window.scrollTo({ top:0, left:0, behavior:'auto' }); } catch(e){ window.scrollTo(0,0); }
@@ -434,7 +649,7 @@ document.addEventListener('change', function(e){
   const key=cb.dataset.taskKey;
   if (!scheme.completedTasks) scheme.completedTasks={};
   if (cb.checked){ scheme.completedTasks[key]={ at: todayISO() }; window.dispatchEvent(new CustomEvent('sg-task-done',{detail:{}})); } else delete scheme.completedTasks[key];
-  calendarView.render(); renderHomeBody(); if (window.__tsypa) window.__tsypa.refresh();
+  calendarView.render(); renderHomeBody(); if (statsTab==='analytics') renderAnalytics(); if (window.__tsypa) window.__tsypa.refresh();
 });
 
 /* --- кнопки шапки --- */
@@ -446,12 +661,45 @@ on('loadBtn', function(){
     set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
     schemeView.render(); calendarView.render();
     if (window.__tsypa) window.__tsypa.refresh();
+    if (typeof updateCompass === 'function') updateCompass();
     showToast('План загружен ✓');
     history.commit();
   });
 });
 on('gridStep', function(){ const el=document.getElementById('gridStep'); scheme.gridStepM = Number(el&&el.value)||0.5; schemeView.render(); }, 'change');
-on('resetBtn', function(){ if (!confirm('Очистить схему участка?')) return; scheme.objects=[]; scheme.plotName=''; const pn=document.getElementById('plotNameInput'); if (pn) pn.value=''; scheme.nextId=1; schemeView.render(); showToast('Схема очищена ✓'); });
+on('resetBtn', function(){ if (!confirm('Очистить схему участка?')) return; scheme.objects=[]; scheme.plotName=''; scheme.demoMode=false; const pn=document.getElementById('plotNameInput'); if (pn) pn.value=''; scheme.nextId=1; schemeView.render(); showToast('Схема очищена ✓'); });
+
+/* --- модалка настроек схемы --- */
+const ssOverlay = document.getElementById('schemeSettingsOverlay');
+on('schemeSettingsBtn', function(){
+  if (ssOverlay) ssOverlay.classList.remove('hidden');
+  updateCompass();
+  if (schemeView && schemeView._syncSettingsUI) schemeView._syncSettingsUI();
+});
+on('schemeSettingsClose', function(){ if (ssOverlay) ssOverlay.classList.add('hidden'); });
+if (ssOverlay) ssOverlay.addEventListener('pointerdown', (e)=>{ if (e.target === ssOverlay) ssOverlay.classList.add('hidden'); });
+document.querySelectorAll('.ss-preset').forEach(b=>b.addEventListener('click', ()=>{
+  const [w,l] = String(b.dataset.preset||'12,8').split(',').map(Number);
+  const pw=document.getElementById('plotW'), pl=document.getElementById('plotL');
+  if (pw){ pw.value=w; pw.dispatchEvent(new Event('change')); }
+  if (pl){ pl.value=l; pl.dispatchEvent(new Event('change')); }
+}));
+const SUN_NAMES = { N:'Север', S:'Юг', E:'Восток', W:'Запад', NE:'С-В', NW:'С-З', SE:'Ю-В', SW:'Ю-З' };
+function updateCompass(){
+  const sel=document.getElementById('sunDir'), c=document.getElementById('sunCompass');
+  if (!sel || !c) return;
+  c.querySelectorAll('[data-sun]').forEach(b=>b.classList.toggle('active', b.dataset.sun===sel.value));
+  const center=c.querySelector('.ss-compass-center');
+  if (center) center.textContent = SUN_NAMES[sel.value] || 'Юг';
+}
+const sunCompass = document.getElementById('sunCompass');
+if (sunCompass) sunCompass.addEventListener('click', (e)=>{
+  const b=e.target.closest('[data-sun]'); if (!b) return;
+  const sel=document.getElementById('sunDir'); if (!sel) return;
+  sel.value=b.dataset.sun; sel.dispatchEvent(new Event('change'));
+  updateCompass();
+});
+updateCompass();
 
 /* --- Советчик --- */
 on('advisorBtn', function(){
@@ -506,7 +754,8 @@ on('historyBtn', function(){
   const hc=modal.querySelector('#historyClose'); if (hc) hc.addEventListener('click', ()=>{ const o=document.getElementById('historyOverlay'); if (o) o.classList.add('hidden'); });
 });
 on('historyOverlay', function(e){ if (e.target===document.getElementById('historyOverlay')) document.getElementById('historyOverlay').classList.add('hidden'); }, 'pointerdown');
-on('closeHintBtn', function(){ const h=document.getElementById('hintBar'); if (h) h.remove(); });
+on('closeHintBtn', function(){ const h=document.getElementById('hintBar'); if (h) h.remove(); try { localStorage.setItem('sg-hints-seen','1'); } catch(e){} });
+try { if (localStorage.getItem('sg-hints-seen')==='1') { const h=document.getElementById('hintBar'); if (h) h.classList.add('hidden'); } } catch(e){}
 const av=document.getElementById('appVersion'); if (av) av.textContent='v'+APP_VERSION;
 
 /* --- самопроверка --- */
@@ -540,7 +789,7 @@ function autoNoteFromTask(key){
   const bid = parts[1];
   const name = parts.slice(2).join('|');
   const low = name.toLowerCase();
-  if (low.includes('полив')) return;   // полив — только ручной ввод
+  if (low.includes('полив')) return;
   let type;
   if (low.includes('подкорм')) type = 'fertilizing';
   else if (low.includes('обработ') || low.includes('опрыск')) type = 'treatment';
@@ -556,13 +805,11 @@ function autoNoteFromTask(key){
   if (!scheme.objects.some(o => o.id === objId)) return;
   schemeView.addNote(objId, type, `${name}${suffix}`);
 }
-// любая отмеченная галочка задачи (Обзор + Календарь) → авто-заметка
 document.addEventListener('change', function(e){
   const cb = e.target.closest('input[data-task-key]');
   if (!cb || !cb.checked) return;
   autoNoteFromTask(cb.dataset.taskKey);
 });
-// пакетная кнопка «Отметить задачи выполненными» → авто-заметки только для ВНОВЬ отмеченных
 let __bulkSnapshot = null;
 document.addEventListener('click', function(e){
   const btn = e.target.closest('button');
@@ -570,7 +817,7 @@ document.addEventListener('click', function(e){
   if ((btn.textContent||'').includes('Отметить задачи')) {
     __bulkSnapshot = new Set(Object.keys(scheme.completedTasks||{}));
   }
-}, true);   // capture: снимок ДО обработчика календаря
+}, true);
 window.addEventListener('sg-tasks-bulk-done', function(){
   if (!__bulkSnapshot) return;
   const snap = __bulkSnapshot; __bulkSnapshot = null;
@@ -578,6 +825,85 @@ window.addEventListener('sg-tasks-bulk-done', function(){
     if (!snap.has(key)) autoNoteFromTask(key);
   });
 });
+
+/* --- 3.6: первый вход: Приветствие → Обучение → Демо-участок --- */
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+function startOnboarding(){
+  if (!lsGet('sg-welcome-seen')) { showWelcome(); return; }
+  if (!lsGet('sg-tutorial-seen') && tutorialSlides.length) { openTutorialThenDemo(); return; }
+  demoStep();
+}
+function showWelcome(){
+  const ov = document.getElementById('welcomeOverlay');
+  if (!ov) { demoStep(); return; }
+  ov.classList.remove('hidden');
+  const start = ov.querySelector('#welcomeStart');
+  const skip = ov.querySelector('#welcomeSkip');
+  if (start) start.addEventListener('click', ()=>{
+    lsSet('sg-welcome-seen','1'); ov.classList.add('hidden');
+    if (!lsGet('sg-tutorial-seen') && tutorialSlides.length) openTutorialThenDemo();
+    else demoStep();
+  }, { once:true });
+  if (skip) skip.addEventListener('click', ()=>{
+    lsSet('sg-welcome-seen','1'); lsSet('sg-tutorial-seen','1'); ov.classList.add('hidden');
+    demoStep();
+  }, { once:true });
+}
+function openTutorialThenDemo(){
+  const ov = document.getElementById('tutorialOverlay');
+  let fired = false;
+  const finish = ()=>{ if (fired) return; fired = true; setTimeout(demoStep, 50); };
+  if (ov && window.MutationObserver){
+    const mo = new MutationObserver(()=>{ if (ov.classList.contains('hidden')) { mo.disconnect(); finish(); } });
+    mo.observe(ov, { attributes:true, attributeFilter:['class'] });
+  }
+  if (!tutorialSlides.length) { finish(); return; }
+  tutorialView.open(0);
+}
+function demoStep(){
+  if (lsGet('sg-demo-seen')) return;
+  lsSet('sg-demo-seen','1');
+  if (scheme.objects.length) return;
+  loadDemo(false);
+}
+/* --- 3.6/3.8: демо-участок + флаг демо-режима --- */
+function normalizeDemo(demo){
+  (demo.objects||[]).forEach(o=>{
+    if (o.type === 'greenhouse'){
+      (o.greenhouseBedCultures||[]).forEach((c,i)=>{
+        if (!c) return;
+        const cp = schemeView._phaseDataFor(c);
+        if (cp && !(o.greenhouseBedPhases||[])[i]){
+          const first = PHASE_ORDER.find(ph=>cp[ph]);
+          if (first){ const pd = (o.greenhouseBedPlantingDates||[])[i] || todayISO(); (o.greenhouseBedPhases = o.greenhouseBedPhases||[])[i] = { phase:first, phase_started:pd, phase_history:[{phase:first, started:pd, ended:null}] }; }
+        }
+      });
+    } else if (o.culture && ['bed','tree','bush'].includes(o.type)){
+      const cp = schemeView._phaseDataFor(o.culture);
+      if (cp && !o.phase){
+        const first = schemeView._initialPhaseFor(o, cp);
+        if (first){ o.phase = first; o.phase_started = o.plantingDate || todayISO(); o.phase_history = [{phase:first, started:o.phase_started, ended:null}]; }
+      }
+    }
+  });
+}
+async function loadDemo(replace){
+  try {
+    const res = await fetch('data/demo-scheme.json');
+    if (!res.ok) throw new Error('demo fetch ' + res.status);
+    const demo = deepTrim(await res.json());
+    if (!demo || !Array.isArray(demo.objects) || !demo.objects.length) throw new Error('demo empty');
+    if (replace && !confirm('Загрузить демо-участок поверх текущего плана?')) return;
+    normalizeDemo(demo);
+    applyScheme(demo);
+    scheme.demoMode = true;
+    showToast('Загружен демо-участок — осмотритесь!');
+    vibrate([10,30,10]);   // 3.12
+  } catch(e){ console.warn('demo:', e); showToast('Не удалось загрузить демо-участок'); }
+}
+on('loadDemoBtn', function(){ loadDemo(true); });
+document.addEventListener('click', (e)=>{ if (e.target.closest('#objList [data-load-demo]')) loadDemo(false); });
 
 /* --- 2.175: PWA-полировка --- */
 let deferredInstall = null;
@@ -623,13 +949,14 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/* --- 2.178: shortcuts и share-target --- */
+/* --- 2.178/3.9: shortcuts и share-target (home/analytics → stats) --- */
 (function handleLaunchParams(){
   try {
     const url = new URL(location.href);
-    const page = url.searchParams.get('page');
-    if (page && ['scheme','plants','calendar','chat','home','analytics'].includes(page)) {
-      setTimeout(()=>showScreen('screen-'+page), 0);
+    const pageRaw = url.searchParams.get('page');
+    const page = (pageRaw === 'home' || pageRaw === 'analytics') ? 'stats' : pageRaw;
+    if (page && ['scheme','plants','calendar','chat','stats'].includes(page)) {
+      setTimeout(()=>{ showScreen('screen-'+page); if (page==='stats') setStatsTab(pageRaw === 'analytics' ? 'analytics' : 'overview'); }, 0);
       url.searchParams.delete('page');
       window.history.replaceState(null, '', url.toString());
     }
@@ -660,10 +987,10 @@ if ('launchQueue' in window) {
   });
 }
 
-/* --- первичный рендер --- */
+/* --- первичный рендер и онбординг --- */
 schemeView.render();
 tryRestoreAutosave();
-try { if (!localStorage.getItem('sg-tutorial-seen') && tutorialSlides.length) setTimeout(()=>tutorialView.open(0), 600); } catch(e){}
+startOnboarding();   // 3.6: Приветствие → Обучение → Демо-участок
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
