@@ -597,7 +597,7 @@
     #tsypa.tsypa-quiet .tsypa-bubble { display:none; }
     /* 3.14: вертикальный стек FAB справа без перекрытий:
        «+» = 84px → undo/redo = 150–256px → чат = 266px (только на Схеме, где видны undo/redo);
-       на остальных экранах чат остаётся на 150px над зоной «+» */
+       на остальных экранах чат остаётся на 150px над «+» */
     .chat-fab { right:14px; bottom:calc(150px + env(safe-area-inset-bottom)); }
     body.on-scheme .chat-fab { bottom:calc(266px + env(safe-area-inset-bottom)); }
     .plant-detail-overlay { padding:0; z-index:95; }
