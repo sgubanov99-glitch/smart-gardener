@@ -591,11 +591,15 @@
     .plants-sticker, .chat-sticker, .analytics-sticker, .cal-stickers { display:none; }
     .scheme-actions { display:none; }
     .m-fab { display:block; }
-    .m-undoredo { display:flex; }
+    /* 3.14: undo/redo встают в правый стек над FAB «+», а не на 45% высоты (где сталкивались с чатом) */
+    .m-undoredo { display:flex; top:auto; bottom:calc(150px + env(safe-area-inset-bottom)); right:14px; }
     #tsypa { max-width:170px; }
     #tsypa.tsypa-quiet .tsypa-bubble { display:none; }
-    /* 3.9: FAB чата выше FAB «+», позиция стабильна между экранами */
+    /* 3.14: вертикальный стек FAB справа без перекрытий:
+       «+» = 84px → undo/redo = 150–256px → чат = 266px (только на Схеме, где видны undo/redo);
+       на остальных экранах чат остаётся на 150px над зоной «+» */
     .chat-fab { right:14px; bottom:calc(150px + env(safe-area-inset-bottom)); }
+    body.on-scheme .chat-fab { bottom:calc(266px + env(safe-area-inset-bottom)); }
     .plant-detail-overlay { padding:0; z-index:95; }
     .plant-detail-modal { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0; padding:16px 14px calc(16px + env(safe-area-inset-bottom)); }
   }
