@@ -1,8 +1,8 @@
-// src/main.js — точка входа (ревизия 3.12)
-// 3.12: задача 2 (2.1+2.2): анимации появления/удаления объектов (obj-in/obj-flash/obj-out),
-//      авто-скролл к новому объекту при зуме; вибро-отклик (только тач, тумблер «Вибро-отклик»,
-//      флаг sg-haptics): добавление 15мс, удаление 2×20, задача/демо «успех», ошибка drag 40мс;
-//      событие sg-object-deleted даёт history.commit — undo не теряет удаление
+// src/main.js — точка входа (ревизия 3.13)
+// 3.13: финал Задачи 2 — подписи FAB: одноразовые баблы при первом входе (addFab, chatFab; флаг
+//      sg-fab-tips-seen) + long-press ≥450мс показывает aria-label; баблы pointer-events:none
+// 3.12: анимации появления/удаления объектов + вибро-отклик (тумблер «Вибро-отклик», sg-haptics);
+//      sg-object-deleted → history.commit (undo не теряет удаление); sg-drag-invalid → вибро-ошибка
 // 3.11: Цыпа по запросу: тихий режим для новых (tsypa-silent), пузырь по клику ~10с, тумблер «Авто-подсказки»
 // 3.10: Статистика: Собака на Обзоре; дубль имени удалён из Аналитики; стикеры ниже подвкладок; fd-пилюля на уровне FAB
 // 3.9: навигация 6→4 (Обзор+Аналитика=«Статистика»), Чат=FAB; deep-link home/analytics→stats
@@ -104,7 +104,7 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
 if (!planting || !Object.keys(planting).length) console.warn('main.js: planting.json пуст или не загружен — расчёт урожая будет недоступен');
 // 3.7: видимая диагностика причины «пропавшего урожая»
 setTimeout(()=>{ if (!planting || !Object.keys(planting).length) showToast('Внимание: справочник схем посадки не загрузился — оценка урожая недоступна'); }, 1500);
@@ -471,6 +471,40 @@ if (hapticsToggle) {
 }
 window.addEventListener('sg-object-deleted', ()=>{ vibrate([20,40,20]); history.commit(); });   // undo не теряет удаление
 window.addEventListener('sg-drag-invalid', ()=> vibrate(40));
+
+/* --- 3.13: подписи FAB — одноразовые баблы при первом входе + long-press тултип --- */
+(function fabTips(){
+  function showFabTip(btn, text, ms){
+    if (!btn) return null;
+    const old = document.querySelector('.fab-tip'); if (old) old.remove();
+    const tip = document.createElement('div');
+    tip.className = 'fab-tip'; tip.textContent = text;
+    document.body.appendChild(tip);
+    const r = btn.getBoundingClientRect();
+    tip.style.left = (r.left + r.width / 2) + 'px';
+    tip.style.top = (r.top - 8) + 'px';
+    if (ms) setTimeout(()=>tip.remove(), ms);
+    return tip;
+  }
+  let seen = false; try { seen = localStorage.getItem('sg-fab-tips-seen') === '1'; } catch(e){}
+  if (!seen){
+    setTimeout(()=>{
+      showFabTip(document.getElementById('addFab'), 'Добавить объект на участок', 2600);
+      setTimeout(()=>showFabTip(document.getElementById('chatFab'), 'Чат с садоводом: посадка словами', 2600), 2800);
+      setTimeout(()=>{ try { localStorage.setItem('sg-fab-tips-seen','1'); } catch(e){} }, 5600);
+    }, 1200);
+  }
+  // long-press ≥450 мс: подпись из aria-label (тач-устройства)
+  ['#addFab','#chatFab','#undoFab','#redoFab'].forEach(sel=>{
+    const btn = document.querySelector(sel); if (!btn) return;
+    let t = 0, tip = null;
+    btn.addEventListener('touchstart', ()=>{ t = setTimeout(()=>{ tip = showFabTip(btn, btn.getAttribute('aria-label') || '', 0); }, 450); }, { passive:true });
+    const clear = ()=>{ clearTimeout(t); if (tip){ setTimeout(()=>tip.remove(), 900); tip = null; } };
+    btn.addEventListener('touchend', clear);
+    btn.addEventListener('touchcancel', clear);
+    btn.addEventListener('touchmove', ()=>{ clearTimeout(t); }, { passive:true });
+  });
+})();
 
 /* --- обучение, книга отзывов --- */
 const tutorialView = createTutorialView({ slides: tutorialSlides });
