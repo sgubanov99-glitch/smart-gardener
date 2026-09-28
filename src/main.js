@@ -1,7 +1,10 @@
-// src/main.js — точка входа (ревизия 3.13)
-// 3.13: финал Задачи 2 — подписи FAB: одноразовые баблы при первом входе (addFab, chatFab; флаг
-//      sg-fab-tips-seen) + long-press ≥450мс показывает aria-label; баблы pointer-events:none
-// 3.12: анимации появления/удаления объектов + вибро-отклик (тумблер «Вибро-отклик», sg-haptics);
+// src/main.js — точка входа (ревизия 3.14)
+// 3.14: мобильный стек FAB справа без перекрытий: «+» 84px → undo/redo 150–256px → чат 266px
+//      (body.on-scheme ставится в showScreen; на прочих экранах чат на 150px);
+//      демо-подсказка Цыпы: после закрытия повторный показ на том же объекте заблокирован 10 с
+//      (demoHintSuppressed) — объект можно свободно перетаскивать
+// 3.13: подписи FAB (одноразовые баблы + long-press aria-label)
+// 3.12: анимации появления/удаления объектов + вибро-отклик (тумблер, sg-haptics);
 //      sg-object-deleted → history.commit (undo не теряет удаление); sg-drag-invalid → вибро-ошибка
 // 3.11: Цыпа по запросу: тихий режим для новых (tsypa-silent), пузырь по клику ~10с, тумблер «Авто-подсказки»
 // 3.10: Статистика: Собака на Обзоре; дубль имени удалён из Аналитики; стикеры ниже подвкладок; fd-пилюля на уровне FAB
@@ -351,7 +354,11 @@ const DEMO_HINTS = {
   bush: (o)=>`Это Кустарник «${o.name}». Вручную укажите Культуру и Дату посадки: возраст учитывается в задачах и оценке урожая. Размеры можно менять; Заметки и авто-записи — в Журнале объекта.`
 };
 let demoHintObjId = null;
+const demoHintSuppressed = new Map();   // 3.14: id объекта → время закрытия подсказки
 function demoHintShow(obj){
+  // 3.14: после закрытия подсказки на том же объекте — пауза 10 секунд (не мешает перетаскиванию)
+  const sup = demoHintSuppressed.get(obj.id);
+  if (sup && Date.now() - sup < 10000) return;
   const el = document.getElementById('demoTsypa');
   const bubble = document.getElementById('demoTsypaBubble');
   if (!el || !bubble) return;
@@ -384,6 +391,7 @@ function demoHintSync(){
 }
 function demoHintHide(){
   if (demoHintObjId == null) return;
+  demoHintSuppressed.set(demoHintObjId, Date.now());   // 3.14: фиксируем момент закрытия
   demoHintObjId = null;
   const el = document.getElementById('demoTsypa');
   if (el) el.classList.add('hidden');
@@ -642,6 +650,7 @@ document.addEventListener('click', function(e){ if (e.target.closest('#historyBt
 /* --- навигация --- */
 function showScreen(id){
   if (id !== 'screen-scheme') demoHintHide();
+  document.body.classList.toggle('on-scheme', id==='screen-scheme');   // 3.14: стек FAB на Схеме
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.goto===id));
   if (id==='screen-scheme'){ schemeView.render(); scheduleSchemeHooks(); }
