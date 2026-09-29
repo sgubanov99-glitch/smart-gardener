@@ -1,12 +1,13 @@
-// src/main.js — точка входа (ревизия 3.19)
-// 3.19: задания дня (финал Этапа 3): карточка «Задания дня» в Обзоре под прогрессом; три авто-задания
-//      (3 задачи; запись в журнале; обход Календарь+Статистика) отслеживаются по существующим событиям;
-//      все три за день → одноразово тост+вибро+celebrate и progress.challengesMet++ (задел под бейдж);
-//      сброс карточки по дате (progress.challenges.date), метки не снимаются undo
-// 3.18.1: фикс чтения planting.json (pres.json() вместо res.json() — поток phases уже был потреблён);
-//      sw: guard не-http(s) схем (chrome-extension)
+// src/main.js — точка входа (ревизия 3.20)
+// 3.20: лента «Последние заметки» в Обзоре: карточка под «Заданиями дня» — до 8 свежих записей
+//      со всех журналов (сортировка по дате/id), значок типа, дата дд.мм, имя объекта, чип типа
+//      (оливковый — ручные, розовый — авто), текст ≤80 символов; тап по строке → Схема + selectAndShow;
+//      нет заметок — карточка не рендерится; обновление при каждом рендере Обзора
+// 3.19: задания дня: карточка «Задания дня» (3 авто-задания), challengeTouch(), счётчик challengesMet,
+//      13-е достижение «Пять идеальных дней» (gamification.js 3.19)
+// 3.18.1: фикс чтения planting.json (pres.json() вместо res.json() — поток phases уже потреблён)
 // 3.18: попап открытия достижения (стикер + условие + поздравление Цыпы), очередь при нескольких
-// 3.17: достижения (13 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
+// 3.17: достижения (бейджи): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
 // 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView отцепляет чекбокс)
 // 3.16: геймификация: карточка «Прогресс сезона», серия дней, цель дня 3 задачи; scheme.progress
 // 3.15: undo/redo слева зеркально стеку «+»/чат; 3.14: пауза 10с повторной подсказки Цыпы в демо
@@ -202,7 +203,7 @@ function renderHomeBody(){
   if (!(scheme.objects||[]).length) { if (body) body.innerHTML = emptyHomeHTML(); return; }
   homeView.render();
   if (isMob) restyleHomeBlocks();
-  if (body) body.insertAdjacentHTML('afterbegin', gamifyCardHTML() + challengeCardHTML());   // 3.16 + 3.19
+  if (body) body.insertAdjacentHTML('afterbegin', gamifyCardHTML() + challengeCardHTML() + notesFeedHTML());   // 3.16 + 3.19 + 3.20
 }
 /* --- 3.16/3.16.1: геймификация — карточка «Прогресс сезона», серия, цель дня --- */
 function gamifyCardHTML(){
@@ -269,6 +270,48 @@ function challengeTouch(key){
   }
   scheduleGamifyRefresh();
 }
+/* --- 3.20: лента «Последние заметки» в Обзоре --- */
+const NOTE_FEED_TYPES = {
+  watering:    { label: 'Полив',     icon: 'si-water' },
+  fertilizing: { label: 'Подкормка', icon: 'si-fertilize' },
+  pruning:     { label: 'Обрезка',   icon: 'si-prune' },
+  treatment:   { label: 'Обработка', icon: 'si-warning' },
+  harvest:     { label: 'Сбор',      icon: 'si-basket' },
+  house:       { label: 'Постройка', icon: 'si-house' },
+  other:       { label: 'Другое',    icon: 'si-leaf' },
+  planting:    { label: 'Посадка',   icon: 'si-planting' },
+  phase:       { label: 'Фаза',      icon: 'si-growth' }
+};
+function notesFeedHTML(){
+  const items = [];
+  (scheme.objects||[]).forEach(o=>{
+    (o.notes||[]).forEach(n=>{
+      items.push({ objId:o.id, objName:o.name, date:n.date||'', id:n.id||0, type:n.type, text:n.text||'', auto:!!n.auto });
+    });
+  });
+  if (!items.length) return '';   // нет заметок — карточки нет вовсе
+  items.sort((a,b)=> b.date.localeCompare(a.date) || (b.id - a.id) || (b.objId - a.objId));
+  const rows = items.slice(0, 8).map(it=>{
+    const t = NOTE_FEED_TYPES[it.type] || NOTE_FEED_TYPES.other;
+    const txt = it.text.length > 80 ? it.text.slice(0, 80) + '…' : it.text;
+    const d = it.date ? it.date.slice(8,10) + '.' + it.date.slice(5,7) : '';
+    return '<button type="button" class="nf-row' + (it.auto ? ' nf-auto' : '') + '" data-obj="' + it.objId + '">' +
+      '<svg class="ic-site"><use href="#' + t.icon + '"/></svg>' +
+      '<span class="nf-date">' + d + '</span>' +
+      '<span class="nf-obj">' + esc(it.objName) + '</span>' +
+      '<span class="nf-type">' + t.label + '</span>' +
+      '<span class="nf-text">' + esc(txt) + '</span>' +
+      '</button>';
+  }).join('');
+  return '<div class="nf-card"><div class="nf-head"><span class="nf-title">Последние заметки</span><span class="nf-count">' + items.length + '</span></div>' + rows + '</div>';
+}
+/* --- 3.20: тап по строке ленты → Схема с выделенным объектом --- */
+document.addEventListener('click', (e)=>{
+  const row = e.target.closest('.nf-row[data-obj]');
+  if (!row) return;
+  showScreen('screen-scheme');
+  schemeView.selectAndShow(parseInt(row.dataset.obj, 10));
+});
 /* --- 3.16.2: геймификация реагирует на ЛЮБУЮ отметку задачи, включая Календарь.
        composedPath() — снимок цепочки узлов в момент dispatch: calendarView синхронно
        перерисовывает список и отцепляет чекбокс, closest() на document давал null.
