@@ -1,7 +1,8 @@
-// src/core/gamification.js — геймификация: чистые функции (ревизия 3.16)
-// 3.16: прогресс сезона (выполнено/всего задач по сегодня), серия дней (streak), дневная цель (3 задачи).
-//      Данные: scheme.progress = { streak:{last,count,best}, daily:{date,done,met}, achievements:{} }.
-//      Функции идемпотентны и без побочных эффектов вне переданных объектов; DOM не трогают.
+// src/core/gamification.js — геймификация: чистые функции (ревизия 3.17)
+// 3.17: достижения (бейджи): ACHIEVEMENTS (12 шт: id, название, условие, иконка-фолбэк, стикер)
+//      + checkAchievements(progress, ctx) — идемпотентная разблокировка (id→дата в progress.achievements);
+//      счётчики counters {saves,prints,advisor} и daily.metCount для условий достижений
+// 3.16: прогресс сезона, серия дней (streak), дневная цель (3 задачи); scheme.progress миграция
 export const DAILY_GOAL = 3;
 
 function addDaysISO(iso, n){
@@ -11,24 +12,26 @@ function addDaysISO(iso, n){
   return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
 }
 
-/* Миграция/гарантия структуры: старые планы без progress получают дефолт */
 export function ensureProgress(scheme){
   if (!scheme || typeof scheme !== 'object') return null;
   if (!scheme.progress || typeof scheme.progress !== 'object'){
-    scheme.progress = { streak:{ last:'', count:0, best:0 }, daily:{ date:'', done:0, met:'' }, achievements:{} };
+    scheme.progress = { streak:{ last:'', count:0, best:0 }, daily:{ date:'', done:0, met:'', metCount:0 }, achievements:{}, counters:{ saves:0, prints:0, advisor:0 } };
   }
   const p = scheme.progress;
   if (!p.streak || typeof p.streak !== 'object') p.streak = { last:'', count:0, best:0 };
-  if (!p.daily  || typeof p.daily  !== 'object') p.daily  = { date:'', done:0, met:'' };
+  if (!p.daily  || typeof p.daily  !== 'object') p.daily  = { date:'', done:0, met:'', metCount:0 };
   if (!p.achievements || typeof p.achievements !== 'object') p.achievements = {};
+  if (!p.counters || typeof p.counters !== 'object') p.counters = { saves:0, prints:0, advisor:0 };
   p.streak.count = Number(p.streak.count) || 0;
   p.streak.best  = Number(p.streak.best)  || 0;
   p.daily.done   = Number(p.daily.done)   || 0;
+  p.daily.metCount = Number(p.daily.metCount) || 0;
+  p.counters.saves = Number(p.counters.saves) || 0;
+  p.counters.prints = Number(p.counters.prints) || 0;
+  p.counters.advisor = Number(p.counters.advisor) || 0;
   return p;
 }
 
-/* Серия: день с ≥1 отмеченной задачей продлевает серию; пропуск сбрасывает к 1.
-   Повторный вызов в тот же день ничего не меняет (идемпотентно). */
 export function touchStreak(progress, today){
   const st = progress.streak;
   if (st.last === today) return false;
@@ -38,24 +41,21 @@ export function touchStreak(progress, today){
   return true;
 }
 
-/* Состояние дневной цели на сегодня */
 export function dailyGoalState(progress, today){
   const dl = progress.daily;
   const done = (dl.date === today) ? Math.min(dl.done, DAILY_GOAL) : 0;
   return { done, goal: DAILY_GOAL, met: dl.met === today };
 }
 
-/* Прибавить выполненные задачи дня; вернуть true в момент достижения цели (один раз в день) */
 export function addDailyDone(progress, today, n){
   const dl = progress.daily;
   if (dl.date !== today){ dl.date = today; dl.done = 0; }
   dl.done += (n || 1);
   const metNow = (dl.done >= DAILY_GOAL && dl.met !== today);
-  if (metNow) dl.met = today;
+  if (metNow){ dl.met = today; dl.metCount = (Number(dl.metCount)||0) + 1; }   // 3.17: накопитель для «Цель дня ×5»
   return metNow;
 }
 
-/* Прогресс сезона: задачи с date <= today из byDay; done — по completedTasks (ключ date|bed_id|name) */
 export function seasonProgress(byDay, completedTasks, today){
   let total = 0, done = 0;
   const cm = completedTasks || {};
@@ -69,4 +69,31 @@ export function seasonProgress(byDay, completedTasks, today){
   });
   const pct = total ? Math.round(done * 100 / total) : 0;
   return { total, done, pct };
+}
+
+/* --- 3.17: достижения --- */
+export const ACHIEVEMENTS = [
+  { id:'first-bed',     title:'Первая грядка',  desc:'Добавьте объект с культурой на схему', icon:'si-bed',      sticker:'stickers/ach-first-bed.png',     test:(c)=> c.culturedObjects >= 1 },
+  { id:'first-harvest', title:'Первый урожай',  desc:'Запишите фактический урожай любого объекта', icon:'si-basket', sticker:'stickers/ach-first-harvest.png', test:(c)=> c.hasHarvest },
+  { id:'dream-garden',  title:'Сад мечты',      desc:'8 и более объектов на схеме', icon:'si-map',      sticker:'stickers/ach-dream-garden.png',  test:(c)=> c.totalObjects >= 8 },
+  { id:'tidy-notes',    title:'Аккуратист',     desc:'10 заметок в журналах объектов', icon:'si-history',  sticker:'stickers/ach-tidy-notes.png',    test:(c)=> c.notesCount >= 10 },
+  { id:'streak-7',      title:'Серия 7 дней',   desc:'Серия дней с задачами — 7 подряд', icon:'si-calendar', sticker:'stickers/ach-streak-7.png',      test:(c)=> c.streakBest >= 7 },
+  { id:'daily-goal',    title:'Цель дня ×5',    desc:'Выполните цель дня (3 задачи) 5 раз', icon:'si-sprout',  sticker:'stickers/ach-daily-goal.png',    test:(c)=> c.metCount >= 5 },
+  { id:'full-season',   title:'Полный сезон',   desc:'Прогресс сезона ≥90% в сентябре и позже', icon:'si-fruiting', sticker:'stickers/ach-full-season.png', test:(c)=> c.seasonPct >= 90 && c.month >= 9 },
+  { id:'printer',       title:'Печатник',       desc:'Печать или постер PNG — 1 раз', icon:'si-print',    sticker:'stickers/ach-printer.png',       test:(c)=> c.counters.prints >= 1 },
+  { id:'demo-master',   title:'Демо-мастер',    desc:'Пройдите Обучение и Демо-участок', icon:'si-tutorial', sticker:'stickers/ach-demo-master.png',   test:(c)=> c.tutorialSeen && c.demoSeen },
+  { id:'advisor',       title:'Советчик',       desc:'Откройте Советчик 3 раза', icon:'si-chick',    sticker:'stickers/ach-advisor.png',       test:(c)=> c.counters.advisor >= 3 },
+  { id:'collector',     title:'Коллекционер',   desc:'5 культур из разных семейств', icon:'si-leaf',     sticker:'stickers/ach-collector.png',     test:(c)=> c.familiesCount >= 5 },
+  { id:'keeper',        title:'Хранитель',      desc:'Сохраните план в файл 3 раза', icon:'si-save',     sticker:'stickers/ach-keeper.png',        test:(c)=> c.counters.saves >= 3 }
+];
+
+export function checkAchievements(progress, ctx){
+  const unlocked = [];
+  ACHIEVEMENTS.forEach(a=>{
+    if (progress.achievements[a.id]) return;
+    let ok = false;
+    try { ok = !!a.test(ctx); } catch(e){ ok = false; }
+    if (ok){ progress.achievements[a.id] = ctx.today; unlocked.push(a); }
+  });
+  return unlocked;
 }

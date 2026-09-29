@@ -1,6 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода» (консолидация к этапу 3.x)
-export const APP_VERSION = '3.16.2';
+export const APP_VERSION = '3.17';
 export const CHANGELOG = [
+{ v:'3.17', date:'29.09.2026', title:'Этап 3, ревизия 3.17: достижения (бейджи) со стикерами дизайнера', notes:[
+  'gamification.js: ACHIEVEMENTS (12 бейджей: условие, иконка-фолбэк si-*, путь стикера) + checkAchievements — идемпотентная разблокировка (id→дата в scheme.progress.achievements, undo не откатывает)',
+  'Секция «Достижения» внизу Аналитики: открытые — стикер + дата; закрытые — приглушённый силуэт + условие; пока стикеров нет — фолбэк si-* через onerror',
+  'Счётчики для условий: counters {saves,prints,advisor} и daily.metCount; контекст ctx собирается из scheme/compat/localStorage-флагов онбординга',
+  'Момент разблокировки: тост «Достижение: …», вибро, celebrate Цыпы; проверки после отметок задач, добавления объектов, записи урожая, сохранений, печати/постера, Советчика, загрузки плана',
+  'stickers/ach-*.png (12 файлов) в NON_CRITICAL precache sw.js (cache v3170)'
+]},
 { v:'3.16.2', date:'29.09.2026', title:'Хотфикс: отметки в Календаре учитываются геймификацией (composedPath вместо closest)', notes:[
   'Корень бага 3.16.1: calendarView синхронно перерисовывает список при отметке — чекбокс отцепляется от DOM раньше, чем change доходит до document; closest(#screen-calendar-body) давал null',
   'Принадлежность к Календарю/Обзору определяется по e.composedPath() (снимок цепочки в момент dispatch) с фолбэком на closest для прикреплённых узлов',
