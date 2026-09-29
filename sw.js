@@ -1,8 +1,8 @@
-// sw.js — service worker (ревизия 3.6)
-// 3.6: в CRITICAL precache добавлен data/demo-scheme.json — демо-участок доступен офлайн с первого запуска
-// 2.175: управляемые обновления (SKIP_WAITING по подтверждению); первая установка активируется сразу
-// 2.167: precache разделён на критичный (ждём) и фоновый (стикеры/PNG)
-const CACHE = 'sg-cache-v3060';
+// sw.js — service worker (ревизия 3.16)
+// 3.16: в CRITICAL precache добавлен src/core/gamification.js — модуль геймификации доступен офлайн
+// 3.6: data/demo-scheme.json в CRITICAL; 2.175: управляемые обновления (SKIP_WAITING по подтверждению);
+//      первая установка активируется сразу; 2.167: precache разделён на критичный и фоновый
+const CACHE = 'sg-cache-v3160';
 const CRITICAL = [
 './',
 './index.html',
@@ -20,6 +20,7 @@ const CRITICAL = [
 './src/core/history.js',
 './src/core/reminders.js',
 './src/core/changelog.js',
+'./src/core/gamification.js',
 './src/domain/scheme.js',
 './src/domain/plant.js',
 './src/storage/storage.js',

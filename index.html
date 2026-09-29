@@ -347,6 +347,17 @@
   @media (min-width:901px) { .hm-btn { display:inline-block; width:auto; } .hm-title { font-size:24px; } }
   @media (max-width:900px) { .hm-title { font-size:22px; } }
   #screen-home-body { min-height:120px; }
+  /* 3.16: карточка «Прогресс сезона» в Обзоре */
+  .gam-card { background:linear-gradient(180deg,#FFFDF6,#F7F1E2); border:1px solid rgba(138,155,110,.28); border-radius:var(--radius-s); padding:14px 16px; margin:0 0 14px; box-shadow:var(--shadow-s); }
+  .gam-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .gam-title { font-family:"Neucha",cursive; font-size:22px; color:var(--olive-dark); }
+  .gam-pct { font:800 20px "Manrope",sans-serif; color:var(--olive-dark); }
+  .gam-bar { margin:8px 0 6px; }
+  .gam-sub { font:600 12px "Manrope",sans-serif; color:var(--ink-soft-2); }
+  .gam-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .gam-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 12px; background:#fff; box-shadow:var(--shadow-s); font:700 12px "Manrope",sans-serif; color:var(--ink); }
+  .gam-chip .ic-site { width:14px; height:14px; vertical-align:0; }
+  .gam-chip-met { background:var(--olive); color:#fff; }
   .ops-head { display:none; }
   #tsypa { position:fixed; right:16px; bottom:88px; z-index:46; display:flex; flex-direction:column; align-items:flex-end; gap:6px; cursor:pointer; max-width:260px; }
   .tsypa-bubble { background:var(--panel); border:1px solid rgba(138,155,110,.3); border-radius:14px 14px 4px 14px; padding:10px 12px; font-size:13px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow-s); }
