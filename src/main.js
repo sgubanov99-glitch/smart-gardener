@@ -1,13 +1,15 @@
-// src/main.js — точка входа (ревизия 3.18)
-// 3.18: попап открытия достижения (стикер + название + условие + поздравление Цыпы), очередь при
-//      нескольких разблокировках; закрытие крестиком/фоном; после закрытия Аналитика перерисовывается.
-//      Восстановлен блок урожая в панели объекта через schemeView 3.18 (всегда, с причиной при отсутствии справочника)
-// 3.17: достижения (12 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
-//      {saves,prints,advisor} и daily.metCount; секция «Достижения» внизу Аналитики
-// 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView синхронно
-//      перерисовывает список и отцепляет чекбокс до document-слушателя; closest() давал null)
-// 3.16: геймификация: карточка «Прогресс сезона» сверху Обзора, серия дней, цель дня 3 задачи; scheme.progress
-// 3.15: undo/redo слева зеркально стеку «+»/чат; 3.14: пауза 10с повторной подсказки Цыпы в демо; body.on-scheme
+// src/main.js — точка входа (ревизия 3.19)
+// 3.19: задания дня (финал Этапа 3): карточка «Задания дня» в Обзоре под прогрессом; три авто-задания
+//      (3 задачи; запись в журнале; обход Календарь+Статистика) отслеживаются по существующим событиям;
+//      все три за день → одноразово тост+вибро+celebrate и progress.challengesMet++ (задел под бейдж);
+//      сброс карточки по дате (progress.challenges.date), метки не снимаются undo
+// 3.18.1: фикс чтения planting.json (pres.json() вместо res.json() — поток phases уже был потреблён);
+//      sw: guard не-http(s) схем (chrome-extension)
+// 3.18: попап открытия достижения (стикер + условие + поздравление Цыпы), очередь при нескольких
+// 3.17: достижения (13 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
+// 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView отцепляет чекбокс)
+// 3.16: геймификация: карточка «Прогресс сезона», серия дней, цель дня 3 задачи; scheme.progress
+// 3.15: undo/redo слева зеркально стеку «+»/чат; 3.14: пауза 10с повторной подсказки Цыпы в демо
 // 3.13: подписи FAB; 3.12: анимации объектов + вибро; 3.11: тихая Цыпа; 3.10: Статистика-стикеры;
 // 3.9: навигация 6→4; 3.8: демо-диалог Цыпы; 3.7: приветствие; 3.6: онбординг+демо; 3.1–3.5: UX-этап 1
 // 2.189: авто-заметки кроме полива; 2.182: opExtra только расчёт; 2.176: автосохранение; 2.175: PWA
@@ -36,7 +38,7 @@ import { WEATHER_MODES } from './core/weather.js';
 import { APP_VERSION, CHANGELOG } from './core/changelog.js';
 import { swapEmojiInTextNodes } from './ui/icons.js';
 import { plantingRef } from './core/planting.js';
-import { DAILY_GOAL, ensureProgress, touchStreak, dailyGoalState, addDailyDone, seasonProgress, ACHIEVEMENTS, checkAchievements } from './core/gamification.js';   // 3.16/3.17
+import { DAILY_GOAL, ensureProgress, touchStreak, dailyGoalState, addDailyDone, seasonProgress, ACHIEVEMENTS, checkAchievements, ensureChallenges, markChallenge } from './core/gamification.js';   // 3.16/3.17/3.19
 
 /* --- утилиты --- */
 function deepTrim(v){
@@ -106,7 +108,7 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }   // 3.18.1: pres, не res!
 if (!planting || !Object.keys(planting).length) console.warn('main.js: planting.json пуст или не загружен — расчёт урожая будет недоступен');
 // 3.7: видимая диагностика причины «пропавшего урожая»
 setTimeout(()=>{ if (!planting || !Object.keys(planting).length) showToast('Внимание: справочник схем посадки не загрузился — оценка урожая недоступна'); }, 1500);
@@ -200,7 +202,7 @@ function renderHomeBody(){
   if (!(scheme.objects||[]).length) { if (body) body.innerHTML = emptyHomeHTML(); return; }
   homeView.render();
   if (isMob) restyleHomeBlocks();
-  if (body) body.insertAdjacentHTML('afterbegin', gamifyCardHTML());   // 3.16: карточка сверху Обзора
+  if (body) body.insertAdjacentHTML('afterbegin', gamifyCardHTML() + challengeCardHTML());   // 3.16 + 3.19
 }
 /* --- 3.16/3.16.1: геймификация — карточка «Прогресс сезона», серия, цель дня --- */
 function gamifyCardHTML(){
@@ -238,13 +240,38 @@ function gamifyTouch(n){
     vibrate([10,30,10]);
     if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
   }
-  scheduleGamifyRefresh();        // 3.16.1: карточка освежится, если Обзор открыт
+  const dg2 = dailyGoalState(pr, today);
+  if (dg2.done >= dg2.goal) challengeTouch('tasks');   // 3.19: задание «Три задачи»
+  scheduleGamifyRefresh();
   maybeUnlockAchievements();      // 3.17: серия/цель/процент могут открыть бейджи
 }
+/* --- 3.19: задания дня — карточка в Обзоре + авто-отслеживание --- */
+function challengeCardHTML(){
+  const pr = ensureProgress(scheme);
+  const ch = ensureChallenges(pr, todayISO());
+  const rows = [
+    [ch.tasks, 'si-calendar', 'Три задачи за день'],
+    [ch.note, 'si-history', 'Запись в журнале объекта'],
+    [(ch.visitCal && ch.visitStats), 'si-map', 'Обход: Календарь и Статистика']
+  ].map(r => '<div class="chal-row' + (r[0] ? ' chal-done' : '') + '"><svg class="ic-site"><use href="#' + r[1] + '"/></svg><span>' + r[2] + '</span></div>').join('');
+  return '<div class="chal-card' + (ch.met ? ' chal-card-met' : '') + '">' +
+    '<div class="chal-head"><span class="chal-title">Задания дня</span>' + (ch.met ? '<span class="chal-all">выполнено ✓</span>' : '') + '</div>' +
+    rows + '</div>';
+}
+function challengeTouch(key){
+  const pr = ensureProgress(scheme);
+  const metNow = markChallenge(pr, todayISO(), key);
+  if (metNow){
+    showToast('Задания дня выполнены ✓');
+    vibrate([10,30,10]);
+    if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
+    maybeUnlockAchievements();   // 3.19: challengesMet мог открыть «Пять идеальных дней»
+  }
+  scheduleGamifyRefresh();
+}
 /* --- 3.16.2: геймификация реагирует на ЛЮБУЮ отметку задачи, включая Календарь.
-       Причина бага 3.16.1: calendarView синхронно перерисовывает список при отметке и
-       ОТЦЕПЛЯЕТ чекбокс до того, как change дойдёт до document — closest() возвращал null.
-       composedPath() — снимок цепочки узлов в момент dispatch, перерисовка ему не мешает.
+       composedPath() — снимок цепочки узлов в момент dispatch: calendarView синхронно
+       перерисовывает список и отцепляет чекбокс, closest() на document давал null.
        Данные в completedTasks здесь НЕ трогаем (ими владеет calendarView). --- */
 document.addEventListener('change', (e)=>{
   const t = e.target;
@@ -255,7 +282,9 @@ document.addEventListener('change', (e)=>{
   const inCal = path.some(n => n && n.id === 'screen-calendar-body') || !!t.closest('#screen-calendar-body');
   if (inCal && t.checked) gamifyTouch(1);   // Календарь (список и месяц): серия + цель дня
 });
-/* --- 3.17: достижения — контекст и секция в Аналитике --- */
+/* --- 3.19: ручная заметка в журнале объекта → задание «Запись в журнале» --- */
+document.addEventListener('click', (e)=>{ if (e.target.closest('#opNoteAdd')) challengeTouch('note'); });
+/* --- 3.17: достижения — контекст, разблокировка, секция в Аналитике --- */
 function achievementsCtx(){
   const today = todayISO();
   let byDay = {};
@@ -270,7 +299,7 @@ function achievementsCtx(){
     today, seasonPct: sp.pct, month: new Date().getMonth()+1,
     culturedObjects: cultured.length, totalObjects: scheme.objects.length,
     notesCount: notes, hasHarvest, streakBest: pr.streak.best, metCount: pr.daily.metCount || 0,
-    counters: pr.counters,
+    counters: pr.counters, challengesMet: pr.challengesMet || 0,   // 3.19
     tutorialSeen: lsGet('sg-tutorial-seen') === '1', demoSeen: lsGet('sg-demo-seen') === '1',
     familiesCount: families.size
   };
@@ -812,10 +841,10 @@ function showScreen(id){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.goto===id));
   document.body.classList.toggle('on-scheme', id==='screen-scheme');   // 3.14: стек FAB на Схеме
   if (id==='screen-scheme'){ schemeView.render(); scheduleSchemeHooks(); }
-  if (id==='screen-calendar') calendarView.render();
+  if (id==='screen-calendar'){ calendarView.render(); challengeTouch('visitCal'); }   // 3.19
   if (id==='screen-chat') chatView.render();
   if (id==='screen-plants'){ plantsView.render(); fixRelativeImages(document); }
-  if (id==='screen-stats'){ updateStatsHead(); renderStatsCurrent(); }
+  if (id==='screen-stats'){ updateStatsHead(); renderStatsCurrent(); challengeTouch('visitStats'); }   // 3.19
   if (window.__tsypa) window.__tsypa.refresh();
   const fab=document.getElementById('addFab'), ur=document.getElementById('mUndoRedo');
   const only = (id==='screen-scheme');
@@ -988,7 +1017,7 @@ window.__sgSelfTest = function(){
   push('autosave wired', typeof scheduleAutosave==='function' && !!localStorage, 'localStorage sg-autosave');
   const prG = ensureProgress(scheme);   // 3.16
   push('progress shape', !!prG && typeof prG.streak.count==='number' && typeof prG.daily.done==='number' && prG.streak.count>=0, 'streak '+prG.streak.count+', daily '+prG.daily.done);
-  push('achievements defs', Array.isArray(ACHIEVEMENTS) && ACHIEVEMENTS.length===12 && typeof checkAchievements==='function', (ACHIEVEMENTS||[]).length+' badges');   // 3.17
+  push('achievements defs', Array.isArray(ACHIEVEMENTS) && ACHIEVEMENTS.length===13 && typeof checkAchievements==='function', (ACHIEVEMENTS||[]).length+' badges');   // 3.17/3.19
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1015,6 +1044,7 @@ function autoNoteFromTask(key){
   if (!Number.isFinite(objId)) return;
   if (!scheme.objects.some(o => o.id === objId)) return;
   schemeView.addNote(objId, type, `${name}${suffix}`);
+  challengeTouch('note');   // 3.19: авто-заметка тоже закрывает задание «Запись в журнале»
 }
 document.addEventListener('change', function(e){
   const cb = e.target.closest('input[data-task-key]');
