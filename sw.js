@@ -3,7 +3,7 @@
 // 3.16: src/core/gamification.js в CRITICAL precache
 // 3.6: data/demo-scheme.json в CRITICAL; 2.175: управляемые обновления (SKIP_WAITING по подтверждению);
 //      первая установка активируется сразу; 2.167: precache разделён на критичный и фоновый
-const CACHE = 'sg-cache-v3170';
+const CACHE = 'sg-cache-v3190';
 const CRITICAL = [
 './',
 './index.html',
@@ -76,6 +76,7 @@ const NON_CRITICAL = [
 './stickers/ach-advisor.png',
 './stickers/ach-collector.png',
 './stickers/ach-keeper.png',
+'./stickers/ach-perfect-days.png',
 './gb.png'
 ];
 self.addEventListener('install', (e) => {
