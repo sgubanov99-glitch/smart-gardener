@@ -381,6 +381,19 @@
   .chal-done { color:var(--ink); }
   .chal-done::before { background:var(--olive); border-color:var(--olive); box-shadow:inset 0 0 0 3px #fff; }
   .chal-card-met { border-color:rgba(138,155,110,.5); background:linear-gradient(180deg,#F4FAEC,#EAF4DC); }
+  /* 3.20: лента «Последние заметки» в Обзоре */
+  .nf-card { background:var(--panel); border:1px solid rgba(138,155,110,.22); border-radius:var(--radius-s); padding:12px 14px; margin:0 0 14px; box-shadow:var(--shadow-s); display:flex; flex-direction:column; gap:6px; }
+  .nf-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .nf-title { font-family:"Neucha",cursive; font-size:20px; color:var(--olive-dark); }
+  .nf-count { font:800 11.5px 'Manrope',sans-serif; color:var(--ink-soft-2); background:rgba(63,62,58,.08); border-radius:999px; padding:2px 8px; }
+  .nf-row { display:flex; align-items:center; gap:8px; border:none; background:#fff; border-radius:10px; padding:8px 10px; box-shadow:var(--shadow-s); cursor:pointer; text-align:left; font:600 12px 'Manrope',sans-serif; color:var(--ink); flex-wrap:wrap; }
+  .nf-row .ic-site { width:16px; height:16px; flex:none; color:var(--olive-dark); }
+  .nf-date { font:800 11px 'Manrope',sans-serif; color:var(--ink-soft-2); flex:none; }
+  .nf-obj { font:800 12px 'Manrope',sans-serif; color:var(--ink); }
+  .nf-type { font:700 11px 'Manrope',sans-serif; color:#fff; background:var(--olive); border-radius:999px; padding:2px 8px; flex:none; }
+  .nf-text { flex:1 1 100%; color:var(--ink-soft-2); font:500 12px/1.4 'Manrope',sans-serif; }
+  .nf-auto .nf-type { background:var(--rose-dark); }   /* авто-заметки — розовый чип, как в журнале */
+  .nf-row:active { transform:scale(.99); }
   /* 3.18: попап открытия достижения */
   .ach-modal { position:relative; width:min(420px,94vw); text-align:center; padding:28px 24px 24px; }
   .ach-close { position:absolute; top:10px; right:10px; margin:0; }
