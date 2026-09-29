@@ -1,29 +1,20 @@
-// src/main.js — точка входа (ревизия 3.16.1)
-// 3.16.1: хотфикс геймификации — отметки задач в КАЛЕНДАРЕ учитываются в серии и цели дня
-//        (делегированный change-слушатель только для геймификации, без записи в completedTasks —
-//        владельцем данных там остаётся calendarView, нет double toggle); процент прогресса
-//        освежается отложенным рендером карточки (scheduleGamifyRefresh)
-// 3.16: геймификация (Этап 3, часть 1): карточка «Прогресс сезона» сверху Обзора (процент и бар
-//      выполненных задач по сегодня), чипы «Серия N дн. · рекорд» и «Сегодня k/3»; серия продлевается
-//      днём с ≥1 отметкой и сбрасывается при пропуске; цель дня 3 задачи — тост+вибро+celebrate один раз;
-//      данные в scheme.progress (файл плана, автосохранение, undo); миграция старых планов ensureProgress()
-// 3.14: мобильные правки: правый стек FAB без перекрытий (body.on-scheme); пауза 10с повторного показа
-//      диалоговой подсказки Цыпы на том же объекте демо после её закрытия (demoHintSuppressed)
-// 3.13: подписи FAB (одноразовые баблы + long-press aria-label)
-// 3.12: анимации появления/удаления объектов + вибро-отклик (тумблер «Вибро-отклик», sg-haptics);
-//      sg-object-deleted → history.commit; sg-drag-invalid → вибро-ошибка
-// 3.11: Цыпа по запросу: тихий режим для новых (tsypa-silent), пузырь по клику ~10с, тумблер «Авто-подсказки»
-// 3.10: Статистика: Собака на Обзоре; дубль имени удалён из Аналитики; стикеры ниже подвкладок
-// 3.9: навигация 6→4 (Обзор+Аналитика=«Статистика»), Чат=FAB; deep-link home/analytics→stats
-// 3.8: демо: диалоговая Цыпа у выделенного объекта; приглушение невыделенных; scheme.demoMode
-// 3.7: тёплое приветствие; одноразовые подсказки вне демо; диагностика planting
-// 3.6: первый вход: Приветствие → Обучение → Демо-участок; data/demo-scheme.json + нормализация фаз
-// 3.5: меню/лист сверху; 3.4/3.3: меню кликает скрытые рабочие кнопки; 3.1: упрощённый первый экран
+// src/main.js — точка входа (ревизия 3.18)
+// 3.18: попап открытия достижения (стикер + название + условие + поздравление Цыпы), очередь при
+//      нескольких разблокировках; закрытие крестиком/фоном; после закрытия Аналитика перерисовывается.
+//      Восстановлен блок урожая в панели объекта через schemeView 3.18 (всегда, с причиной при отсутствии справочника)
+// 3.17: достижения (12 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
+//      {saves,prints,advisor} и daily.metCount; секция «Достижения» внизу Аналитики
+// 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView синхронно
+//      перерисовывает список и отцепляет чекбокс до document-слушателя; closest() давал null)
+// 3.16: геймификация: карточка «Прогресс сезона» сверху Обзора, серия дней, цель дня 3 задачи; scheme.progress
+// 3.15: undo/redo слева зеркально стеку «+»/чат; 3.14: пауза 10с повторной подсказки Цыпы в демо; body.on-scheme
+// 3.13: подписи FAB; 3.12: анимации объектов + вибро; 3.11: тихая Цыпа; 3.10: Статистика-стикеры;
+// 3.9: навигация 6→4; 3.8: демо-диалог Цыпы; 3.7: приветствие; 3.6: онбординг+демо; 3.1–3.5: UX-этап 1
 // 2.189: авто-заметки кроме полива; 2.182: opExtra только расчёт; 2.176: автосохранение; 2.175: PWA
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
 import { advancePhase, PHASE_META, PHASE_ORDER } from './core/phaseMachine.js';
-import { loadCompatibility } from './core/compatibility.js';
+import { loadCompatibility, familyOf } from './core/compatibility.js';
 import { loadPlants } from './domain/plant.js';
 import { StorageService } from './storage/storage.js';
 import { createBot } from './bot/bot.js';
@@ -45,7 +36,7 @@ import { WEATHER_MODES } from './core/weather.js';
 import { APP_VERSION, CHANGELOG } from './core/changelog.js';
 import { swapEmojiInTextNodes } from './ui/icons.js';
 import { plantingRef } from './core/planting.js';
-import { DAILY_GOAL, ensureProgress, touchStreak, dailyGoalState, addDailyDone, seasonProgress } from './core/gamification.js';   // 3.16
+import { DAILY_GOAL, ensureProgress, touchStreak, dailyGoalState, addDailyDone, seasonProgress, ACHIEVEMENTS, checkAchievements } from './core/gamification.js';   // 3.16/3.17
 
 /* --- утилиты --- */
 function deepTrim(v){
@@ -115,7 +106,7 @@ const compat = await loadCompatibility();
 let phases = {};
 try { const res = await fetch('data/phases.json'); if (res.ok) phases = deepTrim(await res.json()); } catch(e){ console.warn('phases.json не загрузился', e); }
 let planting = {};
-try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await res.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
+try { const pres = await fetch('data/planting.json'); if (pres.ok) planting = deepTrim(await pres.json()); } catch(e){ console.warn('planting.json не загрузился', e); }
 if (!planting || !Object.keys(planting).length) console.warn('main.js: planting.json пуст или не загружен — расчёт урожая будет недоступен');
 // 3.7: видимая диагностика причины «пропавшего урожая»
 setTimeout(()=>{ if (!planting || !Object.keys(planting).length) showToast('Внимание: справочник схем посадки не загрузился — оценка урожая недоступна'); }, 1500);
@@ -247,10 +238,11 @@ function gamifyTouch(n){
     vibrate([10,30,10]);
     if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
   }
-  scheduleGamifyRefresh();   // 3.16.1: карточка освежится, если Обзор открыт
+  scheduleGamifyRefresh();        // 3.16.1: карточка освежится, если Обзор открыт
+  maybeUnlockAchievements();      // 3.17: серия/цель/процент могут открыть бейджи
 }
 /* --- 3.16.2: геймификация реагирует на ЛЮБУЮ отметку задачи, включая Календарь.
-       Причина бага 3.16.1: calendarView при отметке синхронно перерисовывает список и
+       Причина бага 3.16.1: calendarView синхронно перерисовывает список при отметке и
        ОТЦЕПЛЯЕТ чекбокс до того, как change дойдёт до document — closest() возвращал null.
        composedPath() — снимок цепочки узлов в момент dispatch, перерисовка ему не мешает.
        Данные в completedTasks здесь НЕ трогаем (ими владеет calendarView). --- */
@@ -263,6 +255,97 @@ document.addEventListener('change', (e)=>{
   const inCal = path.some(n => n && n.id === 'screen-calendar-body') || !!t.closest('#screen-calendar-body');
   if (inCal && t.checked) gamifyTouch(1);   // Календарь (список и месяц): серия + цель дня
 });
+/* --- 3.17: достижения — контекст и секция в Аналитике --- */
+function achievementsCtx(){
+  const today = todayISO();
+  let byDay = {};
+  try { byDay = buildCalendar(scheme.objects, phases, true, plants, planting, scheme.weather) || {}; } catch(e){}
+  const sp = seasonProgress(byDay, scheme.completedTasks || {}, today);
+  const pr = ensureProgress(scheme);
+  const cultured = scheme.objects.filter(o => o.culture);
+  const families = new Set(cultured.map(o => familyOf(compat, o.culture)).filter(Boolean));
+  const notes = scheme.objects.reduce((m,o)=> m + ((o.notes||[]).length), 0);
+  const hasHarvest = scheme.objects.some(o => o.actual_yield_kg != null || (o.greenhouseBedYields||[]).some(v => v != null));
+  return {
+    today, seasonPct: sp.pct, month: new Date().getMonth()+1,
+    culturedObjects: cultured.length, totalObjects: scheme.objects.length,
+    notesCount: notes, hasHarvest, streakBest: pr.streak.best, metCount: pr.daily.metCount || 0,
+    counters: pr.counters,
+    tutorialSeen: lsGet('sg-tutorial-seen') === '1', demoSeen: lsGet('sg-demo-seen') === '1',
+    familiesCount: families.size
+  };
+}
+/* --- 3.18: попап достижения (стикер + поздравление Цыпы), очередь при нескольких открытиях --- */
+const achQueue = [];
+let achPopupBusy = false;
+const ACH_CONGRATS = [
+  'Ко-ко-ко! Вот это да! Достижение твоё — а я уже придумала, за что подарю следующее!',
+  'Ура! Получилось! Хлопаю крыльями от восторга!',
+  'Здорово! Участок в надёжных руках — и коллекция наград растёт!',
+  'Куд-куд-ах! Настоящий праздник садовода! Горжусь тобой!',
+  'Ого! Ещё один значок в коллекцию! Так держать — впереди самое интересное!'
+];
+function showAchievementPopup(a){
+  const ov = document.getElementById('achOverlay');
+  if (!ov) { showToast('Достижение: ' + a.title); return; }
+  const img = ov.querySelector('#achImg');
+  const ico = ov.querySelector('#achIconFallback');
+  if (img){
+    img.style.display = '';
+    if (ico) ico.style.display = 'none';
+    img.onerror = ()=>{ img.style.display = 'none'; if (ico) ico.style.display = 'flex'; };
+    img.src = a.sticker;
+  }
+  ov.querySelector('#achTitle').textContent = a.title;
+  ov.querySelector('#achDesc').textContent = a.desc;
+  ov.querySelector('#achCongrats').textContent = ACH_CONGRATS[Math.floor(Math.random()*ACH_CONGRATS.length)];
+  ov.classList.remove('hidden');
+  achPopupBusy = true;
+}
+function closeAchievementPopup(){
+  const ov = document.getElementById('achOverlay');
+  if (ov) ov.classList.add('hidden');
+  achPopupBusy = false;
+  const next = achQueue.shift();
+  if (next) { setTimeout(()=>showAchievementPopup(next), 250); return; }
+  const active = document.querySelector('.screen.active');
+  if (active && active.id === 'screen-stats' && statsTab === 'analytics') renderAnalytics();   // бейджи уже в Аналитике
+}
+(function bindAchPopup(){
+  const ov = document.getElementById('achOverlay');
+  if (!ov) return;
+  ov.querySelector('#achClose').addEventListener('click', closeAchievementPopup);
+  ov.addEventListener('pointerdown', (e)=>{ if (e.target === ov) closeAchievementPopup(); });
+})();
+function maybeUnlockAchievements(){
+  const pr = ensureProgress(scheme);
+  const unlocked = checkAchievements(pr, achievementsCtx());
+  if (!unlocked.length) return;
+  unlocked.forEach(a => achQueue.push(a));          // 3.18: попап вместо тоста
+  vibrate([15,40,15]);
+  if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
+  if (!achPopupBusy){ const a = achQueue.shift(); if (a) showAchievementPopup(a); }
+}
+function appendAchievements(){
+  const body = document.getElementById('screen-analytics-body');
+  if (!body) return;
+  const old = body.querySelector('#achSection'); if (old) old.remove();
+  const pr = ensureProgress(scheme);
+  const cards = ACHIEVEMENTS.map(a=>{
+    const date = pr.achievements[a.id];
+    const unlocked = !!date;
+    const d = unlocked ? date.split('-') : null;
+    return '<div class="ach-badge' + (unlocked ? '' : ' ach-locked') + '">' +
+      '<img class="ach-img" src="' + a.sticker + '" alt="" onerror="this.classList.add(\'ach-missing\')" />' +
+      '<span class="ach-icon-fallback"><svg class="ic-site" style="width:48px;height:48px"><use href="#' + a.icon + '"/></svg></span>' +
+      '<span class="ach-title">' + a.title + '</span>' +
+      (unlocked ? '<span class="ach-date">открыто ' + d[2] + '.' + d[1] + '.' + d[0] + '</span>'
+                : '<span class="ach-desc">' + a.desc + '</span>') +
+      '</div>';
+  }).join('');
+  body.insertAdjacentHTML('beforeend',
+    '<div class="an-section" id="achSection"><h3><svg class="ic-site"><use href="#si-basket"/></svg> Достижения</h3><div class="ach-grid">' + cards + '</div></div>');
+}
 /* --- 3.9: шапка и подвкладки экрана «Статистика» --- */
 function updateStatsHead(){
   const hpn = document.getElementById('homePlotName');
@@ -271,7 +354,7 @@ function updateStatsHead(){
   hpn.innerHTML = pn ? '<svg class="ic-site" style="width:24px;height:24px"><use href="#si-house"/></svg> Участок «'+esc(pn)+'»' : '';
   hpn.style.display = pn ? '' : 'none';
 }
-/* --- 3.10: Аналитика без дубля имени участка --- */
+/* --- 3.10: Аналитика без дубля имени участка; 3.17: + секция достижений --- */
 function stripAnalyticsDupName(){
   const body = document.getElementById('screen-analytics-body');
   if (!body) return;
@@ -289,7 +372,7 @@ function stripAnalyticsDupName(){
   }
   if (dup && body.contains(dup)) dup.remove();
 }
-function renderAnalytics(){ analyticsView.render(); stripAnalyticsDupName(); }
+function renderAnalytics(){ analyticsView.render(); stripAnalyticsDupName(); appendAchievements(); }   // 3.17
 let statsTab = 'overview';
 function setStatsTab(tab){
   statsTab = (tab === 'analytics') ? 'analytics' : 'overview';
@@ -362,6 +445,7 @@ function applyScheme(s){
   if (window.__tsypa) window.__tsypa.refresh();
   if (typeof updateCompass === 'function') updateCompass();
   history.commit();
+  maybeUnlockAchievements();   // 3.17: загруженный план может удовлетворять условиям бейджей
 }
 function tryRestoreAutosave(){
   try {
@@ -658,13 +742,14 @@ function scheduleSchemeHooks(){ if (schemeHooksRaf) return; schemeHooksRaf = req
 document.addEventListener('click', scheduleSchemeHooks);
 document.addEventListener('pointerup', scheduleSchemeHooks);
 
-/* --- защита теплицы + 3.12 вибро на создание объекта --- */
+/* --- защита теплицы + 3.12 вибро + 3.17 достижения на создание объекта --- */
 (function guardGreenhouse(){
   const _add = schemeView.addObject.bind(schemeView);
   schemeView.addObject = function(type){
     const obj=_add(type);
     if (obj) {
       vibrate(15);   // 3.12
+      maybeUnlockAchievements();   // 3.17: «Первая грядка», «Сад мечты», «Коллекционер»
       if (type==='greenhouse'){
         if (!obj.greenhouseBedCount) obj.greenhouseBedCount=1;
         if (!Array.isArray(obj.greenhouseBedCultures)) obj.greenhouseBedCultures=[null];
@@ -676,26 +761,36 @@ document.addEventListener('pointerup', scheduleSchemeHooks);
   };
 })();
 
-/* --- перерисовка панели при изменениях (2.182: только поля расчёта) --- */
+/* --- перерисовка панели при изменениях (2.182: только поля расчёта; 3.17: урожай может открыть бейдж) --- */
 const opExtraEl = document.getElementById('opExtra');
 if (opExtraEl) opExtraEl.addEventListener('change', (e)=>{
   const id = e.target && e.target.id;
   const cls = e.target && e.target.className;
   const isEstimate = (id === 'opPlantedCount' || id === 'opActualYield' || cls === 'opGhPlanted' || cls === 'opGhYield');
   if (!isEstimate) return;
-  setTimeout(()=>{ try { schemeView.render(); } catch(e){} scheduleSchemeHooks(); }, 0);
+  setTimeout(()=>{ try { schemeView.render(); } catch(e){} scheduleSchemeHooks(); maybeUnlockAchievements(); }, 0);
 });
 
 /* --- постер PNG --- */
 on('exportBtn', async function(){
   const btn = document.getElementById('exportBtn');
-  try { if (btn) { btn.disabled = true; btn.textContent = 'Рисуем постер…'; } showToast('Готовим постер…'); await exportPosterPNG({ scheme, plants, phases, planting, compat, buildCalendar }); showToast('Постер сохранён ✓'); }
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Рисуем постер…'; }
+    showToast('Готовим постер…');
+    await exportPosterPNG({ scheme, plants, phases, planting, compat, buildCalendar });
+    showToast('Постер сохранён ✓');
+    ensureProgress(scheme).counters.prints++; maybeUnlockAchievements();   // 3.17: «Печатник»
+  }
   catch(e){ console.error('exportPosterPNG:', e); showToast('Не удалось собрать постер'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Постер PNG'; } }
 });
 /* --- печать --- */
 on('printBtn', async function(){
-  try { showToast('Готовлю печатную версию…'); await exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion: APP_VERSION }); }
+  try {
+    showToast('Готовлю печатную версию…');
+    await exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion: APP_VERSION });
+    ensureProgress(scheme).counters.prints++; maybeUnlockAchievements();   // 3.17: «Печатник»
+  }
   catch(e){ console.error('exportPrint:', e); showToast('Не удалось подготовить печать'); }
 });
 
@@ -759,7 +854,11 @@ document.addEventListener('change', function(e){
 });
 
 /* --- кнопки шапки --- */
-on('saveBtn', function(){ storage.save(scheme); const pn=(scheme.plotName||'').trim(); showToast(pn ? 'План «'+pn+'» сохранён ✓' : 'План сохранён ✓'); });
+on('saveBtn', function(){
+  storage.save(scheme);
+  ensureProgress(scheme).counters.saves++; maybeUnlockAchievements();   // 3.17: «Хранитель»
+  const pn=(scheme.plotName||'').trim(); showToast(pn ? 'План «'+pn+'» сохранён ✓' : 'План сохранён ✓');
+});
 on('loadBtn', function(){
   storage.load(scheme, function(){
     recalcNextId();
@@ -771,6 +870,7 @@ on('loadBtn', function(){
     if (typeof updateCompass === 'function') updateCompass();
     showToast('План загружен ✓');
     history.commit();
+    maybeUnlockAchievements();   // 3.17
   });
 });
 on('gridStep', function(){ const el=document.getElementById('gridStep'); scheme.gridStepM = Number(el&&el.value)||0.5; schemeView.render(); }, 'change');
@@ -812,6 +912,7 @@ updateCompass();
 on('advisorBtn', function(){
   const bubble = document.getElementById('tipBubble'); if (!bubble) return;
   if (!bubble.classList.contains('hidden')) { bubble.classList.add('hidden'); return; }
+  ensureProgress(scheme).counters.advisor++; maybeUnlockAchievements();   // 3.17: «Советчик»
   const MONTHS_LOW=['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
   const MONTHS_NOM=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   const SEASON_ADVICE={0:'Сезон закрыт: отдыхаем и планируем схемы участка. Ждём Вас в апреле!',1:'Сезон закрыт: перебираем семена и точим инструмент. Ждём Вас в апреле!',2:'Сезон закрыт: готовим рассадные ёмкости и грунт. Ждём Вас в апреле!',3:'Апрель: прогреваем грядки, сеем холодостойкие и высаживаем рассаду под плёнку; не спешим с теплолюбивыми.',4:'Май: после угрозы заморозков высаживаем рассаду в грунт и теплицу, мульчируем и ставим дуги для зелени.',5:'Июнь: полив утром/вечером, подкормки азотом, пасынкуем томаты и прореживаем всходы.',6:'Июль: полив участился, теплицу проветриваем днём; собираем первые овощи и ягоды.',7:'Август: полив стабильный, вечером проветриваем теплицу; массовый сбор и закладка компоста.',8:'Полив к сентябрю сокращаем: томатам хватит одного раза в 4–5 дней, а зелени хватит дождей. Теплицу вечером проветривайте — от конденсата берётся фитофтора.',9:'Октябрь: последний сбор, уборка ботвы и мойка теплицы; укрываем многолетники перед заморозками.',10:'Сезон закрыт: убираем ботву и моем теплицу. Ждём Вас в апреле!',11:'Сезон закрыт: укрываем многолетники и планируем посадки. Ждём Вас в апреле!'};
@@ -887,6 +988,7 @@ window.__sgSelfTest = function(){
   push('autosave wired', typeof scheduleAutosave==='function' && !!localStorage, 'localStorage sg-autosave');
   const prG = ensureProgress(scheme);   // 3.16
   push('progress shape', !!prG && typeof prG.streak.count==='number' && typeof prG.daily.done==='number' && prG.streak.count>=0, 'streak '+prG.streak.count+', daily '+prG.daily.done);
+  push('achievements defs', Array.isArray(ACHIEVEMENTS) && ACHIEVEMENTS.length===12 && typeof checkAchievements==='function', (ACHIEVEMENTS||[]).length+' badges');   // 3.17
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1101,6 +1203,7 @@ schemeView.render();
 tryRestoreAutosave();
 startOnboarding();   // 3.6: Приветствие → Обучение → Демо-участок
 document.body.classList.toggle('on-scheme', true);   // 3.14: стартовый экран — Схема
+maybeUnlockAchievements();   // 3.17: бейджи по текущему состоянию при старте
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
