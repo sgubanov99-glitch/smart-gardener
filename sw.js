@@ -1,8 +1,9 @@
-// sw.js — service worker (ревизия 3.16)
-// 3.16: в CRITICAL precache добавлен src/core/gamification.js — модуль геймификации доступен офлайн
+// sw.js — service worker (ревизия 3.17)
+// 3.17: 12 стикеров достижений stickers/ach-*.png в NON_CRITICAL precache (бейджи Аналитики офлайн)
+// 3.16: src/core/gamification.js в CRITICAL precache
 // 3.6: data/demo-scheme.json в CRITICAL; 2.175: управляемые обновления (SKIP_WAITING по подтверждению);
 //      первая установка активируется сразу; 2.167: precache разделён на критичный и фоновый
-const CACHE = 'sg-cache-v3160';
+const CACHE = 'sg-cache-v3170';
 const CRITICAL = [
 './',
 './index.html',
@@ -63,6 +64,18 @@ const NON_CRITICAL = [
 './stickers/boy.png',
 './stickers/cat.png',
 './stickers/puppy.png',
+'./stickers/ach-first-bed.png',
+'./stickers/ach-first-harvest.png',
+'./stickers/ach-dream-garden.png',
+'./stickers/ach-tidy-notes.png',
+'./stickers/ach-streak-7.png',
+'./stickers/ach-daily-goal.png',
+'./stickers/ach-full-season.png',
+'./stickers/ach-printer.png',
+'./stickers/ach-demo-master.png',
+'./stickers/ach-advisor.png',
+'./stickers/ach-collector.png',
+'./stickers/ach-keeper.png',
 './gb.png'
 ];
 self.addEventListener('install', (e) => {
@@ -92,6 +105,7 @@ self.addEventListener('fetch', (e) => {
 const req = e.request;
 if (req.method !== 'GET') return;
 const url = new URL(req.url);
+if (!/^https?:$/.test(url.protocol)) return;   // 3.18.1: chrome-extension: и прочие схемы не обслуживаем и не кэшируем
 // Навигация: сеть → фолбэк на закэшированный index.html
 if (req.mode === 'navigate') {
 e.respondWith((async () => {

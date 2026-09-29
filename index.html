@@ -358,6 +358,29 @@
   .gam-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 12px; background:#fff; box-shadow:var(--shadow-s); font:700 12px "Manrope",sans-serif; color:var(--ink); }
   .gam-chip .ic-site { width:14px; height:14px; vertical-align:0; }
   .gam-chip-met { background:var(--olive); color:#fff; }
+  /* 3.17: секция «Достижения» в Аналитике */
+  .ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .ach-badge { display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; background:linear-gradient(180deg,#FFFDF6,#F7F1E2); border:1px solid rgba(138,155,110,.28); border-radius:var(--radius-s); padding:12px 10px; box-shadow:var(--shadow-s); }
+  .ach-img { width:64px; height:64px; object-fit:contain; }
+  .ach-icon-fallback { display:none; width:64px; height:64px; align-items:center; justify-content:center; }
+  .ach-img.ach-missing { display:none; }
+  .ach-img.ach-missing + .ach-icon-fallback { display:flex; }
+  .ach-title { font:800 12.5px 'Manrope',sans-serif; color:var(--ink); }
+  .ach-date, .ach-desc { font:600 11px 'Manrope',sans-serif; color:var(--ink-soft-2); }
+  .ach-locked { opacity:.6; }
+  .ach-locked .ach-img { opacity:.35; filter:grayscale(1); }
+  @media (max-width:640px){ .ach-grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); } }
+  /* 3.18: попап открытия достижения */
+  .ach-modal { position:relative; width:min(420px,94vw); text-align:center; padding:28px 24px 24px; }
+  .ach-close { position:absolute; top:10px; right:10px; margin:0; }
+  .ach-sticker-big { width:140px; height:140px; object-fit:contain; margin:0 auto 8px; display:block; filter:drop-shadow(0 6px 12px rgba(0,0,0,.15)); animation:obj-in .3s ease-out; }
+  .ach-icon-fallback-big { display:none; width:140px; height:140px; margin:0 auto 8px; align-items:center; justify-content:center; }
+  .ach-modal-title { font:800 11.5px 'Manrope',sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--olive-dark); }
+  .ach-modal-name { margin:4px 0 2px; font-family:"Neucha",cursive; font-size:30px; color:var(--ink); }
+  .ach-modal-desc { margin:0 0 14px; font:600 13px 'Manrope',sans-serif; color:var(--ink-soft-2); }
+  .ach-congrats { display:flex; align-items:flex-end; gap:8px; justify-content:center; }
+  .ach-congrats-chick { width:64px; height:64px; object-fit:contain; flex:none; }
+  .ach-congrats-bubble { max-width:260px; background:#FFFDF4; border:1px solid rgba(138,155,110,.4); border-radius:14px 14px 14px 4px; padding:10px 12px; font-family:"Neucha",cursive; font-size:16px; line-height:1.35; color:#5E7247; text-align:left; }
   .ops-head { display:none; }
   #tsypa { position:fixed; right:16px; bottom:88px; z-index:46; display:flex; flex-direction:column; align-items:flex-end; gap:6px; cursor:pointer; max-width:260px; }
   .tsypa-bubble { background:var(--panel); border:1px solid rgba(138,155,110,.3); border-radius:14px 14px 4px 14px; padding:10px 12px; font-size:13px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow-s); }
@@ -956,6 +979,22 @@
   <div id="demoTsypa" class="demo-tsypa hidden" aria-live="polite">
     <div class="demo-tsypa-bubble" id="demoTsypaBubble"></div>
     <img src="assets/chick_full.svg" alt="Цыпа" class="demo-tsypa-avatar" />
+  </div>
+
+  <!-- 3.18: попап открытия достижения: стикер + название + условие + поздравление Цыпы -->
+  <div class="overlay hidden" id="achOverlay">
+    <div class="modal ach-modal">
+      <button type="button" class="m-close ach-close" id="achClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button>
+      <img id="achImg" class="ach-sticker-big" src="" alt="" />
+      <span id="achIconFallback" class="ach-icon-fallback-big"><svg class="ic-site" style="width:96px;height:96px"><use href="#si-basket"/></svg></span>
+      <div class="ach-modal-title">Достижение открыто!</div>
+      <h3 id="achTitle" class="ach-modal-name"></h3>
+      <p id="achDesc" class="ach-modal-desc"></p>
+      <div class="ach-congrats">
+        <img src="assets/chick_full.svg" alt="" class="ach-congrats-chick" />
+        <div class="ach-congrats-bubble" id="achCongrats"></div>
+      </div>
+    </div>
   </div>
 
   <div class="tip-bubble hidden" id="tipBubble"></div>
