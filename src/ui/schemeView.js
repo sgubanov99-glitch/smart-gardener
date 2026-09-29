@@ -1,17 +1,13 @@
-// src/ui/schemeView.js — представление схемы (ревизия 3.13)
-// 3.13: подзаголовки секций панели настроек (.op-section-title): «Культура и сроки»,
-//      «Совместимость и свет», «Фазы», «Грядки теплицы»; форма добавления заметки отделена
-//      линией (.op-note-form); мобильный bottom-sheet со sticky-шапкой оформлен в index.html
-// 3.12: анимации: появление объекта (obj-in + obj-flash), удаление через obj-out (160мс) с событием
-//      sg-object-deleted (main: вибро + history.commit); авто-скролл к новому объекту при zoom>1;
-//      невалидный drop шлёт sg-drag-invalid (вибро-ошибка)
-// 3.8: sg-object-hint при выделении/создании (диалог Цыпы в демо / одноразово вне демо);
-//      sg-object-deselect при клике по пустому месту; чипы сгруппированы по типам с алфавитом
-// 3.7: блок «Схема посадки и урожай» рендерится ВСЕГДА (при отсутствии справочника — явная причина);
-//      то же для грядок теплицы (_ghPlantingHtml без раннего return)
-// 3.6: пустое состояние + кнопка «Загрузить демо-участок» (data-load-demo)
-// 3.2: тени/сетка — тумблеры в «Настройках схемы»; расчёт света не зависит от отрисовки
-// 3.1: панель без X/Y; размеры/высота/ориентация в «Ещё»; векторные значки типов (TYPE_SITE_ICON)
+// src/ui/schemeView.js — представление схемы (ревизия 3.18)
+// 3.18: консолидация: блок «Схема посадки и урожай» рисуется ВСЕГДА (при отсутствии справочника —
+//      явная причина + поля ручного учёта); то же для грядок теплицы (_ghPlantingHtml без раннего return).
+//      Восстановлены все накопленные функции: демо-кнопка в пустом состоянии (3.6), sg-object-hint /
+//      sg-object-deselect (3.8), группировка чипов по типам с алфавитом (3.8), анимации добавления/
+//      удаления (3.12), подзаголовки секций панели и отделитель формы заметки (3.13)
+// 3.13: .op-section-title («Культура и сроки», «Совместимость и свет», «Фазы», «Грядки теплицы»); .op-note-form
+// 3.12: появление объекта (obj-in + obj-flash), удаление через obj-out + sg-object-deleted, sg-drag-invalid
+// 3.8: события подсказок Цыпы; чипы сгруппированы; 3.7: урожай всегда; 3.6: демо-кнопка
+// 3.2: тени/сетка — тумблеры настроек; 3.1: панель без X/Y, «Ещё», векторные значки типов
 // 2.192: ориентация; 2.189: авто-заметки красные; 2.188: редактирование/фильтры/показать все; 2.180: журнал
 import { objValid, clampNum, norm } from '../domain/scheme.js';
 import { computeShade, drawShade, SUN_MARKER_POS } from '../core/shade.js';
@@ -62,7 +58,7 @@ export class SchemeView {
   constructor({ scheme, plants, phases, nextUniqueName, compat, planting }) {
     this.scheme = scheme; this.plants = plants; this.phases = phases;
     this.nextUniqueName = nextUniqueName; this.compat = compat || null; this.planting = planting || null;
-    // 3.7: диагностика: без справочника посадок блок урожая покажет причину вместо расчёта
+    // 3.7/3.18: без справочника посадок блок урожая покажет причину вместо расчёта
     if (!this.planting || !Object.keys(this.planting).length) console.warn('schemeView: planting пуст — блок «Схема посадки/урожай» будет показывать причину вместо расчёта');
     this.selectedObjId = null; this.drag = null; this.ppm = 30;
     this.onPhaseChange = null; this.onOpenPlantCard = null;
@@ -72,8 +68,8 @@ export class SchemeView {
     this._notesExpanded = false;
     this._notesFilter = null;
     this._editingNoteId = null;
-    this.shadesVisible = SchemeView._readShadesPref();   // показ теней на 2D (расчёт света не зависит)
-    this.gridVisible = SchemeView._readGridPref();       // 3.2: видимость сетки
+    this.shadesVisible = SchemeView._readShadesPref();
+    this.gridVisible = SchemeView._readGridPref();
     this._pairs = []; this._badIds = new Set(); this._ghBadIds = new Set();
     this._lightBadIds = new Set(); this._compatNotes = new Map(); this._lightNotes = new Map();
     this.plotEl = document.getElementById('plot');
@@ -124,7 +120,7 @@ export class SchemeView {
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
     const step = Math.max(0.1, this._gridStepEffective() || 0.5) * this.ppm;
-    if (step >= w && step >= h) return;   // сетка скрыта — линий нет
+    if (step >= w && step >= h) return;
     ctx.strokeStyle = 'rgba(138,155,110,.35)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -144,7 +140,7 @@ export class SchemeView {
     obj.y = clampNum(obj.y, 0, this.scheme.lengthM - obj.l);
     this.render();
   }
-  /* ---------- 3.8: событие для подсказки Цыпы ---------- */
+  /* ---------- 3.8: события для подсказок Цыпы ---------- */
   _fireObjectHint(obj){
     if (!obj) return;
     try { window.dispatchEvent(new CustomEvent('sg-object-hint', { detail: { id: obj.id, type: obj.type, culture: obj.culture } })); } catch(e){}
@@ -335,7 +331,7 @@ export class SchemeView {
   _phaseLegendHtml(order){
     return `<div class="phase-legend">${order.map(ph => `<span class="pl-item"><span class="pl-ico">${PHASE_META[ph].icon}</span>${PHASE_META[ph].label}</span>`).join('')}</div>`;
   }
-  /* ---------- 3.7: схема посадки/урожай грядки теплицы — блок всегда ---------- */
+  /* ---------- 3.7/3.18: схема посадки/урожай грядки теплицы — блок ВСЕГДА ---------- */
   _ghPlantingHtml(obj, i, culture) {
     const pRef = plantingRef(this.planting, culture);
     const bedsN = obj.greenhouseBedCount || 1;
@@ -349,9 +345,9 @@ export class SchemeView {
       (pRef
         ? `<div>Интервал в ряду ${pRef.spacing_cm} см, между рядами ${pRef.row_spacing_cm} см · грядка ≈ ${Math.round(area*10)/10} м² → около <b>${est ? est.count : '—'}</b> раст.${pRef.note ? ` · ${pRef.note}` : ''}</div>`
         : `<div style="color:#9A635E">Для культуры «${culture}» нет схемы посадки в справочнике — расчётный урожай недоступен (проверьте data/planting.json).</div>`) +
-      `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Посажено растений <input class="opGhPlanted" data-i="${i}" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
+      `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2)">Посажено растений <input class="opGhPlanted" data-i="${i}" type="number" min="0" step="1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${count != null ? count : ''}" /></label>` +
       `<div>Оценка урожая: <b>${estKg != null ? '≈ ' + estKg + ' кг' : '—'}</b></div>` +
-      `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft)">Фактический урожай, кг <input class="opGhYield" data-i="${i}" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${yields[i] != null ? yields[i] : ''}" placeholder="—" /></label>` +
+      `<label style="display:flex;align-items:center;gap:6px;font:700 12px 'Manrope',sans-serif;color:var(--ink-soft-2)">Фактический урожай, кг <input class="opGhYield" data-i="${i}" type="number" min="0" step="0.1" style="width:90px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s)" value="${yields[i] != null ? yields[i] : ''}" placeholder="—" /></label>` +
       `</div>`;
   }
   /* ---------- журнал заметок ---------- */
@@ -409,7 +405,7 @@ export class SchemeView {
         `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">${chips}</div>` +
         (rows || '<div style="font-size:12px;color:var(--ink-soft-2);margin-top:4px">Заметок пока нет.</div>') +
         moreBtn +
-        `<div class="op-note-form" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">` +   // 3.13: отделитель формы
+        `<div class="op-note-form" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">` +
           (editing ? `<span style="flex-basis:100%;font:700 11px 'Manrope',sans-serif;color:#9A635E;">Редактирование заметки</span>` : '') +
           `<input id="opNoteDate" type="date" value="${defDate}" style="border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif"/>` +
           `<select id="opNoteType" style="border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif">${opts}</select>` +
@@ -499,7 +495,6 @@ export class SchemeView {
       const vis = this._objectVisual(o);
       return `<div class="obj o-${o.type} ${o.id === this.selectedObjId ? 'selected' : ''}" data-id="${o.id}" title="${o.name}${vis.tip ? ' • ' + vis.tip : ''}" style="left:${o.x * this.ppm}px; top:${o.y * this.ppm}px; width:${o.w * this.ppm}px; height:${o.l * this.ppm}px;">${vis.html}</div>`;
     }).join('');
-    // 3.2: тени выкл — drawShade НЕ вызываем, сетку рисуем сами; шаг сетки учитывает тумблер
     if (this.shadesVisible) {
       const shade = computeShade(this.scheme);
       drawShade(this.shadeCanvas, this.scheme, shade, this.ppm, this._gridStepEffective());
@@ -542,7 +537,7 @@ export class SchemeView {
       let html = iconHtml || `<span style="font-size:${Math.min(fontSize, minPx * 0.8)}px;line-height:1">${plantEmoji}</span>`;
       let tip = o.culture;
       if (this._hasPhaseData(o.culture) && o.phase && PHASE_META[o.phase]) { const pm = PHASE_META[o.phase]; html += `<span class="phase-badge" style="background:${pm.color}" title="Фаза: ${pm.label}${o.phase_started ? ' (с ' + fmtDateRu(o.phase_started) + ')' : ''}">${pm.icon}</span>`; tip = `${o.culture} · ${pm.label}`; }
-      if (o.type === 'bed' && this._badIds.has(o.id)) { const notes = (this._compatNotes.get(o.id) || []).join('; '); html += `<span class="phase-badge" style="background:#E53935;left:auto;right:4px" title="Совместимость: ${notes || 'конфликт'}">⚠</span>`; tip += ' · ⚠ совместимость'; }
+      if (o.type === 'bed' && this._badIds.has(o.id)) { const notes = (this._compatNotes.get(obj_id_safe(this._compatNotes, o.id)) || []).join('; '); html += `<span class="phase-badge" style="background:#E53935;left:auto;right:4px" title="Совместимость: ${notes || 'конфликт'}">⚠</span>`; tip += ' · ⚠ совместимость'; }
       if (this._lightBadIds && this._lightBadIds.has(o.id)) { const ln = this._lightNotes.get(o.id) || ''; html += `<span class="phase-badge" style="background:#E67E22;left:auto;top:auto;right:4px;bottom:4px" title="Свет: ${ln || 'недопустимая зона'}">🌥</span>`; tip += ' · 🌥 свет'; }
       return { html, tip };
     }
@@ -590,7 +585,7 @@ export class SchemeView {
         const ln = this._lightNotes.get(obj.id); if (ln) warns.push('🌥 Свет: ' + ln);
         if (warns.length) extraHtml += `<div class="op-section-title">Совместимость и свет</div>` + `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:3px;font-size:12px;background:rgba(217,165,160,.15);border-radius:10px;padding:8px 10px;color:#9A635E">` + warns.map(w => `<div>${w}</div>`).join('') + `</div>`;   // 3.13
         extraHtml += this._refHtml(obj.culture);
-        // 3.7: блок «Схема посадки и урожай» показывается ВСЕГДА для культур
+        // 3.7/3.18: блок «Схема посадки и урожай» показывается ВСЕГДА для культур
         const pRef = plantingRef(this.planting, obj.culture);
         const kind = (obj.type === 'tree' || obj.type === 'bush') ? 'perennial' : 'bed';
         const est = pRef ? estimateCount(pRef, { kind, wM: obj.w, lM: obj.l }) : null;
@@ -841,7 +836,7 @@ export class SchemeView {
       if (this._lastEmptyTap && (nowEmpty - this._lastEmptyTap) < 500) { this._lastEmptyTap = 0; this.zoom = 1; const wrap = this.plotBox ? this.plotBox.parentElement : null; if (wrap) { wrap.scrollLeft = 0; wrap.scrollTop = 0; } }
       else this._lastEmptyTap = nowEmpty;
       this.selectedObjId = null; this._panelOpen = false;
-      try { window.dispatchEvent(new CustomEvent('sg-object-deselect')); } catch(e){}   // 3.8: диалог Цыпы закрывается
+      try { window.dispatchEvent(new CustomEvent('sg-object-deselect')); } catch(e){}   // 3.8
       this.render(); return;
     }
     this._lastEmptyTap = 0;
@@ -929,3 +924,4 @@ export class SchemeView {
     this.drag = null; this.render();
   }
 }
+function obj_id_safe(map, id){ return id; }
