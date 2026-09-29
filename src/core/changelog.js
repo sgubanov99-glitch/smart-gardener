@@ -1,6 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода» (консолидация к этапу 3.x)
-export const APP_VERSION = '3.18.1';
+export const APP_VERSION = '3.19';
 export const CHANGELOG = [
+{ v:'3.19', date:'29.09.2026', title:'Этап 3, ревизия 3.19: задания дня + достижение «Пять идеальных дней»', notes:[
+  'Карточка «Задания дня» в Обзоре под прогрессом: три авто-отслеживаемых задания (3 задачи; запись в журнале; обход Календарь+Статистика), кружки-индикаторы, оливковая подсветка при полном комплекте',
+  'gamification.js: ensureChallenges/markChallenge (сброс по дате, метки не снимаются), счётчик progress.challengesMet; 13-е достижение perfect-days (challengesMet>=5)',
+  'Хуки: gamifyTouch (цель дня) → tasks; клик #opNoteAdd и авто-заметки → note; showScreen calendar/stats → visitCal/visitStats; при полном комплекте — тост, вибро, celebrate, проверка достижений',
+  'sw.js: cache v3190, stickers/ach-perfect-days.png в NON_CRITICAL; selftest: 13 бейджей'
+]},
 { v:'3.18.1', date:'29.09.2026', title:'Хотфикс: planting.json читался из уже потреблённого ответа (res вместо pres); SW не кэширует chrome-extension', notes:[
   'В main.js строка загрузки data/planting.json использовала res.json() (ответ phases.json с прочитанным body) → TypeError → planting={} → блок урожая показывал причину вместо цифр при живом 200 от сервера',
   'Исправлено на pres.json(); selftest-строки planting loaded / planting ref works / schemeView has planting возвращаются в PASS',
