@@ -1,14 +1,19 @@
-// src/main.js — точка входа (ревизия 3.23)
-// 3.23: корректировка целей Метрики под текущий функционал: виртуальные просмотры экранов
-//      (ym hit pathname?screen=… с title) — SPA глубина/время считались некорректно; возрождение
-//      идентификаторов целей прототипа (история не рвётся): add_object{type}, delete_object, load_plan,
-//      reset_plan, open_calendar, open_advisor, open_plant_modal{plant}, add_to_scheme{plant}, bot_open (чат),
-//      click_calendar_day, filter_tag; новая цель note_added{kind:manual|auto}; кабинет: создать note_added,
-//      отключить мёртвые upload_plants_json/bot_*/open_culture_card/автоцель контактов
-// 3.22: продуктовые цели Метрики (тот же счётчик 111974153): trackGoal(name,params) с try/catch и дебагом
-//      ?debug=1; 10 целей онбординга/геймификации/экспорта/книги; дедуп achievement_unlock (сессия), streak_7 (дата)
-// 3.21.1: метрики модератора: записи книги из localStorage['sg-gb-cache']; режим модератора сессионный (gbModSession)
-// 3.21: метрики модератора (KPI/SLA/темы/рейтинг/недели, фильтр «Без ответа», экспорт JSON/CSV, копия сводки)
+// src/main.js — точка входа (ревизия 3.25)
+// 3.25: компактное меню — все примечания (.m-note) удалены из меню-листа; у каждого пункта и тумблера
+//      атрибут data-tip; пузырьковые подсказки .fab-tip над пунктом (у верхнего края экрана — снизу,
+//      класс .below): hover на десктопе, long-press ≥450мс на тач; скрытие: отпускание/тап по пункту,
+//      скролл листа, закрытие меню, клик вне меню; механика переиспользует баблы FAB из 3.13
+// 3.24: локальные напоминания (Notification API): тумблер «Напоминания о задачах» (sg-reminders, ВЫКЛ),
+//      overdue (просроченные >0) и daily (после 18:00 при незакрытой цели), раз в день на тип
+//      (sg-rem-<kind>-<дата>), показ через SW showNotification с фолбэком; клик → SG_OPEN → Календарь;
+//      проверки при запуске + интервал 60 мин
+// 3.23: виртуальные просмотры экранов (ym hit ?screen=…), возрождение идентификаторов целей прототипа
+//      (add_object, delete_object, load_plan, reset_plan, open_calendar, open_advisor, open_plant_modal,
+//      add_to_scheme, bot_open, click_calendar_day, filter_tag), новая цель note_added{kind}
+// 3.22: продуктовые цели Метрики (счётчик 111974153): trackGoal(name,params), debug ?debug=1,
+//      дедуп achievement_unlock (сессия) и streak_7 (дата); 10 целей онбординга/геймификации/экспорта/книги
+// 3.21.1: метрики модератора: записи книги из localStorage['sg-gb-cache']; режим модератора сессионный
+// 3.21: метрики модератора (KPI/SLA/топ-тем/рейтинг/недели, фильтр «Без ответа», экспорт JSON/CSV, копия сводки)
 // 3.20: лента «Последние заметки» в Обзоре (до 8 записей, тап → объект на Схеме)
 // 3.19: задания дня (3 авто-задания, карточка в Обзоре, challengesMet, бейдж «Пять идеальных дней»)
 // 3.18.1: фикс чтения planting.json (pres.json() вместо res.json()); 3.18: попап достижения (стикер+Цыпа, очередь)
@@ -743,6 +748,56 @@ if (hapticsToggle) {
 window.addEventListener('sg-object-deleted', ()=>{ vibrate([20,40,20]); trackGoal('delete_object'); history.commit(); });   // 3.12 + 3.23: undo не теряет удаление
 window.addEventListener('sg-drag-invalid', ()=> vibrate(40));
 
+/* --- 3.24: локальные напоминания (замена push без сервера) --- */
+function remindersWanted(){ try { return localStorage.getItem('sg-reminders') === '1'; } catch(e){ return false; } }
+function notificationsReady(){ return ('Notification' in window) && Notification.permission === 'granted'; }
+function remindOnce(kind, title, body){
+  if (!remindersWanted() || !notificationsReady()) return;
+  const flag = 'sg-rem-' + kind + '-' + todayISO();   // анти-спам: раз в день на тип
+  try { if (localStorage.getItem(flag)) return; localStorage.setItem(flag, '1'); } catch(e){ return; }
+  const opts = { body, icon: 'assets/icon-192.png', badge: 'assets/icon-192.png', tag: 'sg-' + kind, data: { goto: 'calendar' }, requireInteraction: false };
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts)).catch(()=>{ try { new Notification(title, opts); } catch(e){} });
+    } else { new Notification(title, opts); }
+  } catch(e){}
+}
+function runReminderChecks(){
+  if (!remindersWanted() || !notificationsReady()) return;
+  const today = todayISO();
+  let overdue = 0;
+  try {
+    const byDay = buildCalendar(scheme.objects, phases, true, plants, planting, scheme.weather) || {};
+    Object.keys(byDay).forEach(d=>{
+      if (d >= today) return;   // просроченные = строго раньше сегодня
+      (byDay[d]||[]).forEach(t=>{ const key = t.date+'|'+t.bed_id+'|'+t.name; if (!(scheme.completedTasks||{})[key]) overdue++; });
+    });
+  } catch(e){}
+  if (overdue > 0){
+    remindOnce('overdue', 'Умный садовод: просроченные задачи', 'Накопилось ' + overdue + ' просроченных задач — загляните в Календарь, чтобы закрыть или перенести.');
+  }
+  const dg = dailyGoalState(ensureProgress(scheme), today);
+  if (new Date().getHours() >= 18 && !dg.met && (scheme.objects||[]).length){
+    remindOnce('daily', 'Умный садовод: цель дня', 'Цель дня ещё не закрыта (' + dg.done + '/' + dg.goal + '): 10 минут — и день засчитан в серию.');
+  }
+}
+const remindersToggle = document.getElementById('remindersToggle');
+function syncRemindersToggle(){ if (remindersToggle) remindersToggle.checked = remindersWanted() && notificationsReady(); }
+if (remindersToggle) remindersToggle.addEventListener('change', ()=>{
+  if (remindersToggle.checked){
+    if (!('Notification' in window)){ showToast('Браузер не поддерживает уведомления'); remindersToggle.checked = false; return; }
+    Notification.requestPermission().then(p=>{
+      if (p === 'granted'){ try { localStorage.setItem('sg-reminders','1'); } catch(e){} showToast('Напоминания включены'); runReminderChecks(); }
+      else { remindersToggle.checked = false; try { localStorage.setItem('sg-reminders','0'); } catch(e){} showToast('Браузер заблокировал уведомления — напоминания выключены'); }
+    });
+  } else {
+    try { localStorage.setItem('sg-reminders','0'); } catch(e){}
+    showToast('Напоминания выключены');
+  }
+});
+syncRemindersToggle();
+setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновый чекер, пока вкладка открыта
+
 /* --- 3.13: подписи FAB — одноразовые баблы при первом входе + long-press тултип --- */
 (function fabTips(){
   function showFabTip(btn, text, ms){
@@ -775,6 +830,47 @@ window.addEventListener('sg-drag-invalid', ()=> vibrate(40));
     btn.addEventListener('touchcancel', clear);
     btn.addEventListener('touchmove', ()=>{ clearTimeout(t); }, { passive:true });
   });
+})();
+
+/* --- 3.25.1: пузырьковые подсказки пунктов меню (фикс: pointer-события + swallow клика после long-press) --- */
+(function menuTips(){
+  const SEL = '#mMenuSheet [data-tip]';
+  let tip = null, pressT = 0, swallow = false, longFired = false;
+  function hideTip(){ if (tip){ tip.remove(); tip = null; } }
+  function showTip(el){
+    hideTip();
+    tip = document.createElement('div');
+    tip.className = 'fab-tip';
+    tip.textContent = el.getAttribute('data-tip') || '';
+    document.body.appendChild(tip);
+    const r = el.getBoundingClientRect();
+    tip.style.left = Math.max(90, Math.min(window.innerWidth - 90, r.left + r.width / 2)) + 'px';
+    if (r.top > 96){ tip.style.top = (r.top - 8) + 'px'; }              // пузырь сверху
+    else { tip.style.top = (r.bottom + 8) + 'px'; tip.classList.add('below'); }   // у верхнего края — снизу
+  }
+  /* Мышь/перо: hover через pointerover (не зависит от isTouch() — тачскрин-ПК больше не ломают) */
+  document.addEventListener('pointerover', (e)=>{ if (e.pointerType !== 'mouse') return; const el = e.target.closest(SEL); if (el) showTip(el); });
+  document.addEventListener('pointerout',  (e)=>{ if (e.pointerType !== 'mouse') return; if (e.target.closest(SEL)) hideTip(); });
+  /* Тач: long-press ≥450мс; после показа клика не будет — действие и закрытие меню подавляются */
+  document.addEventListener('touchstart', (e)=>{
+    const el = e.target.closest(SEL); if (!el) return;
+    longFired = false; swallow = false; clearTimeout(pressT);
+    pressT = setTimeout(()=>{ showTip(el); longFired = true; swallow = true; }, 450);
+  }, { passive:true });
+  document.addEventListener('touchmove', ()=>{ clearTimeout(pressT); if (!longFired) hideTip(); }, { passive:true });
+  document.addEventListener('touchend', ()=>{ clearTimeout(pressT); if (longFired) setTimeout(hideTip, 1200); else hideTip(); }, { passive:true });
+  document.addEventListener('touchcancel', ()=>{ clearTimeout(pressT); hideTip(); longFired = false; swallow = false; }, { passive:true });
+  /* Capture-клик: после long-press глотаем click (меню не закрывается, действие не выполняется);
+     обычный клик по пункту или вне меню — прячем пузырь */
+  document.addEventListener('click', (e)=>{
+    if (swallow){ swallow = false; longFired = false; e.stopPropagation(); e.preventDefault(); hideTip(); return; }
+    if (e.target.closest(SEL) || !e.target.closest('#mMenuSheet')) hideTip();
+  }, true);
+  /* Скролл листа и клавиатурный фокус */
+  const panel = document.querySelector('#mMenuSheet .m-sheet-panel');
+  if (panel) panel.addEventListener('scroll', hideTip, { passive:true });
+  document.addEventListener('focusin',  (e)=>{ const el = e.target.closest(SEL); if (el) showTip(el); });
+  document.addEventListener('focusout', (e)=>{ if (e.target.closest(SEL)) hideTip(); });
 })();
 
 /* --- обучение, книга отзывов --- */
@@ -1193,6 +1289,7 @@ window.__sgSelfTest = function(){
   push('gbMetrics module', typeof computeMetrics==='function' && typeof renderMetricsBox==='function', 'mod='+(gbModeratorWanted()?'on':'off'));   // 3.21
   push('trackGoal wired', typeof trackGoal==='function' && METRIKA_ID===111974153, 'ym goals');   // 3.22
   push('trackScreen wired', typeof trackScreen==='function', 'screen hits on');   // 3.23
+  push('reminders wired', typeof runReminderChecks==='function' && typeof remindOnce==='function', 'rem='+(remindersWanted()?'on':'off')+', perm='+(('Notification' in window)?Notification.permission:'n/a'));   // 3.24
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1364,6 +1461,10 @@ if ('serviceWorker' in navigator) {
         });
       });
       navigator.serviceWorker.addEventListener('controllerchange', ()=> location.reload());
+      navigator.serviceWorker.addEventListener('message', (e)=>{   // 3.24: клик по уведомлению → экран
+        const d = e.data;
+        if (d && d.type === 'SG_OPEN' && d.page) showScreen('screen-' + d.page);
+      });
       setInterval(()=>{ reg.update(); }, 60*60*1000);
     } catch(e){ console.warn('SW register:', e); }
   });
@@ -1417,6 +1518,7 @@ startOnboarding();   // 3.6: Приветствие → Обучение → Д�
 document.body.classList.toggle('on-scheme', true);   // 3.14: стартовый экран — Схема
 maybeUnlockAchievements();   // 3.17: бейджи по текущему состоянию при старте
 try { localStorage.removeItem('sg-gb-mod'); } catch(_){}   // 3.21.1: флаг модератора не персистится
+runReminderChecks();   // 3.24: проверка при запуске (overdue + цель дня после 18:00)
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
