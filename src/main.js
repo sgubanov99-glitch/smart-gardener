@@ -1,14 +1,17 @@
-// src/main.js — точка входа (ревизия 3.21.1)
-// 3.21.1: хотфикс метрик модератора: записи книги читаются из localStorage['sg-gb-cache'] (первым в
-//        списке ключей + фолбэки entries/messages/items/list); режим модератора НЕ персистится:
-//        gbModSession в памяти (?mod=1 или 5 тапов), после перезагрузки выключен; старый ключ
-//        sg-gb-mod стирается; normEntry в gbMetrics терпит разные имена полей даты/ответа/рейтинга
-// 3.21: метрики модератора Книги отзывов: блок KPI/SLA/топ-тем/рейтинга/недель сверху #gbPanel,
-//      фильтр «Без ответа (N)», экспорт JSON/CSV, копирование сводки (модуль src/ui/gbMetrics.js)
-// 3.20: лента «Последние заметки» в Обзоре (до 8 записей со всех журналов, тап → объект на Схеме)
+// src/main.js — точка входа (ревизия 3.23)
+// 3.23: корректировка целей Метрики под текущий функционал: виртуальные просмотры экранов
+//      (ym hit pathname?screen=… с title) — SPA глубина/время считались некорректно; возрождение
+//      идентификаторов целей прототипа (история не рвётся): add_object{type}, delete_object, load_plan,
+//      reset_plan, open_calendar, open_advisor, open_plant_modal{plant}, add_to_scheme{plant}, bot_open (чат),
+//      click_calendar_day, filter_tag; новая цель note_added{kind:manual|auto}; кабинет: создать note_added,
+//      отключить мёртвые upload_plants_json/bot_*/open_culture_card/автоцель контактов
+// 3.22: продуктовые цели Метрики (тот же счётчик 111974153): trackGoal(name,params) с try/catch и дебагом
+//      ?debug=1; 10 целей онбординга/геймификации/экспорта/книги; дедуп achievement_unlock (сессия), streak_7 (дата)
+// 3.21.1: метрики модератора: записи книги из localStorage['sg-gb-cache']; режим модератора сессионный (gbModSession)
+// 3.21: метрики модератора (KPI/SLA/темы/рейтинг/недели, фильтр «Без ответа», экспорт JSON/CSV, копия сводки)
+// 3.20: лента «Последние заметки» в Обзоре (до 8 записей, тап → объект на Схеме)
 // 3.19: задания дня (3 авто-задания, карточка в Обзоре, challengesMet, бейдж «Пять идеальных дней»)
-// 3.18.1: фикс чтения planting.json (pres.json() вместо res.json() — поток phases уже потреблён)
-// 3.18: попап открытия достижения (стикер + условие + поздравление Цыпы), очередь при нескольких
+// 3.18.1: фикс чтения planting.json (pres.json() вместо res.json()); 3.18: попап достижения (стикер+Цыпа, очередь)
 // 3.17: достижения (13 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
 // 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView отцепляет чекбокс)
 // 3.16: геймификация: карточка «Прогресс сезона», серия дней, цель дня 3 задачи; scheme.progress
@@ -61,6 +64,35 @@ function showToast(msg){
   const t = document.getElementById('toast'); if (!t) return;
   t.textContent = msg; t.classList.add('show');
   clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+/* --- 3.22: продуктовые цели Метрики (тот же счётчик 111974153, аддитивные reachGoal) --- */
+const METRIKA_ID = 111974153;
+let metricsDebugOn = null;
+function metricsDebug(){
+  if (metricsDebugOn !== null) return metricsDebugOn;
+  let v = false;
+  try { v = localStorage.getItem('sg-debug-metrics') === '1'; } catch(e){}
+  try { v = v || new URL(location.href).searchParams.get('debug') === '1'; } catch(e){}
+  metricsDebugOn = v; return v;
+}
+const achGoalSent = new Set();   // дедуп achievement_unlock на сессию
+let onboardingSkip = false;      // 3.22: путь онбординга для цели
+let onboardingTracked = false;
+function trackGoal(name, params){
+  try { if (window.ym) window.ym(METRIKA_ID, 'reachGoal', name, params || {}); } catch(e){}   // офлайн/ошибки игнорируем
+  if (metricsDebug()) console.info('[metric]', name, params || '');
+}
+function trackStreak7(pr, today){
+  if (pr.streak.count !== 7) return;
+  try { if (localStorage.getItem('sg-metric-streak7') === today) return; localStorage.setItem('sg-metric-streak7', today); } catch(e){}
+  trackGoal('streak_7', { best: pr.streak.best });
+}
+/* --- 3.23: виртуальные просмотры экранов (SPA без перезагрузок) --- */
+const SCREEN_TITLES = { 'screen-scheme':'Схема', 'screen-plants':'Растения', 'screen-calendar':'Календарь', 'screen-chat':'Чат', 'screen-stats':'Статистика' };
+function trackScreen(id){
+  const url = location.pathname + '?screen=' + String(id).replace('screen-','');
+  try { if (window.ym) window.ym(METRIKA_ID, 'hit', url, { title: 'Умный садовод — ' + (SCREEN_TITLES[id] || '') }); } catch(e){}
+  if (metricsDebug()) console.info('[metric] hit', url);
 }
 function resetMobileZoom(){
   try {
@@ -137,8 +169,9 @@ const bot = createBot({
   onStateChanged: function(){ schemeView.render(); calendarView.render(); if (window.__tsypa) window.__tsypa.refresh(); }
 });
 const chatView = createChatView({ bot });
-const plantsView = createPlantsView({ plants, compat, onAddToScheme: function(plantName, plantType){ schemeView.addNewObjectForPlant(plantName, plantType); showScreen('screen-scheme'); } });
+const plantsView = createPlantsView({ plants, compat, onAddToScheme: function(plantName, plantType){ trackGoal('add_to_scheme', { plant: plantName }); schemeView.addNewObjectForPlant(plantName, plantType); showScreen('screen-scheme'); } });   // 3.23
 schemeView.onOpenPlantCard = function(plantName){
+  trackGoal('open_plant_modal', { plant: plantName });   // 3.23
   showScreen('screen-plants');
   setTimeout(()=>{ if (plantsView.openPlantCard) plantsView.openPlantCard(plantName); }, 80);
 };
@@ -238,10 +271,12 @@ function gamifyTouch(n){
   const pr = ensureProgress(scheme);
   const today = todayISO();
   touchStreak(pr, today);
+  trackStreak7(pr, today);   // 3.22
   const metNow = addDailyDone(pr, today, n);
   if (metNow){
     showToast('Цель дня выполнена ✓');
     vibrate([10,30,10]);
+    trackGoal('daily_goal_met', { n });   // 3.22
     if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
   }
   const dg2 = dailyGoalState(pr, today);
@@ -268,6 +303,7 @@ function challengeTouch(key){
   if (metNow){
     showToast('Задания дня выполнены ✓');
     vibrate([10,30,10]);
+    trackGoal('challenges_met');   // 3.22
     if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
     maybeUnlockAchievements();   // 3.19: challengesMet мог открыть «Пять идеальных дней»
   }
@@ -328,8 +364,13 @@ document.addEventListener('change', (e)=>{
   const inCal = path.some(n => n && n.id === 'screen-calendar-body') || !!t.closest('#screen-calendar-body');
   if (inCal && t.checked) gamifyTouch(1);   // Календарь (список и месяц): серия + цель дня
 });
-/* --- 3.19: ручная заметка в журнале объекта → задание «Запись в журнале» --- */
-document.addEventListener('click', (e)=>{ if (e.target.closest('#opNoteAdd')) challengeTouch('note'); });
+/* --- 3.19 + 3.23: ручная заметка в журнале объекта → задание «Запись в журнале» + цель note_added --- */
+document.addEventListener('click', (e)=>{ if (e.target.closest('#opNoteAdd')){ challengeTouch('note'); trackGoal('note_added', { kind:'manual' }); } });
+/* --- 3.23: клики прототипных целей из текущего DOM --- */
+document.addEventListener('click', (e)=>{ if (e.target.closest('#screen-calendar-body .m-cell')) trackGoal('click_calendar_day'); });
+document.addEventListener('click', (e)=>{ if (e.target.closest('.plants-type-btn')) trackGoal('filter_tag'); });
+/* --- 3.22: отправка сообщения книги отзывов --- */
+document.addEventListener('click', (e)=>{ const b = e.target.closest('.gb-send'); if (b && !b.disabled) trackGoal('gb_message_sent'); });
 /* --- 3.17: достижения — контекст, разблокировка, секция в Аналитике --- */
 function achievementsCtx(){
   const today = todayISO();
@@ -396,7 +437,7 @@ function maybeUnlockAchievements(){
   const pr = ensureProgress(scheme);
   const unlocked = checkAchievements(pr, achievementsCtx());
   if (!unlocked.length) return;
-  unlocked.forEach(a => achQueue.push(a));          // 3.18: попап вместо тоста
+  unlocked.forEach(a => { achQueue.push(a); if (!achGoalSent.has(a.id)){ achGoalSent.add(a.id); trackGoal('achievement_unlock', { id: a.id }); } });   // 3.18 + 3.22
   vibrate([15,40,15]);
   if (window.__tsypa && window.__tsypa.celebrate) window.__tsypa.celebrate();
   if (!achPopupBusy){ const a = achQueue.shift(); if (a) showAchievementPopup(a); }
@@ -699,7 +740,7 @@ if (hapticsToggle) {
     showToast(hapticsToggle.checked ? 'Вибро-отклик: включён' : 'Вибро-отклик: выключен');
   });
 }
-window.addEventListener('sg-object-deleted', ()=>{ vibrate([20,40,20]); history.commit(); });   // undo не теряет удаление
+window.addEventListener('sg-object-deleted', ()=>{ vibrate([20,40,20]); trackGoal('delete_object'); history.commit(); });   // 3.12 + 3.23: undo не теряет удаление
 window.addEventListener('sg-drag-invalid', ()=> vibrate(40));
 
 /* --- 3.13: подписи FAB — одноразовые баблы при первом входе + long-press тултип --- */
@@ -801,7 +842,7 @@ function injectGbMetrics(){
     if (taps >= 5){
       taps = 0;
       const on = !gbModeratorWanted();
-      setGbModerator(on);   // 3.21.1: только в памяти — после перезагрузки выключено
+      setGbModerator(on);
       showToast(on ? 'Режим модератора включён (до перезагрузки)' : 'Режим модератора выключен');
     }
   });
@@ -814,9 +855,9 @@ function injectGbMetrics(){
     const entries = getGbEntries();
     const m = computeMetrics(entries, todayISO());
     if (act === 'filter'){ gbmFilterOn = !gbmFilterOn; applyGbFilter(panel, gbmFilterOn); injectGbMetrics(); }
-    if (act === 'json'){ exportGbJSON(entries, m); showToast('JSON со сводкой сохранён ✓'); }
-    if (act === 'csv'){ exportGbCSV(entries, m); showToast('CSV сохранён ✓'); }
-    if (act === 'copy'){ const ok = await copyGbSummary(m); showToast(ok ? 'Сводка скопирована ✓' : 'Не удалось скопировать — используйте JSON'); }
+    if (act === 'json'){ exportGbJSON(entries, m); trackGoal('gb_moderator_export', { kind:'json' }); showToast('JSON со сводкой сохранён ✓'); }   // 3.22
+    if (act === 'csv'){ exportGbCSV(entries, m); trackGoal('gb_moderator_export', { kind:'csv' }); showToast('CSV сохранён ✓'); }   // 3.22
+    if (act === 'copy'){ const ok = await copyGbSummary(m); trackGoal('gb_moderator_export', { kind:'copy' }); showToast(ok ? 'Сводка скопирована ✓' : 'Не удалось скопировать — используйте JSON'); }   // 3.22
   });
 })();
 
@@ -895,13 +936,14 @@ function scheduleSchemeHooks(){ if (schemeHooksRaf) return; schemeHooksRaf = req
 document.addEventListener('click', scheduleSchemeHooks);
 document.addEventListener('pointerup', scheduleSchemeHooks);
 
-/* --- защита теплицы + 3.12 вибро + 3.17 достижения на создание объекта --- */
+/* --- защита теплицы + 3.12 вибро + 3.17 достижения + 3.23 цель add_object --- */
 (function guardGreenhouse(){
   const _add = schemeView.addObject.bind(schemeView);
   schemeView.addObject = function(type){
     const obj=_add(type);
     if (obj) {
       vibrate(15);   // 3.12
+      trackGoal('add_object', { type });   // 3.23: возрождение цели прототипа
       maybeUnlockAchievements();   // 3.17: «Первая грядка», «Сад мечты», «Коллекционер»
       if (type==='greenhouse'){
         if (!obj.greenhouseBedCount) obj.greenhouseBedCount=1;
@@ -933,6 +975,7 @@ on('exportBtn', async function(){
     await exportPosterPNG({ scheme, plants, phases, planting, compat, buildCalendar });
     showToast('Постер сохранён ✓');
     ensureProgress(scheme).counters.prints++; maybeUnlockAchievements();   // 3.17: «Печатник»
+    trackGoal('export_print_poster', { kind:'png' });   // 3.22
   }
   catch(e){ console.error('exportPosterPNG:', e); showToast('Не удалось собрать постер'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Постер PNG'; } }
@@ -943,6 +986,7 @@ on('printBtn', async function(){
     showToast('Готовлю печатную версию…');
     await exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion: APP_VERSION });
     ensureProgress(scheme).counters.prints++; maybeUnlockAchievements();   // 3.17: «Печатник»
+    trackGoal('export_print_poster', { kind:'print' });   // 3.22
   }
   catch(e){ console.error('exportPrint:', e); showToast('Не удалось подготовить печать'); }
 });
@@ -964,9 +1008,10 @@ function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.goto===id));
   document.body.classList.toggle('on-scheme', id==='screen-scheme');   // 3.14: стек FAB на Схеме
+  trackScreen(id);   // 3.23: hit ?screen=… на каждое переключение
   if (id==='screen-scheme'){ schemeView.render(); scheduleSchemeHooks(); }
-  if (id==='screen-calendar'){ calendarView.render(); challengeTouch('visitCal'); }   // 3.19
-  if (id==='screen-chat') chatView.render();
+  if (id==='screen-calendar'){ calendarView.render(); challengeTouch('visitCal'); trackGoal('open_calendar'); }   // 3.19 + 3.23
+  if (id==='screen-chat'){ chatView.render(); trackGoal('bot_open'); }   // 3.23: чат = панель бота из прототипа
   if (id==='screen-plants'){ plantsView.render(); fixRelativeImages(document); }
   if (id==='screen-stats'){ updateStatsHead(); renderStatsCurrent(); challengeTouch('visitStats'); }   // 3.19
   if (window.__tsypa) window.__tsypa.refresh();
@@ -1010,12 +1055,14 @@ document.addEventListener('change', function(e){
 on('saveBtn', function(){
   storage.save(scheme);
   ensureProgress(scheme).counters.saves++; maybeUnlockAchievements();   // 3.17: «Хранитель»
+  trackGoal('save_plan', { objects: scheme.objects.length });   // 3.22
   const pn=(scheme.plotName||'').trim(); showToast(pn ? 'План «'+pn+'» сохранён ✓' : 'План сохранён ✓');
 });
 on('loadBtn', function(){
   storage.load(scheme, function(){
     recalcNextId();
     ensureProgress(scheme);   // 3.16
+    trackGoal('load_plan');   // 3.23: возрождение цели прототипа
     const set=(id,v)=>{ const el=document.getElementById(id); if (el) el.value=v; };
     set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
     schemeView.render(); calendarView.render();
@@ -1027,7 +1074,7 @@ on('loadBtn', function(){
   });
 });
 on('gridStep', function(){ const el=document.getElementById('gridStep'); scheme.gridStepM = Number(el&&el.value)||0.5; schemeView.render(); }, 'change');
-on('resetBtn', function(){ if (!confirm('Очистить схему участка?')) return; scheme.objects=[]; scheme.plotName=''; scheme.demoMode=false; const pn=document.getElementById('plotNameInput'); if (pn) pn.value=''; scheme.nextId=1; schemeView.render(); showToast('Схема очищена ✓'); });
+on('resetBtn', function(){ if (!confirm('Очистить схему участка?')) return; scheme.objects=[]; scheme.plotName=''; scheme.demoMode=false; const pn=document.getElementById('plotNameInput'); if (pn) pn.value=''; scheme.nextId=1; schemeView.render(); trackGoal('reset_plan'); showToast('Схема очищена ✓'); });   // 3.23
 
 /* --- модалка настроек схемы --- */
 const ssOverlay = document.getElementById('schemeSettingsOverlay');
@@ -1066,6 +1113,7 @@ on('advisorBtn', function(){
   const bubble = document.getElementById('tipBubble'); if (!bubble) return;
   if (!bubble.classList.contains('hidden')) { bubble.classList.add('hidden'); return; }
   ensureProgress(scheme).counters.advisor++; maybeUnlockAchievements();   // 3.17: «Советчик»
+  trackGoal('open_advisor');   // 3.23: возрождение цели прототипа
   const MONTHS_LOW=['январ','феврал','март','апрел','ма','июн','июл','август','сентябр','октябр','ноябр','декабр'];
   const MONTHS_NOM=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   const SEASON_ADVICE={0:'Сезон закрыт: отдыхаем и планируем схемы участка. Ждём Вас в апреле!',1:'Сезон закрыт: перебираем семена и точим инструмент. Ждём Вас в апреле!',2:'Сезон закрыт: готовим рассадные ёмкости и грунт. Ждём Вас в апреле!',3:'Апрель: прогреваем грядки, сеем холодостойкие и высаживаем рассаду под плёнку; не спешим с теплолюбивыми.',4:'Май: после угрозы заморозков высаживаем рассаду в грунт и теплицу, мульчируем и ставим дуги для зелени.',5:'Июнь: полив утром/вечером, подкормки азотом, пасынкуем томаты и прореживаем всходы.',6:'Июль: полив участился, теплицу проветриваем днём; собираем первые овощи и ягоды.',7:'Август: полив стабильный, вечером проветриваем теплицу; массовый сбор и закладка компоста.',8:'Полив к сентябрю сокращаем: томатам хватит одного раза в 4–5 дней, а зелени хватит дождей. Теплицу вечером проветривайте — от конденсата берётся фитофтора.',9:'Октябрь: последний сбор, уборка ботвы и мойка теплицы; укрываем многолетники перед заморозками.',10:'Сезон закрыт: убираем ботву и моем теплицу. Ждём Вас в апреле!',11:'Сезон закрыт: укрываем многолетники и планируем посадки. Ждём Вас в апреле!'};
@@ -1143,6 +1191,8 @@ window.__sgSelfTest = function(){
   push('progress shape', !!prG && typeof prG.streak.count==='number' && typeof prG.daily.done==='number' && prG.streak.count>=0, 'streak '+prG.streak.count+', daily '+prG.daily.done);
   push('achievements defs', Array.isArray(ACHIEVEMENTS) && ACHIEVEMENTS.length===13 && typeof checkAchievements==='function', (ACHIEVEMENTS||[]).length+' badges');   // 3.17/3.19
   push('gbMetrics module', typeof computeMetrics==='function' && typeof renderMetricsBox==='function', 'mod='+(gbModeratorWanted()?'on':'off'));   // 3.21
+  push('trackGoal wired', typeof trackGoal==='function' && METRIKA_ID===111974153, 'ym goals');   // 3.22
+  push('trackScreen wired', typeof trackScreen==='function', 'screen hits on');   // 3.23
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1170,6 +1220,7 @@ function autoNoteFromTask(key){
   if (!scheme.objects.some(o => o.id === objId)) return;
   schemeView.addNote(objId, type, `${name}${suffix}`);
   challengeTouch('note');   // 3.19: авто-заметка тоже закрывает задание «Запись в журнале»
+  trackGoal('note_added', { kind:'auto' });   // 3.23
 }
 document.addEventListener('change', function(e){
   const cb = e.target.closest('input[data-task-key]');
@@ -1212,6 +1263,7 @@ function showWelcome(){
     else demoStep();
   }, { once:true });
   if (skip) skip.addEventListener('click', ()=>{
+    onboardingSkip = true;   // 3.22: цель onboarding_completed с path:'skip'
     lsSet('sg-welcome-seen','1'); lsSet('sg-tutorial-seen','1'); ov.classList.add('hidden');
     demoStep();
   }, { once:true });
@@ -1229,6 +1281,7 @@ function openTutorialThenDemo(){
 }
 function demoStep(){
   if (lsGet('sg-demo-seen')) return;
+  if (!onboardingTracked){ onboardingTracked = true; trackGoal('onboarding_completed', { path: onboardingSkip ? 'skip' : 'full' }); }   // 3.22
   lsSet('sg-demo-seen','1');
   if (scheme.objects.length) return;
   loadDemo(false);
@@ -1266,6 +1319,7 @@ async function loadDemo(replace){
     scheme.demoMode = true;
     showToast('Загружен демо-участок — осмотритесь!');
     vibrate([10,30,10]);   // 3.12
+    trackGoal('demo_loaded', { source: replace ? 'menu' : 'auto' });   // 3.22
   } catch(e){ console.warn('demo:', e); showToast('Не удалось загрузить демо-участок'); }
 }
 on('loadDemoBtn', function(){ loadDemo(true); });
