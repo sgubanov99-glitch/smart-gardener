@@ -510,6 +510,24 @@
   .gb-thanks { text-align:center; padding:18px 8px; }
   .gb-thanks-emoji { font-size:56px; }
   .gb-note { font-size:11px; color:var(--ink-soft); margin-top:6px; }
+  /* 3.21: метрики модератора в Книге отзывов (фиолетовая гамма книги) */
+  .gb-metrics { margin:0 0 12px; background:rgba(220,201,230,.25); border:1px solid rgba(90,70,104,.25); border-radius:12px; padding:10px 12px; }
+  .gb-metrics > summary { cursor:pointer; font:800 12px Manrope,sans-serif; color:#5A4668; list-style:none; display:flex; align-items:center; gap:6px; }
+  .gb-metrics > summary::before { content:''; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #5A4668; transition:transform .15s; }
+  .gb-metrics[open] > summary::before { transform:rotate(180deg); }
+  .gbm-kpis { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .gbm-kpi { border-radius:999px; padding:4px 10px; background:#fff; box-shadow:var(--shadow-s); font:700 11.5px Manrope,sans-serif; color:#5A4668; }
+  .gbm-kpi.warn { background:#F8EBC8; color:#5C451F; }
+  .gbm-row { font:600 11.5px Manrope,sans-serif; color:#55544E; margin:3px 0; }
+  .gbm-row.warn { color:#9A635E; font-weight:800; }
+  .gbm-bar { height:6px; border-radius:999px; background:rgba(90,70,104,.15); overflow:hidden; margin:2px 0 6px; }
+  .gbm-bar i { display:block; height:100%; background:#8A6BA0; }
+  .gbm-weeks { display:flex; align-items:flex-end; gap:3px; height:46px; margin:6px 0; }
+  .gbm-weeks span { flex:1; background:#DCC9E6; border-radius:3px 3px 0 0; min-height:2px; }
+  .gbm-weeks span.now { outline:2px solid var(--olive); }
+  .gbm-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .gbm-btn { border:1px solid rgba(90,70,104,.3); background:#fff; color:#5A4668; border-radius:999px; padding:5px 10px; font:700 11px Manrope,sans-serif; cursor:pointer; }
+  .gbm-btn.active { background:#5A4668; color:#fff; }
   .gb-close { position:absolute; left:63%; top:76%; width:7.8%; aspect-ratio:1; border-radius:50%; border:none; background:transparent; padding:0; cursor:pointer; }
   .gb-close:active { transform:scale(.92); }
   .m-only { display:none; }

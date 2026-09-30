@@ -3,7 +3,7 @@
 // 3.16: src/core/gamification.js в CRITICAL precache
 // 3.6: data/demo-scheme.json в CRITICAL; 2.175: управляемые обновления (SKIP_WAITING по подтверждению);
 //      первая установка активируется сразу; 2.167: precache разделён на критичный и фоновый
-const CACHE = 'sg-cache-v3190';
+const CACHE = 'sg-cache-v3210';
 const CRITICAL = [
 './',
 './index.html',
@@ -38,6 +38,7 @@ const CRITICAL = [
 './src/ui/guestbookView.js',
 './src/ui/ux.js',
 './src/ui/icons.js',
+'./src/ui/gbMetrics.js'
 './data/plants.json',
 './data/phases.json',
 './data/planting.json',
