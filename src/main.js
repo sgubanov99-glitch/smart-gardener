@@ -1,12 +1,13 @@
-// src/main.js — точка входа (ревизия 3.25)
-// 3.25: компактное меню — все примечания (.m-note) удалены из меню-листа; у каждого пункта и тумблера
-//      атрибут data-tip; пузырьковые подсказки .fab-tip над пунктом (у верхнего края экрана — снизу,
-//      класс .below): hover на десктопе, long-press ≥450мс на тач; скрытие: отпускание/тап по пункту,
-//      скролл листа, закрытие меню, клик вне меню; механика переиспользует баблы FAB из 3.13
+// src/main.js — точка входа (ревизия 3.25.2)
+// 3.25.2: мобильные фиксы подсказок меню: пузырь после long-press живёт 3с (было 1.2); touchcancel не
+//      сбрасывает показанный пузырь; клик после подсказки глотается (тумблер не переключается случайно);
+//      showTip дожимает left по ширине пузыря (не выходит за края); hover через pointerover (pointerType
+//      mouse) — тачскрин-ПК не ломают; focusin/focusout для клавиатуры
+// 3.25: компактное меню — примечания (.m-note) удалены; у пунктов и тумблеров data-tip; пузырь .fab-tip
+//      над пунктом (у верхнего края — снизу, класс .below); hover на десктопе, long-press ≥450мс на тач
 // 3.24: локальные напоминания (Notification API): тумблер «Напоминания о задачах» (sg-reminders, ВЫКЛ),
 //      overdue (просроченные >0) и daily (после 18:00 при незакрытой цели), раз в день на тип
-//      (sg-rem-<kind>-<дата>), показ через SW showNotification с фолбэком; клик → SG_OPEN → Календарь;
-//      проверки при запуске + интервал 60 мин
+//      (sg-rem-<kind>-<дата>), показ через SW showNotification с фолбэком; клик → SG_OPEN → Календарь
 // 3.23: виртуальные просмотры экранов (ym hit ?screen=…), возрождение идентификаторов целей прототипа
 //      (add_object, delete_object, load_plan, reset_plan, open_calendar, open_advisor, open_plant_modal,
 //      add_to_scheme, bot_open, click_calendar_day, filter_tag), новая цель note_added{kind}
@@ -832,11 +833,12 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
   });
 })();
 
-/* --- 3.25.1: пузырьковые подсказки пунктов меню (фикс: pointer-события + swallow клика после long-press) --- */
+/* --- 3.25.2: пузырьковые подсказки пунктов меню (мобильные фиксы: 3с, тумблеры без сброса, перенос строк) --- */
 (function menuTips(){
   const SEL = '#mMenuSheet [data-tip]';
-  let tip = null, pressT = 0, swallow = false, longFired = false;
-  function hideTip(){ if (tip){ tip.remove(); tip = null; } }
+  let tip = null, pressT = 0, swallow = false, longFired = false, hideT = 0;
+  function hideTip(){ clearTimeout(hideT); if (tip){ tip.remove(); tip = null; } }
+  function scheduleHide(ms){ clearTimeout(hideT); hideT = setTimeout(hideTip, ms); }
   function showTip(el){
     hideTip();
     tip = document.createElement('div');
@@ -844,26 +846,27 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
     tip.textContent = el.getAttribute('data-tip') || '';
     document.body.appendChild(tip);
     const r = el.getBoundingClientRect();
-    tip.style.left = Math.max(90, Math.min(window.innerWidth - 90, r.left + r.width / 2)) + 'px';
+    const half = (tip.offsetWidth || 200) / 2;
+    const cx = Math.max(half + 8, Math.min(window.innerWidth - half - 8, r.left + r.width / 2));   // 3.25.2: не выходит за края экрана
+    tip.style.left = cx + 'px';
     if (r.top > 96){ tip.style.top = (r.top - 8) + 'px'; }              // пузырь сверху
     else { tip.style.top = (r.bottom + 8) + 'px'; tip.classList.add('below'); }   // у верхнего края — снизу
   }
   /* Мышь/перо: hover через pointerover (не зависит от isTouch() — тачскрин-ПК больше не ломают) */
   document.addEventListener('pointerover', (e)=>{ if (e.pointerType !== 'mouse') return; const el = e.target.closest(SEL); if (el) showTip(el); });
   document.addEventListener('pointerout',  (e)=>{ if (e.pointerType !== 'mouse') return; if (e.target.closest(SEL)) hideTip(); });
-  /* Тач: long-press ≥450мс; после показа клика не будет — действие и закрытие меню подавляются */
+  /* Тач: long-press ≥450мс; клик после показа глотается (меню не закрывается, тумблер не переключается) */
   document.addEventListener('touchstart', (e)=>{
     const el = e.target.closest(SEL); if (!el) return;
     longFired = false; swallow = false; clearTimeout(pressT);
     pressT = setTimeout(()=>{ showTip(el); longFired = true; swallow = true; }, 450);
   }, { passive:true });
   document.addEventListener('touchmove', ()=>{ clearTimeout(pressT); if (!longFired) hideTip(); }, { passive:true });
-  document.addEventListener('touchend', ()=>{ clearTimeout(pressT); if (longFired) setTimeout(hideTip, 1200); else hideTip(); }, { passive:true });
-  document.addEventListener('touchcancel', ()=>{ clearTimeout(pressT); hideTip(); longFired = false; swallow = false; }, { passive:true });
-  /* Capture-клик: после long-press глотаем click (меню не закрывается, действие не выполняется);
-     обычный клик по пункту или вне меню — прячем пузырь */
+  document.addEventListener('touchend', ()=>{ clearTimeout(pressT); if (longFired) scheduleHide(3000); else hideTip(); }, { passive:true });   // 3.25.2: пузырь живёт 3с
+  document.addEventListener('touchcancel', ()=>{ clearTimeout(pressT); if (longFired) scheduleHide(3000); else hideTip(); }, { passive:true });   // 3.25.2: cancel (выделение/флик) не сбрасывает показанный пузырь
+  /* Capture-клик: после long-press глотаем click; обычный клик по пункту или вне меню — прячем пузырь */
   document.addEventListener('click', (e)=>{
-    if (swallow){ swallow = false; longFired = false; e.stopPropagation(); e.preventDefault(); hideTip(); return; }
+    if (swallow){ swallow = false; longFired = false; e.stopPropagation(); e.preventDefault(); scheduleHide(3000); return; }
     if (e.target.closest(SEL) || !e.target.closest('#mMenuSheet')) hideTip();
   }, true);
   /* Скролл листа и клавиатурный фокус */
