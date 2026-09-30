@@ -1,6 +1,18 @@
 // src/core/changelog.js — история ревизий «Умного садовода» (консолидация к этапу 3.x)
-export const APP_VERSION = '3.21.2';
+export const APP_VERSION = '3.23';
 export const CHANGELOG = [
+{ v:'3.23', date:'30.09.2026', title:'Корректировка целей Метрики: хиты экранов, возрождение идентификаторов прототипа, новая цель note_added', notes:[
+  'Виртуальные просмотры: ym(hit, pathname?screen=…) с title на каждое переключение экранов — SPA глубина и время считались некорректно',
+  'Возрождены старые идентификаторы (история целей не рвётся): add_object{type}, delete_object, load_plan, reset_plan, open_calendar, open_advisor, open_plant_modal{plant}, add_to_scheme{plant}, bot_open (чат), click_calendar_day, filter_tag',
+  'Новая цель note_added{kind:manual|auto} — создать в кабинете; отключены мертвые: upload_plants_json, bot_recommend/build/apply, open_culture_card, автоцель контактных данных',
+  'Отладка: ?debug=1 логирует [metric] hit … и все reachGoal; офлайн — try/catch, без ошибок'
+]},
+{ v:'3.22', date:'30.09.2026', title:'Продуктовые цели Метрики (тот же счётчик 111974153): reachGoal-события Этапа 3 и книги отзывов', notes:[
+  'trackGoal(name,params) — аддитивные цели к штатному счётчику (не дублирует автосбор: визиты/clickmap/Webvisor остаются, цели добавляют продуктовую семантику); офлайн и ошибки глотаются',
+  '10 целей: onboarding_completed{path}, demo_loaded{source}, daily_goal_met{n}, challenges_met, achievement_unlock{id} (дедуп на сессию), streak_7{best} (дедуп на дату), save_plan{objects}, export_print_poster{kind}, gb_message_sent, gb_moderator_export{kind}',
+  'Отладка: ?debug=1 или localStorage sg-debug-metrics=1 → console.info [metric] …; selftest: trackGoal wired',
+  'Сужение опционально: блок изолирован, убирается без последствий (достаточно удалить вызовы trackGoal/trackStreak7)'
+]},
 { v:'3.21.2', date:'30.09.2026', title:'CSV книги отзывов: колонка text читается через normEntry (message/msg/body), rating — stars/score', notes:[
   'Причина пустых колонок: exportGbCSV читал сырые e.text/e.rating, а модель книги хранит тело под другим ключом; метрики (normEntry) это терпели, CSV — нет',
   'Экспорт теперь нормализует записи перед сборкой строк: text/rating/replyAt/date/status заполняются из любого поддерживаемого имени поля',
