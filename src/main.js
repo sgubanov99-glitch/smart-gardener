@@ -1,29 +1,23 @@
-// src/main.js — точка входа (ревизия 3.25.2)
-// 3.25.2: мобильные фиксы подсказок меню: пузырь после long-press живёт 3с (было 1.2); touchcancel не
-//      сбрасывает показанный пузырь; клик после подсказки глотается (тумблер не переключается случайно);
-//      showTip дожимает left по ширине пузыря (не выходит за края); hover через pointerover (pointerType
-//      mouse) — тачскрин-ПК не ломают; focusin/focusout для клавиатуры
-// 3.25: компактное меню — примечания (.m-note) удалены; у пунктов и тумблеров data-tip; пузырь .fab-tip
-//      над пунктом (у верхнего края — снизу, класс .below); hover на десктопе, long-press ≥450мс на тач
+// src/main.js — точка входа (ревизия 3.25.4)
+// 3.25.4: мобильный тулбар Схемы — «3D» (1/3) + «Совместимость» (2/3) в одной строке (длинное слово
+//      умещается), ниже «Настройки»+«Советчик»; плавающий ✕ (.float-close) поверх длинных модалок
+//      (Совместимость, История) на мобильном — кнопка в ОВЕРЛЕЕ, не уходит со скроллом и переживает
+//      перерисовки модалки; крестик sticky-шапки увеличен до 44px
+// 3.25.3: sticky-шапка модалок (.modal-head position:sticky) — ✕ видна при любой прокрутке списка
+// 3.25.2: мобильные фиксы подсказок меню: пузырь 3с после long-press; touchcancel не сбрасывает показ;
+//      .m-switch в user-select:none (тумблеры не выделяют текст); .fab-tip перенос строк + дожим по ширине
+// 3.25.1: подсказки меню: pointerover (pointerType mouse) вместо mouseover+isTouch; swallow клика после long-press
+// 3.25: компактное меню — примечания (.m-note) удалены; data-tip на пунктах/тумблерах; пузырь .fab-tip
 // 3.24: локальные напоминания (Notification API): тумблер «Напоминания о задачах» (sg-reminders, ВЫКЛ),
-//      overdue (просроченные >0) и daily (после 18:00 при незакрытой цели), раз в день на тип
-//      (sg-rem-<kind>-<дата>), показ через SW showNotification с фолбэком; клик → SG_OPEN → Календарь
-// 3.23: виртуальные просмотры экранов (ym hit ?screen=…), возрождение идентификаторов целей прототипа
-//      (add_object, delete_object, load_plan, reset_plan, open_calendar, open_advisor, open_plant_modal,
-//      add_to_scheme, bot_open, click_calendar_day, filter_tag), новая цель note_added{kind}
-// 3.22: продуктовые цели Метрики (счётчик 111974153): trackGoal(name,params), debug ?debug=1,
-//      дедуп achievement_unlock (сессия) и streak_7 (дата); 10 целей онбординга/геймификации/экспорта/книги
-// 3.21.1: метрики модератора: записи книги из localStorage['sg-gb-cache']; режим модератора сессионный
+//      overdue и daily (после 18:00), раз в день на тип; показ через SW showNotification; клик → SG_OPEN → Календарь
+// 3.23: виртуальные просмотры экранов (ym hit ?screen=…), возрождение целей прототипа, цель note_added{kind}
+// 3.22: продуктовые цели Метрики (счётчик 111974153): trackGoal, debug ?debug=1, дедуп achievement_unlock/streak_7
+// 3.21.1: метрики модератора: записи из localStorage['sg-gb-cache']; режим модератора сессионный
 // 3.21: метрики модератора (KPI/SLA/топ-тем/рейтинг/недели, фильтр «Без ответа», экспорт JSON/CSV, копия сводки)
-// 3.20: лента «Последние заметки» в Обзоре (до 8 записей, тап → объект на Схеме)
-// 3.19: задания дня (3 авто-задания, карточка в Обзоре, challengesMet, бейдж «Пять идеальных дней»)
-// 3.18.1: фикс чтения planting.json (pres.json() вместо res.json()); 3.18: попап достижения (стикер+Цыпа, очередь)
-// 3.17: достижения (13 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
-// 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView отцепляет чекбокс)
-// 3.16: геймификация: карточка «Прогресс сезона», серия дней, цель дня 3 задачи; scheme.progress
-// 3.15: undo/redo слева зеркально стеку «+»/чат; 3.14: пауза 10с повторной подсказки Цыпы в демо
-// 3.13: подписи FAB; 3.12: анимации объектов + вибро; 3.11: тихая Цыпа; 3.10: Статистика-стикеры;
-// 3.9: навигация 6→4; 3.8: демо-диалог Цыпы; 3.7: приветствие; 3.6: онбординг+демо; 3.1–3.5: UX-этап 1
+// 3.20: лента «Последние заметки»; 3.19: задания дня; 3.18.1: pres.json() фикс; 3.18: попап достижения;
+// 3.17: достижения (13 бейджей); 3.16.2: composedPath-слушатель Календаря; 3.16: геймификация;
+// 3.15: FAB-стеки; 3.14: пауза демо-подсказки; 3.13: подписи FAB; 3.12: анимации+вибро; 3.11: тихая Цыпа;
+// 3.9–3.10: Статистика; 3.6–3.8: онбординг/демо-диалог; 3.1–3.5: UX-этап 1
 // 2.189: авто-заметки кроме полива; 2.182: opExtra только расчёт; 2.176: автосохранение; 2.175: PWA
 import { createScheme, nextUniqueName } from './domain/scheme.js';
 import { buildCalendar, generateTasks } from './core/calendar.js';
@@ -863,7 +857,7 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
   }, { passive:true });
   document.addEventListener('touchmove', ()=>{ clearTimeout(pressT); if (!longFired) hideTip(); }, { passive:true });
   document.addEventListener('touchend', ()=>{ clearTimeout(pressT); if (longFired) scheduleHide(3000); else hideTip(); }, { passive:true });   // 3.25.2: пузырь живёт 3с
-  document.addEventListener('touchcancel', ()=>{ clearTimeout(pressT); if (longFired) scheduleHide(3000); else hideTip(); }, { passive:true });   // 3.25.2: cancel (выделение/флик) не сбрасывает показанный пузырь
+  document.addEventListener('touchcancel', ()=>{ clearTimeout(pressT); if (longFired) scheduleHide(3000); else hideTip(); }, { passive:true });   // 3.25.2: cancel не сбрасывает показанный пузырь
   /* Capture-клик: после long-press глотаем click; обычный клик по пункту или вне меню — прячем пузырь */
   document.addEventListener('click', (e)=>{
     if (swallow){ swallow = false; longFired = false; e.stopPropagation(); e.preventDefault(); scheduleHide(3000); return; }
@@ -874,6 +868,23 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
   if (panel) panel.addEventListener('scroll', hideTip, { passive:true });
   document.addEventListener('focusin',  (e)=>{ const el = e.target.closest(SEL); if (el) showTip(el); });
   document.addEventListener('focusout', (e)=>{ if (e.target.closest(SEL)) hideTip(); });
+})();
+
+/* --- 3.25.4: видимый крестик для длинных модалок (Совместимость, История ревизий) ---
+   Кнопка живёт в ОВЕРЛЕЕ (не в модалке), поэтому не исчезает при перерисовке контента
+   schemeView/историей и не уходит со скроллом; клик скрывает оверлей целиком. --- */
+(function overlayFloatClose(){
+  ['compatOverlay','historyOverlay'].forEach(id=>{
+    const ov = document.getElementById(id);
+    if (!ov || ov.querySelector('.float-close')) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'float-close';
+    b.setAttribute('aria-label', 'Закрыть окно');
+    b.textContent = '✕';
+    ov.appendChild(b);
+    b.addEventListener('click', ()=> ov.classList.add('hidden'));
+  });
 })();
 
 /* --- обучение, книга отзывов --- */
