@@ -1,19 +1,17 @@
-// src/main.js — точка входа (ревизия 3.25.4)
-// 3.25.4: мобильный тулбар Схемы — «3D» (1/3) + «Совместимость» (2/3) в одной строке (длинное слово
-//      умещается), ниже «Настройки»+«Советчик»; плавающий ✕ (.float-close) поверх длинных модалок
-//      (Совместимость, История) на мобильном — кнопка в ОВЕРЛЕЕ, не уходит со скроллом и переживает
-//      перерисовки модалки; крестик sticky-шапки увеличен до 44px
-// 3.25.3: sticky-шапка модалок (.modal-head position:sticky) — ✕ видна при любой прокрутке списка
-// 3.25.2: мобильные фиксы подсказок меню: пузырь 3с после long-press; touchcancel не сбрасывает показ;
-//      .m-switch в user-select:none (тумблеры не выделяют текст); .fab-tip перенос строк + дожим по ширине
-// 3.25.1: подсказки меню: pointerover (pointerType mouse) вместо mouseover+isTouch; swallow клика после long-press
-// 3.25: компактное меню — примечания (.m-note) удалены; data-tip на пунктах/тумблерах; пузырь .fab-tip
-// 3.24: локальные напоминания (Notification API): тумблер «Напоминания о задачах» (sg-reminders, ВЫКЛ),
-//      overdue и daily (после 18:00), раз в день на тип; показ через SW showNotification; клик → SG_OPEN → Календарь
-// 3.23: виртуальные просмотры экранов (ym hit ?screen=…), возрождение целей прототипа, цель note_added{kind}
-// 3.22: продуктовые цели Метрики (счётчик 111974153): trackGoal, debug ?debug=1, дедуп achievement_unlock/streak_7
+// src/main.js — точка входа (ревизия 3.26)
+// 3.26: расширение ленты «Последние заметки»: два ряда фильтр-чипов (тип: Все/Авто/ручные типы;
+//      объект: Все + топ-5 по числу заметок), комбинация фильтров логикой И, счётчик «K из N»,
+//      пакетная дозагрузка «Показать ещё 8 (осталось N)» / «Свернуть», пустая выборка со кнопкой сброса;
+//      состояние в памяти сессии (nfType/nfObjId/nfLimit), сброс при загрузке/замене плана (applyScheme)
+// 3.25.6: единственная кнопка «Закрыть» длинных модалок — липкая пилюля внизу (pinModalClose, ASI-safe)
+// 3.25.4: тулбар Схемы моб.: 3D (1/3) + Совместимость (2/3); закрытие Совместимости по фону и Escape
+// 3.25.2: подсказки меню: пузырь 3с, touchcancel не сбрасывает, перенос строк, дожим по ширине
+// 3.25: меню без примечаний, data-tip + пузырь .fab-tip (hover/long-press)
+// 3.24: локальные напоминания (Notification API): overdue/daily, раз в день на тип, SG_OPEN → Календарь
+// 3.23: виртуальные просмотры экранов (ym hit ?screen=…), возрождение целей прототипа, note_added{kind}
+// 3.22: продуктовые цели Метрики (111974153): trackGoal, debug ?debug=1, дедуп achievement_unlock/streak_7
 // 3.21.1: метрики модератора: записи из localStorage['sg-gb-cache']; режим модератора сессионный
-// 3.21: метрики модератора (KPI/SLA/топ-тем/рейтинг/недели, фильтр «Без ответа», экспорт JSON/CSV, копия сводки)
+// 3.21: метрики модератора (KPI/SLA/топ-тем/рейтинг/недели, фильтр «Без ответа», экспорт JSON/CSV)
 // 3.20: лента «Последние заметки»; 3.19: задания дня; 3.18.1: pres.json() фикс; 3.18: попап достижения;
 // 3.17: достижения (13 бейджей); 3.16.2: composedPath-слушатель Календаря; 3.16: геймификация;
 // 3.15: FAB-стеки; 3.14: пауза демо-подсказки; 3.13: подписи FAB; 3.12: анимации+вибро; 3.11: тихая Цыпа;
@@ -239,7 +237,7 @@ function renderHomeBody(){
   if (!(scheme.objects||[]).length) { if (body) body.innerHTML = emptyHomeHTML(); return; }
   homeView.render();
   if (isMob) restyleHomeBlocks();
-  if (body) body.insertAdjacentHTML('afterbegin', gamifyCardHTML() + challengeCardHTML() + notesFeedHTML());   // 3.16 + 3.19 + 3.20
+  if (body) body.insertAdjacentHTML('afterbegin', gamifyCardHTML() + challengeCardHTML() + notesFeedHTML());   // 3.16 + 3.19 + 3.20/3.26
 }
 /* --- 3.16/3.16.1: геймификация — карточка «Прогресс сезона», серия, цель дня --- */
 function gamifyCardHTML(){
@@ -309,7 +307,7 @@ function challengeTouch(key){
   }
   scheduleGamifyRefresh();
 }
-/* --- 3.20: лента «Последние заметки» в Обзоре --- */
+/* --- 3.20/3.26: лента «Последние заметки» в Обзоре: фильтры по типу/объекту, дозация по 8 --- */
 const NOTE_FEED_TYPES = {
   watering:    { label: 'Полив',     icon: 'si-water' },
   fertilizing: { label: 'Подкормка', icon: 'si-fertilize' },
@@ -321,16 +319,33 @@ const NOTE_FEED_TYPES = {
   planting:    { label: 'Посадка',   icon: 'si-planting' },
   phase:       { label: 'Фаза',      icon: 'si-growth' }
 };
+let nfType = null;    // 3.26: null | 'auto' | тип ручной заметки
+let nfObjId = null;   // 3.26: null | id объекта
+let nfLimit = 8;      // 3.26: пакет строк, +8 по кнопке «Показать ещё»
 function notesFeedHTML(){
-  const items = [];
+  const all = [];
   (scheme.objects||[]).forEach(o=>{
     (o.notes||[]).forEach(n=>{
-      items.push({ objId:o.id, objName:o.name, date:n.date||'', id:n.id||0, type:n.type, text:n.text||'', auto:!!n.auto });
+      all.push({ objId:o.id, objName:o.name, date:n.date||'', id:n.id||0, type:n.type, text:n.text||'', auto:!!n.auto,
+                 grp: (n.type==='planting'||n.type==='phase') ? 'auto' : (n.type||'other') });
     });
   });
-  if (!items.length) return '';   // нет заметок — карточки нет вовсе
-  items.sort((a,b)=> b.date.localeCompare(a.date) || (b.id - a.id) || (b.objId - a.objId));
-  const rows = items.slice(0, 8).map(it=>{
+  if (!all.length) return '';   // нет заметок — карточки нет вовсе
+  all.sort((a,b)=> b.date.localeCompare(a.date) || (b.id - a.id) || (b.objId - a.objId));
+  /* чипы типов: Авто + присутствующие ручные; чипы объектов: топ-5 по числу заметок */
+  const typeCounts = new Map(); all.forEach(it=> typeCounts.set(it.grp, (typeCounts.get(it.grp)||0)+1));
+  const objCounts  = new Map(); all.forEach(it=> objCounts.set(it.objId, (objCounts.get(it.objId)||0)+1));
+  const topObjs = Array.from(objCounts.entries()).sort((a,b)=> b[1]-a[1]).slice(0,5);
+  const chipT = (val,label,act)=> '<button type="button" class="nf-chip' + (act?' nf-chip-on':'') + '" data-nff="' + val + '">' + label + '</button>';
+  const chipO = (val,label,act)=> '<button type="button" class="nf-chip' + (act?' nf-chip-on':'') + '" data-nfo="' + val + '">' + esc(label) + '</button>';
+  let chipsT = chipT('', 'Все', !nfType);
+  if (typeCounts.has('auto')) chipsT += chipT('auto', 'Авто', nfType==='auto');
+  ['watering','fertilizing','pruning','treatment','harvest','house','other'].forEach(t=>{ if (typeCounts.has(t)) chipsT += chipT(t, NOTE_FEED_TYPES[t].label, nfType===t); });
+  let chipsO = chipO('', 'Все объекты', !nfObjId);
+  topObjs.forEach(([id])=>{ const o = scheme.objects.find(x=>x.id===id); if (o) chipsO += chipO(String(id), o.name, nfObjId===id); });
+  /* фильтрация (И по типу и объекту) + пакетный вывод */
+  const filtered = all.filter(it=> (!nfType || it.grp===nfType) && (!nfObjId || it.objId===nfObjId));
+  const rows = filtered.slice(0, nfLimit).map(it=>{
     const t = NOTE_FEED_TYPES[it.type] || NOTE_FEED_TYPES.other;
     const txt = it.text.length > 80 ? it.text.slice(0, 80) + '…' : it.text;
     const d = it.date ? it.date.slice(8,10) + '.' + it.date.slice(5,7) : '';
@@ -342,7 +357,17 @@ function notesFeedHTML(){
       '<span class="nf-text">' + esc(txt) + '</span>' +
       '</button>';
   }).join('');
-  return '<div class="nf-card"><div class="nf-head"><span class="nf-title">Последние заметки</span><span class="nf-count">' + items.length + '</span></div>' + rows + '</div>';
+  const left = filtered.length - Math.min(nfLimit, filtered.length);
+  const more = left > 0
+    ? '<button type="button" class="nf-more" data-nfmore="1">Показать ещё ' + Math.min(8, left) + ' (осталось ' + left + ')</button>'
+    : (filtered.length > 8 ? '<button type="button" class="nf-more" data-nfmore="0">Свернуть</button>' : '');
+  const empty = filtered.length ? '' :
+    '<div class="nf-empty">Нет заметок с выбранными фильтрами <button type="button" class="nf-chip" data-nff="" data-nfo="">Сбросить</button></div>';
+  return '<div class="nf-card">' +
+    '<div class="nf-head"><span class="nf-title">Последние заметки</span><span class="nf-count">' + filtered.length + ' из ' + all.length + '</span></div>' +
+    '<div class="nf-chips">' + chipsT + '</div>' +
+    '<div class="nf-chips">' + chipsO + '</div>' +
+    (rows || empty) + more + '</div>';
 }
 /* --- 3.20: тап по строке ленты → Схема с выделенным объектом --- */
 document.addEventListener('click', (e)=>{
@@ -350,6 +375,17 @@ document.addEventListener('click', (e)=>{
   if (!row) return;
   showScreen('screen-scheme');
   schemeView.selectAndShow(parseInt(row.dataset.obj, 10));
+});
+/* --- 3.26: делегирование фильтров ленты (тип/объект/дозагрузка/сброс) --- */
+document.addEventListener('click', (e)=>{
+  const ct = e.target.closest('[data-nff]');
+  const co = e.target.closest('[data-nfo]');
+  const cm = e.target.closest('[data-nfmore]');
+  if (!ct && !co && !cm) return;
+  if (ct){ nfType = ct.dataset.nff || null; nfLimit = 8; }
+  if (co){ nfObjId = co.dataset.nfo ? parseInt(co.dataset.nfo, 10) : null; nfLimit = 8; }
+  if (cm){ nfLimit = (cm.dataset.nfmore === '1') ? nfLimit + 8 : 8; }
+  renderHomeBody();   // карточка живёт в Обзоре — перерисовываем сразу
 });
 /* --- 3.16.2: геймификация реагирует на ЛЮБУЮ отметку задачи, включая Календарь.
        composedPath() — снимок цепочки узлов в момент dispatch: calendarView синхронно
@@ -554,6 +590,7 @@ function applyScheme(s){
   Object.assign(scheme, s);
   scheme.completedTasks = scheme.completedTasks || {};
   ensureProgress(scheme);   // 3.16
+  nfType = null; nfObjId = null; nfLimit = 8;   // 3.26: фильтры ленты сбрасываются при смене плана
   recalcNextId();
   const set=(id,v)=>{ const el=document.getElementById(id); if (el) el.value=v; };
   set('plotW',scheme.widthM); set('plotL',scheme.lengthM); set('gridStep',String(scheme.gridStepM)); set('sunDir',scheme.sunDir||'S'); set('plotNameInput',scheme.plotName||'');
@@ -1322,6 +1359,7 @@ window.__sgSelfTest = function(){
   push('trackGoal wired', typeof trackGoal==='function' && METRIKA_ID===111974153, 'ym goals');   // 3.22
   push('trackScreen wired', typeof trackScreen==='function', 'screen hits on');   // 3.23
   push('reminders wired', typeof runReminderChecks==='function' && typeof remindOnce==='function', 'rem='+(remindersWanted()?'on':'off')+', perm='+(('Notification' in window)?Notification.permission:'n/a'));   // 3.24
+  push('notes feed v2', typeof notesFeedHTML==='function' && document.querySelectorAll('.nf-chips').length>=0, 'filters='+(nfType||'all')+'/'+(nfObjId||'all'));   // 3.26
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
