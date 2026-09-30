@@ -870,21 +870,30 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
   document.addEventListener('focusout', (e)=>{ if (e.target.closest(SEL)) hideTip(); });
 })();
 
-/* --- 3.25.4: видимый крестик для длинных модалок (Совместимость, История ревизий) ---
-   Кнопка живёт в ОВЕРЛЕЕ (не в модалке), поэтому не исчезает при перерисовке контента
-   schemeView/историей и не уходит со скроллом; клик скрывает оверлей целиком. --- */
-(function overlayFloatClose(){
-  ['compatOverlay','historyOverlay'].forEach(id=>{
-    const ov = document.getElementById(id);
-    if (!ov || ov.querySelector('.float-close')) return;
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'float-close';
-    b.setAttribute('aria-label', 'Закрыть окно');
-    b.textContent = '✕';
-    ov.appendChild(b);
-    b.addEventListener('click', ()=> ov.classList.add('hidden'));
-  });
+/* --- 3.25.6: единственная кнопка «Закрыть» — липкая пилюля внизу модалки (ASI-безопасная вставка) ---
+   Кнопка ПЕРЕНОСИТСЯ из шапки в .modal-closebar (id и слушатели сохраняются); новых кнопок нет.
+   Ведущая ';' и отсутствие «голых» массивов в начале выражения исключают склейку с предыдущей строкой. --- */
+;(function initModalCloseBar(){
+  function pinModalClose(modal){
+    if (!modal) return;
+    var btn = modal.querySelector('.modal-head .m-close');
+    if (!btn) return;
+    var bar = modal.querySelector('.modal-closebar');
+    if (!bar){ bar = document.createElement('div'); bar.className = 'modal-closebar'; modal.appendChild(bar); }
+    if (btn.parentElement !== bar) bar.appendChild(btn);
+  }
+  var ids = ['compatModal', 'historyModal'];
+  for (var i = 0; i < ids.length; i++){
+    (function(id){
+      var modal = document.getElementById(id);
+      if (!modal) return;
+      pinModalClose(modal);
+      if (window.MutationObserver){
+        new MutationObserver(function(){ pinModalClose(modal); }).observe(modal, { childList: true });   // пере-пин после innerHTML-перерисовок
+      }
+    })(ids[i]);
+  }
+  pinModalClose(document.querySelector('#schemeSettingsOverlay .modal'));   // статичные настройки схемы
 })();
 
 /* --- обучение, книга отзывов --- */
