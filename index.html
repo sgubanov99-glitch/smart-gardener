@@ -133,8 +133,8 @@
   .op-section-title { grid-column:1/-1; font:800 11.5px 'Manrope',sans-serif; color:var(--ink-soft-2); margin:6px 0 -2px; letter-spacing:.02em; text-transform:uppercase; }
   /* 3.13: отделитель формы добавления заметки */
   .op-note-form { border-top:1px solid rgba(63,62,58,.14); padding-top:8px; margin-top:8px; }
-  /* 3.13: подписи FAB (одноразовые баблы и long-press) */
-  .fab-tip { position:fixed; z-index:60; pointer-events:none; background:#FFFDF4; border:1px solid rgba(138,155,110,.4); border-radius:10px; padding:6px 10px; font:700 13px 'Neucha',cursive; color:#5E7247; box-shadow:var(--shadow-s); transform:translate(-50%,-100%); white-space:nowrap; }
+  /* 3.13/3.25.2: подписи FAB и пузыри подсказок — длинные тексты переносятся, не обрезаются */
+  .fab-tip { position:fixed; z-index:60; pointer-events:none; background:#FFFDF4; border:1px solid rgba(138,155,110,.4); border-radius:10px; padding:6px 10px; font:700 13px 'Neucha',cursive; color:#5E7247; box-shadow:var(--shadow-s); transform:translate(-50%,-100%); white-space:normal; text-align:center; max-width:min(280px, calc(100vw - 24px)); }
   .fab-tip::after { content:''; position:absolute; left:50%; top:100%; transform:translateX(-50%); border:6px solid transparent; border-top-color:rgba(138,155,110,.4); }
   /* 3.25: пузырь-подсказка ниже элемента (меню у верхнего края) */
   .fab-tip.below { transform:translate(-50%,0); }
@@ -534,7 +534,8 @@
   .fd-exit { display:none; position:fixed; left:12px; bottom:22px; z-index:44; align-items:center; gap:8px; border:none; border-radius:999px; padding:12px 16px; background:#5A4668; color:#fff; font:700 14px Manrope,sans-serif; box-shadow:var(--shadow); cursor:pointer; }
   html.fd .fd-exit { display:flex; }
   .m-note { font-size:11.5px; color:var(--ink-soft); margin:2px 0 10px; }
-  .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .hm-btn, .gh-phase-btn, .phase-controls .ph { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  /* 3.25.2: long-press на пунктах и тумблерах меню не выделяет текст и не открывает callout */
+  .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .m-switch, .hm-btn, .gh-phase-btn, .phase-controls .ph { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   @media (max-width: 900px) {
     body { padding-bottom:96px; -webkit-tap-highlight-color:transparent; }
     .topbar { padding:10px 12px; }
@@ -553,6 +554,9 @@
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
     .pal-btn { padding:10px 14px; min-height:40px; }
+    /* 3.25.2: Схема — «3D» и «Настройки» в одной строке, ниже пара Совместимость+Советчик */
+    .scheme-toolbar .palette-right .pal-btn { flex:1 1 46%; justify-content:center; }
+    #isoBtn { order:1; } #schemeSettingsBtn { order:2; } #compatBtn { order:3; } #advisorBtnMob { order:4; }
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
     .plot-wrap { padding:26px 22px 22px; }
     .obj-panel { padding:12px; }
