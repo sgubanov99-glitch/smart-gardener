@@ -439,21 +439,6 @@
   .overlay { position:fixed; inset:0; z-index:60; display:grid; place-items:center; background:rgba(63,62,58,.35); backdrop-filter:blur(2px); padding:18px; }
   .modal { width:min(560px,94vw); max-height:86vh; overflow:auto; background:#FFFCF4; border-radius:var(--radius); box-shadow:var(--shadow); padding:24px 26px; animation:pop .25s ease both; }
   .modal-head { display:flex; align-items:center; gap:12px; } .modal-head h2 { margin:0; font-family:"Neucha",cursive; font-size:31px; display:flex; align-items:center; gap:10px; }
-  /* 3.25.3: шапка модалок (✕ Закрыть) липкая — кнопка видна при любой прокрутке списка */
-  .modal-head { position:sticky; top:0; z-index:5; background:#FFFCF4; margin:-24px -26px 12px; padding:24px 26px 12px; }
-  @media (max-width:900px){
-    .modal-head { margin:-16px -14px 12px; padding:16px 14px 10px; border-radius:var(--radius) var(--radius) 0 0; box-shadow:0 4px 10px rgba(62,62,58,.08); }
-  }
-  /* 3.25.4: крестик шапки модалок — tap-target 44px на мобильном */
-  @media (max-width:900px){
-    .modal-head .m-close { min-width:44px; min-height:44px; font-size:18px; }
-  }
-  /* 3.25.4: плавающий крестик поверх длинных модалок (Совместимость, История) — виден при любом скролле;
-     кнопка добавляется в оверлей из main.js, на десктопе скрыта (там работает sticky-шапка) */
-  .overlay .float-close { display:none; position:absolute; top:calc(8px + env(safe-area-inset-top)); right:8px; z-index:6; width:44px; height:44px; border:none; border-radius:50%; background:var(--rose-dark); color:#fff; font:800 18px 'Manrope',sans-serif; box-shadow:var(--shadow); cursor:pointer; align-items:center; justify-content:center; }
-  @media (max-width:900px){
-    .overlay .float-close { display:flex; }
-  }
   .m-emoji { font-size:40px; } .m-close { margin-left:auto; border:none; border-radius:10px; width:34px; height:34px; background:var(--panel); box-shadow:var(--shadow-s); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
   .m-type { display:inline-block; margin:8px 0 10px; padding:4px 12px; border-radius:999px; background:rgba(138,155,110,.22); color:var(--olive-dark); font-size:12.5px; font-weight:700; }
   .m-row { font-size:14.5px; margin:5px 0; color:var(--ink-soft); display:flex; align-items:center; gap:6px; } .m-row b { color:var(--ink); }
@@ -551,6 +536,16 @@
   .m-note { font-size:11.5px; color:var(--ink-soft); margin:2px 0 10px; }
   /* 3.25.2: long-press на пунктах и тумблерах меню не выделяет текст и не открывает callout */
   .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .m-switch, .hm-btn, .gh-phase-btn, .phase-controls .ph { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  /* 3.25.8: финальная раскладка длинных модалок (Совместимость/История/Настройки схемы):
+     липкая шапка сверху + пилюля «Закрыть» внизу контента БЕЗ перекрытий и отрицательных margin;
+     фон панелей = фон модалки (#FFFCF4), поэтому full-bleed не нужен; блок стоит в конце каскада */
+  .modal .modal-head { position:sticky; top:0; z-index:5; background:#FFFCF4; margin:0 0 12px; padding:6px 0 10px; }
+  .modal .modal-closebar { position:static; z-index:auto; display:flex; margin:14px 0 0; padding:0; background:none; }
+  .modal .modal-closebar .m-close { margin-left:0; width:100%; min-height:44px; border-radius:999px; background:#5A4668; color:#fff; box-shadow:var(--shadow); font:700 14px Manrope,sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .modal .modal-closebar .m-close::after { content:'Закрыть'; }
+  @media (max-width:900px){
+    .modal .modal-closebar { position:sticky; bottom:0; z-index:6; margin:14px 0 calc(-16px - env(safe-area-inset-bottom)); padding:10px 0 calc(16px + env(safe-area-inset-bottom)); background:#FFFCF4; box-shadow:0 -6px 12px rgba(62,62,58,.06); }
+  }
   @media (max-width: 900px) {
     body { padding-bottom:96px; -webkit-tap-highlight-color:transparent; }
     .topbar { padding:10px 12px; }
