@@ -1,6 +1,12 @@
 // src/core/changelog.js — история ревизий «Умного садовода» (консолидация к этапу 3.x)
-export const APP_VERSION = '3.25.1';
+export const APP_VERSION = '3.25.2';
 export const CHANGELOG = [
+{ v:'3.25.2', date:'30.09.2026', title:'Мобильные фиксы подсказок меню и тулбара схемы', notes:[
+  'Пузьрь после long-press живёт 3 секунды (было 1.2); touchcancel больше не сбрасывает показанный пузырь',
+  '.m-switch добавлен в правило user-select:none + -webkit-touch-callout:none — long-press на тумблерах не выделяет текст и не гасит подсказку; клик после подсказки глотается (swallow), тумблер не переключается случайно',
+  '.fab-tip: white-space:normal + max-width min(280px, 100vw-24px) + дожим left по ширине пузыря — длинные подсказки переносятся на 2+ строки внутри экрана',
+  'Мобильный тулбар схемы: 3D и Настройки в одной строке (flex 46% + order), ниже пара Совместимость+Советчик'
+]},
 { v:'3.25.1', date:'30.09.2026', title:'Хотфикс подсказок меню: pointerover вместо mouseover+isTouch, swallow клика после long-press', notes:[
   'Причина 1: hover-ветка глушилась isTouch() на ПК с тачскрином (maxTouchPoints>0) — заменено на pointerover/pointerout с фильтром pointerType==="mouse"',
   'Причина 2: на таче клик после long-press закрывал меню и запускал действие — добавлен capture-слушатель с swallow (stopPropagation+preventDefault), меню остаётся открытым, подсказка живёт ~1.2с',
