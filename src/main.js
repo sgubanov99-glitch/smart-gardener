@@ -1,13 +1,15 @@
-// src/main.js — точка входа (ревизия 3.20)
-// 3.20: лента «Последние заметки» в Обзоре: карточка под «Заданиями дня» — до 8 свежих записей
-//      со всех журналов (сортировка по дате/id), значок типа, дата дд.мм, имя объекта, чип типа
-//      (оливковый — ручные, розовый — авто), текст ≤80 символов; тап по строке → Схема + selectAndShow;
-//      нет заметок — карточка не рендерится; обновление при каждом рендере Обзора
-// 3.19: задания дня: карточка «Задания дня» (3 авто-задания), challengeTouch(), счётчик challengesMet,
-//      13-е достижение «Пять идеальных дней» (gamification.js 3.19)
+// src/main.js — точка входа (ревизия 3.21.1)
+// 3.21.1: хотфикс метрик модератора: записи книги читаются из localStorage['sg-gb-cache'] (первым в
+//        списке ключей + фолбэки entries/messages/items/list); режим модератора НЕ персистится:
+//        gbModSession в памяти (?mod=1 или 5 тапов), после перезагрузки выключен; старый ключ
+//        sg-gb-mod стирается; normEntry в gbMetrics терпит разные имена полей даты/ответа/рейтинга
+// 3.21: метрики модератора Книги отзывов: блок KPI/SLA/топ-тем/рейтинга/недель сверху #gbPanel,
+//      фильтр «Без ответа (N)», экспорт JSON/CSV, копирование сводки (модуль src/ui/gbMetrics.js)
+// 3.20: лента «Последние заметки» в Обзоре (до 8 записей со всех журналов, тап → объект на Схеме)
+// 3.19: задания дня (3 авто-задания, карточка в Обзоре, challengesMet, бейдж «Пять идеальных дней»)
 // 3.18.1: фикс чтения planting.json (pres.json() вместо res.json() — поток phases уже потреблён)
 // 3.18: попап открытия достижения (стикер + условие + поздравление Цыпы), очередь при нескольких
-// 3.17: достижения (бейджи): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
+// 3.17: достижения (13 бейджей): checkAchievements/achievementsCtx/appendAchievements; счётчики counters
 // 3.16.2: отметки Календаря учитываются геймификацией через e.composedPath() (calendarView отцепляет чекбокс)
 // 3.16: геймификация: карточка «Прогресс сезона», серия дней, цель дня 3 задачи; scheme.progress
 // 3.15: undo/redo слева зеркально стеку «+»/чат; 3.14: пауза 10с повторной подсказки Цыпы в демо
@@ -40,6 +42,7 @@ import { APP_VERSION, CHANGELOG } from './core/changelog.js';
 import { swapEmojiInTextNodes } from './ui/icons.js';
 import { plantingRef } from './core/planting.js';
 import { DAILY_GOAL, ensureProgress, touchStreak, dailyGoalState, addDailyDone, seasonProgress, ACHIEVEMENTS, checkAchievements, ensureChallenges, markChallenge } from './core/gamification.js';   // 3.16/3.17/3.19
+import { computeMetrics, renderMetricsBox, exportGbJSON, exportGbCSV, copyGbSummary } from './ui/gbMetrics.js';   // 3.21
 
 /* --- утилиты --- */
 function deepTrim(v){
@@ -737,8 +740,86 @@ window.addEventListener('sg-drag-invalid', ()=> vibrate(40));
 const tutorialView = createTutorialView({ slides: tutorialSlides });
 on('tutorialBtn', function(){ if (!tutorialSlides.length){ showToast('Обучение не загрузилось — проверьте data/tutorial.json'); return; } tutorialView.open(0); });
 const guestbookView = createGuestbookView({ overlay: document.getElementById('guestbookOverlay'), panel: document.getElementById('gbPanel'), getDiagnostics: ()=>`версия ${APP_VERSION}; объектов: ${scheme.objects.length}; культур: ${scheme.objects.filter(o=>o.culture).length}; браузер: ${navigator.userAgent}`, notify: m=>showToast(m) });
-on('guestbookBtn', function(){ guestbookView.open(); });
+on('guestbookBtn', function(){ guestbookView.open(); setTimeout(injectGbMetrics, 80); });   // 3.21: метрики после открытия
 on('gbClose', function(){ guestbookView.close(); });
+
+/* --- 3.21/3.21.1: метрики модератора Книги отзывов --- */
+let gbModSession = false;   // 3.21.1: режим живёт ТОЛЬКО до перезагрузки (не персистится)
+function gbModeratorWanted(){ return gbModSession; }
+function setGbModerator(on){
+  gbModSession = !!on;
+  try { localStorage.removeItem('sg-gb-mod'); } catch(_){}   // стираем старый персистентный флаг
+  injectGbMetrics();
+}
+function getGbEntries(){
+  try { if (guestbookView && typeof guestbookView.getEntries === 'function') { const e = guestbookView.getEntries(); if (Array.isArray(e)) return e; } } catch(e){}
+  const keys = ['sg-gb-cache','sg-guestbook','sg-gb-entries','sg-guestbook-entries','guestbook'];   // 3.21.1: sg-gb-cache — реальный ключ книги
+  for (const k of keys){
+    try {
+      const raw = localStorage.getItem(k); if (!raw) continue;
+      const data = JSON.parse(raw);
+      const arr = Array.isArray(data) ? data
+        : (Array.isArray(data.entries) ? data.entries
+        : (Array.isArray(data.messages) ? data.messages
+        : (Array.isArray(data.items) ? data.items
+        : (Array.isArray(data.list) ? data.list : null))));
+      if (arr) return arr;
+    } catch(e){}
+  }
+  return [];
+}
+let gbmFilterOn = false;
+function applyGbFilter(panel, on){
+  panel.querySelectorAll('.gb-entry').forEach(en=>{
+    if (!on){ en.style.display = ''; return; }
+    const st = en.querySelector('.gb-status');
+    const keep = st && (st.classList.contains('waiting') || st.classList.contains('queued'));
+    en.style.display = keep ? '' : 'none';
+  });
+}
+function injectGbMetrics(){
+  const panel = document.getElementById('gbPanel'); if (!panel) return;
+  const old = panel.querySelector('#gbMetricsBox');
+  if (!gbModeratorWanted()){ if (old) old.remove(); applyGbFilter(panel, false); gbmFilterOn = false; return; }
+  const m = computeMetrics(getGbEntries(), todayISO());
+  let box = old;
+  if (!box){ box = document.createElement('div'); box.id = 'gbMetricsBox'; panel.prepend(box); }
+  box.innerHTML = renderMetricsBox(m, gbmFilterOn);
+}
+(function gbPanelWatch(){   // блок переживает перерисовки панели книги
+  const panel = document.getElementById('gbPanel'); if (!panel || !window.MutationObserver) return;
+  let raf = 0;
+  new MutationObserver(()=>{ if (raf) return; raf = requestAnimationFrame(()=>{ raf = 0; if (gbModeratorWanted() && !panel.querySelector('#gbMetricsBox')) injectGbMetrics(); }); }).observe(panel, { childList:true, subtree:false });
+})();
+(function gbModGesture(){   // 5 тапов по заголовку книги = тумблер режима модератора (до перезагрузки)
+  let taps = 0, t0 = 0;
+  document.addEventListener('click', (e)=>{
+    if (!e.target.closest('.gb-title')) return;
+    const now = Date.now();
+    if (now - t0 > 2500){ taps = 0; t0 = now; }
+    taps++;
+    if (taps >= 5){
+      taps = 0;
+      const on = !gbModeratorWanted();
+      setGbModerator(on);   // 3.21.1: только в памяти — после перезагрузки выключено
+      showToast(on ? 'Режим модератора включён (до перезагрузки)' : 'Режим модератора выключен');
+    }
+  });
+})();
+(function gbMetricsActions(){
+  const panel = document.getElementById('gbPanel'); if (!panel) return;
+  panel.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-gbm]'); if (!btn) return;
+    const act = btn.dataset.gbm;
+    const entries = getGbEntries();
+    const m = computeMetrics(entries, todayISO());
+    if (act === 'filter'){ gbmFilterOn = !gbmFilterOn; applyGbFilter(panel, gbmFilterOn); injectGbMetrics(); }
+    if (act === 'json'){ exportGbJSON(entries, m); showToast('JSON со сводкой сохранён ✓'); }
+    if (act === 'csv'){ exportGbCSV(entries, m); showToast('CSV сохранён ✓'); }
+    if (act === 'copy'){ const ok = await copyGbSummary(m); showToast(ok ? 'Сводка скопирована ✓' : 'Не удалось скопировать — используйте JSON'); }
+  });
+})();
+
 const gbBg = document.getElementById('guestbookBg');
 function applyGbBg(){ if (!gbBg) return; const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches; if (isMob) gbBg.removeAttribute('src'); else if (!gbBg.getAttribute('src')) gbBg.setAttribute('src','gb.png'); }
 applyGbBg();
@@ -1061,6 +1142,7 @@ window.__sgSelfTest = function(){
   const prG = ensureProgress(scheme);   // 3.16
   push('progress shape', !!prG && typeof prG.streak.count==='number' && typeof prG.daily.done==='number' && prG.streak.count>=0, 'streak '+prG.streak.count+', daily '+prG.daily.done);
   push('achievements defs', Array.isArray(ACHIEVEMENTS) && ACHIEVEMENTS.length===13 && typeof checkAchievements==='function', (ACHIEVEMENTS||[]).length+' badges');   // 3.17/3.19
+  push('gbMetrics module', typeof computeMetrics==='function' && typeof renderMetricsBox==='function', 'mod='+(gbModeratorWanted()?'on':'off'));   // 3.21
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1233,7 +1315,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/* --- 2.178/3.9: shortcuts и share-target (home/analytics → stats) --- */
+/* --- 2.178/3.9/3.21.1: shortcuts, share-target (home/analytics → stats), флаг модератора ?mod --- */
 (function handleLaunchParams(){
   try {
     const url = new URL(location.href);
@@ -1244,6 +1326,9 @@ if ('serviceWorker' in navigator) {
       url.searchParams.delete('page');
       window.history.replaceState(null, '', url.toString());
     }
+    const mod = url.searchParams.get('mod');   // 3.21.1: ?mod=1 включает режим модератора ТОЛЬКО на эту сессию
+    if (mod === '1'){ gbModSession = true; }
+    if (mod === '1' || mod === '0'){ url.searchParams.delete('mod'); window.history.replaceState(null, '', url.toString()); }
     const sharedText = url.searchParams.get('text') || url.searchParams.get('title');
     const sharedUrl  = url.searchParams.get('url');
     if (sharedText || sharedUrl) {
@@ -1277,6 +1362,7 @@ tryRestoreAutosave();
 startOnboarding();   // 3.6: Приветствие → Обучение → Демо-участок
 document.body.classList.toggle('on-scheme', true);   // 3.14: стартовый экран — Схема
 maybeUnlockAchievements();   // 3.17: бейджи по текущему состоянию при старте
+try { localStorage.removeItem('sg-gb-mod'); } catch(_){}   // 3.21.1: флаг модератора не персистится
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
