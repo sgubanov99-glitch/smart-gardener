@@ -439,6 +439,11 @@
   .overlay { position:fixed; inset:0; z-index:60; display:grid; place-items:center; background:rgba(63,62,58,.35); backdrop-filter:blur(2px); padding:18px; }
   .modal { width:min(560px,94vw); max-height:86vh; overflow:auto; background:#FFFCF4; border-radius:var(--radius); box-shadow:var(--shadow); padding:24px 26px; animation:pop .25s ease both; }
   .modal-head { display:flex; align-items:center; gap:12px; } .modal-head h2 { margin:0; font-family:"Neucha",cursive; font-size:31px; display:flex; align-items:center; gap:10px; }
+  /* 3.25.3: шапка модалок (✕ Закрыть) липкая — кнопка видна при любой прокрутке списка */
+  .modal-head { position:sticky; top:0; z-index:5; background:#FFFCF4; margin:-24px -26px 12px; padding:24px 26px 12px; }
+  @media (max-width:900px){
+    .modal-head { margin:-16px -14px 12px; padding:16px 14px 10px; border-radius:var(--radius) var(--radius) 0 0; box-shadow:0 4px 10px rgba(62,62,58,.08); }
+  }
   .m-emoji { font-size:40px; } .m-close { margin-left:auto; border:none; border-radius:10px; width:34px; height:34px; background:var(--panel); box-shadow:var(--shadow-s); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
   .m-type { display:inline-block; margin:8px 0 10px; padding:4px 12px; border-radius:999px; background:rgba(138,155,110,.22); color:var(--olive-dark); font-size:12.5px; font-weight:700; }
   .m-row { font-size:14.5px; margin:5px 0; color:var(--ink-soft); display:flex; align-items:center; gap:6px; } .m-row b { color:var(--ink); }
@@ -554,9 +559,12 @@
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
     .pal-btn { padding:10px 14px; min-height:40px; }
-    /* 3.25.2: Схема — «3D» и «Настройки» в одной строке, ниже пара Совместимость+Советчик */
-    .scheme-toolbar .palette-right .pal-btn { flex:1 1 46%; justify-content:center; }
-    #isoBtn { order:1; } #schemeSettingsBtn { order:2; } #compatBtn { order:3; } #advisorBtnMob { order:4; }
+    /* 3.25.3: Схема — «3D» (1/3) и «Настройки» (2/3) строго в одной строке; ниже пара Совместимость+Советчик */
+    .scheme-toolbar .palette-right { display:flex; flex-wrap:wrap; gap:8px; }
+    #isoBtn { order:1; flex:1 1 30%; min-width:0; justify-content:center; }
+    #schemeSettingsBtn { order:2; flex:2 1 60%; min-width:0; justify-content:center; }
+    #compatBtn { order:3; flex:1 1 46%; min-width:0; justify-content:center; }
+    #advisorBtnMob { order:4; flex:1 1 46%; min-width:0; justify-content:center; }
     .scheme-actions { flex-direction:column; align-items:stretch; gap:8px; }
     .plot-wrap { padding:26px 22px 22px; }
     .obj-panel { padding:12px; }
