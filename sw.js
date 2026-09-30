@@ -1,9 +1,17 @@
-// sw.js — service worker (ревизия 3.17)
-// 3.17: 12 стикеров достижений stickers/ach-*.png в NON_CRITICAL precache (бейджи Аналитики офлайн)
-// 3.16: src/core/gamification.js в CRITICAL precache
-// 3.6: data/demo-scheme.json в CRITICAL; 2.175: управляемые обновления (SKIP_WAITING по подтверждению);
-//      первая установка активируется сразу; 2.167: precache разделён на критичный и фоновый
-const CACHE = 'sg-cache-v3210';
+// sw.js — service worker (ревизия 3.24)
+// 3.24: обработчик notificationclick — клик по напоминанию открывает приложение на Календаре:
+//      фокус существующей вкладки + postMessage({type:'SG_OPEN',page}) (main.js зовёт showScreen),
+//      иначе clients.openWindow('./?page=…'); кэш поднят до v3240
+// 3.21: src/ui/gbMetrics.js в CRITICAL precache — метрики модератора доступны офлайн
+// 3.19: стикер stickers/ach-perfect-days.png в NON_CRITICAL (13-е достижение «Пять идеальных дней»)
+// 3.18.1: guard не-http(s)-схем (chrome-extension и пр.) — не обслуживаем и не кэшируем,
+//      cache.put больше не падает на запросах расширений браузера
+// 3.17: 12 стикеров достижений stickers/ach-*.png в NON_CRITICAL (бейджи Аналитики и попапы офлайн)
+// 3.16: src/core/gamification.js в CRITICAL precache — модуль геймификации доступен офлайн
+// 3.6: data/demo-scheme.json в CRITICAL — демо-участок офлайн с первого запуска
+// 2.175: управляемые обновления (SKIP_WAITING по подтверждению); первая установка активируется сразу
+// 2.167: precache разделён на критичный (ждём) и фоновый (стикеры/PNG)
+const CACHE = 'sg-cache-v3240';
 const CRITICAL = [
 './',
 './index.html',
@@ -36,9 +44,9 @@ const CRITICAL = [
 './src/ui/tsypa.js',
 './src/ui/tutorialView.js',
 './src/ui/guestbookView.js',
+'./src/ui/gbMetrics.js',
 './src/ui/ux.js',
 './src/ui/icons.js',
-'./src/ui/gbMetrics.js'
 './data/plants.json',
 './data/phases.json',
 './data/planting.json',
@@ -103,11 +111,27 @@ clients.forEach(c => c.postMessage('SW_ACTIVATED'));
 self.addEventListener('message', (e) => {
 if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
+// 3.24: клик по уведомлению напоминания → открыть приложение на Календаре
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const page = (e.notification.data && e.notification.data.goto) || 'calendar';
+  e.waitUntil((async () => {
+    const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of list){
+      if (c.url && c.url.indexOf(self.location.origin) === 0){
+        await c.focus();
+        try { c.postMessage({ type: 'SG_OPEN', page: page }); } catch(_){}
+        return;
+      }
+    }
+    return clients.openWindow('./?page=' + page);
+  })());
+});
 self.addEventListener('fetch', (e) => {
 const req = e.request;
 if (req.method !== 'GET') return;
 const url = new URL(req.url);
-if (!/^https?:$/.test(url.protocol)) return;   // 3.18.1: chrome-extension: и прочие схемы не обслуживаем и не кэшируем
+if (!/^https?:$/.test(url.protocol)) return;   // 3.18.1: chrome-extension и прочие схемы не обслуживаем
 // Навигация: сеть → фолбэк на закэшированный index.html
 if (req.mode === 'navigate') {
 e.respondWith((async () => {

@@ -136,6 +136,9 @@
   /* 3.13: подписи FAB (одноразовые баблы и long-press) */
   .fab-tip { position:fixed; z-index:60; pointer-events:none; background:#FFFDF4; border:1px solid rgba(138,155,110,.4); border-radius:10px; padding:6px 10px; font:700 13px 'Neucha',cursive; color:#5E7247; box-shadow:var(--shadow-s); transform:translate(-50%,-100%); white-space:nowrap; }
   .fab-tip::after { content:''; position:absolute; left:50%; top:100%; transform:translateX(-50%); border:6px solid transparent; border-top-color:rgba(138,155,110,.4); }
+  /* 3.25: пузырь-подсказка ниже элемента (меню у верхнего края) */
+  .fab-tip.below { transform:translate(-50%,0); }
+  .fab-tip.below::after { top:auto; bottom:100%; border-top-color:transparent; border-bottom-color:rgba(138,155,110,.4); }
   .phase-badge { position:absolute; left:4px; top:4px; z-index:3; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-size:12px; box-shadow:var(--shadow-s); }
   .greenhouse-plants { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:2px; width:100%; height:100%; overflow:hidden; }
   .gh-phases { position:absolute; left:4px; top:4px; display:flex; gap:2px; flex-wrap:wrap; max-width:70%; z-index:3; }
@@ -358,18 +361,6 @@
   .gam-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 12px; background:#fff; box-shadow:var(--shadow-s); font:700 12px "Manrope",sans-serif; color:var(--ink); }
   .gam-chip .ic-site { width:14px; height:14px; vertical-align:0; }
   .gam-chip-met { background:var(--olive); color:#fff; }
-  /* 3.17: секция «Достижения» в Аналитике */
-  .ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
-  .ach-badge { display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; background:linear-gradient(180deg,#FFFDF6,#F7F1E2); border:1px solid rgba(138,155,110,.28); border-radius:var(--radius-s); padding:12px 10px; box-shadow:var(--shadow-s); }
-  .ach-img { width:64px; height:64px; object-fit:contain; }
-  .ach-icon-fallback { display:none; width:64px; height:64px; align-items:center; justify-content:center; }
-  .ach-img.ach-missing { display:none; }
-  .ach-img.ach-missing + .ach-icon-fallback { display:flex; }
-  .ach-title { font:800 12.5px 'Manrope',sans-serif; color:var(--ink); }
-  .ach-date, .ach-desc { font:600 11px 'Manrope',sans-serif; color:var(--ink-soft-2); }
-  .ach-locked { opacity:.6; }
-  .ach-locked .ach-img { opacity:.35; filter:grayscale(1); }
-  @media (max-width:640px){ .ach-grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); } }
   /* 3.19: карточка «Задания дня» в Обзоре */
   .chal-card { background:var(--panel); border:1px solid rgba(138,155,110,.22); border-radius:var(--radius-s); padding:12px 14px; margin:0 0 14px; box-shadow:var(--shadow-s); display:flex; flex-direction:column; gap:6px; }
   .chal-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
@@ -394,6 +385,18 @@
   .nf-text { flex:1 1 100%; color:var(--ink-soft-2); font:500 12px/1.4 'Manrope',sans-serif; }
   .nf-auto .nf-type { background:var(--rose-dark); }   /* авто-заметки — розовый чип, как в журнале */
   .nf-row:active { transform:scale(.99); }
+  /* 3.17: секция «Достижения» в Аналитике */
+  .ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .ach-badge { display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; background:linear-gradient(180deg,#FFFDF6,#F7F1E2); border:1px solid rgba(138,155,110,.28); border-radius:var(--radius-s); padding:12px 10px; box-shadow:var(--shadow-s); }
+  .ach-img { width:64px; height:64px; object-fit:contain; }
+  .ach-icon-fallback { display:none; width:64px; height:64px; align-items:center; justify-content:center; }
+  .ach-img.ach-missing { display:none; }
+  .ach-img.ach-missing + .ach-icon-fallback { display:flex; }
+  .ach-title { font:800 12.5px 'Manrope',sans-serif; color:var(--ink); }
+  .ach-date, .ach-desc { font:600 11px 'Manrope',sans-serif; color:var(--ink-soft-2); }
+  .ach-locked { opacity:.6; }
+  .ach-locked .ach-img { opacity:.35; filter:grayscale(1); }
+  @media (max-width:640px){ .ach-grid { grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); } }
   /* 3.18: попап открытия достижения */
   .ach-modal { position:relative; width:min(420px,94vw); text-align:center; padding:28px 24px 24px; }
   .ach-close { position:absolute; top:10px; right:10px; margin:0; }
@@ -510,24 +513,6 @@
   .gb-thanks { text-align:center; padding:18px 8px; }
   .gb-thanks-emoji { font-size:56px; }
   .gb-note { font-size:11px; color:var(--ink-soft); margin-top:6px; }
-  /* 3.21: метрики модератора в Книге отзывов (фиолетовая гамма книги) */
-  .gb-metrics { margin:0 0 12px; background:rgba(220,201,230,.25); border:1px solid rgba(90,70,104,.25); border-radius:12px; padding:10px 12px; }
-  .gb-metrics > summary { cursor:pointer; font:800 12px Manrope,sans-serif; color:#5A4668; list-style:none; display:flex; align-items:center; gap:6px; }
-  .gb-metrics > summary::before { content:''; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #5A4668; transition:transform .15s; }
-  .gb-metrics[open] > summary::before { transform:rotate(180deg); }
-  .gbm-kpis { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
-  .gbm-kpi { border-radius:999px; padding:4px 10px; background:#fff; box-shadow:var(--shadow-s); font:700 11.5px Manrope,sans-serif; color:#5A4668; }
-  .gbm-kpi.warn { background:#F8EBC8; color:#5C451F; }
-  .gbm-row { font:600 11.5px Manrope,sans-serif; color:#55544E; margin:3px 0; }
-  .gbm-row.warn { color:#9A635E; font-weight:800; }
-  .gbm-bar { height:6px; border-radius:999px; background:rgba(90,70,104,.15); overflow:hidden; margin:2px 0 6px; }
-  .gbm-bar i { display:block; height:100%; background:#8A6BA0; }
-  .gbm-weeks { display:flex; align-items:flex-end; gap:3px; height:46px; margin:6px 0; }
-  .gbm-weeks span { flex:1; background:#DCC9E6; border-radius:3px 3px 0 0; min-height:2px; }
-  .gbm-weeks span.now { outline:2px solid var(--olive); }
-  .gbm-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .gbm-btn { border:1px solid rgba(90,70,104,.3); background:#fff; color:#5A4668; border-radius:999px; padding:5px 10px; font:700 11px Manrope,sans-serif; cursor:pointer; }
-  .gbm-btn.active { background:#5A4668; color:#fff; }
   .gb-close { position:absolute; left:63%; top:76%; width:7.8%; aspect-ratio:1; border-radius:50%; border:none; background:transparent; padding:0; cursor:pointer; }
   .gb-close:active { transform:scale(.92); }
   .m-only { display:none; }
@@ -970,29 +955,27 @@
     </div>
   </div>
 
+  <!-- 3.25: меню без примечаний — подсказки в data-tip (пузырь .fab-tip, hover/long-press) -->
   <div class="m-sheet hidden" id="mMenuSheet">
     <div class="m-sheet-panel">
       <div class="m-sheet-head"><span class="m-sheet-title">Меню</span><button type="button" class="m-sheet-close" id="mMenuClose" aria-label="Закрыть"><svg class="ic-site"><use href="#si-close"/></svg></button></div>
-      <button type="button" class="m-item" data-mact="saveBtn"><span class="mi"><svg class="ic-site"><use href="#si-save"/></svg></span>Сохранить</button>
-      <button type="button" class="m-item" data-mact="loadBtn"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Загрузить</button>
-      <button type="button" class="m-item" data-mact="resetBtn"><span class="mi"><svg class="ic-site"><use href="#si-reset"/></svg></span>Сбросить</button>
-      <button type="button" class="m-item" data-mact="historyBtn"><span class="mi"><svg class="ic-site"><use href="#si-history"/></svg></span>История ревизий</button>
-      <button type="button" class="m-item" data-mact="tutorialBtn"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
-      <button type="button" class="m-item" data-mact="guestbookBtn"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
-      <button type="button" class="m-item" data-mact="printBtn"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
-      <button type="button" class="m-item" data-mact="exportBtn"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
-      <button type="button" class="m-item" data-mact="loadDemoBtn"><span class="mi"><svg class="ic-site"><use href="#si-map"/></svg></span>Демо-участок</button>
-      <button type="button" class="m-item" id="installAppBtn" style="display:none"><span class="mi"><svg class="ic-site"><use href="#si-install"/></svg></span>Установить приложение</button>
-      <button type="button" class="m-item" id="restoreAutosaveBtn"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Восстановить автосохранение</button>
-      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
-      <div class="m-note">Если в самом браузере включена «Версия для ПК», отключите её один раз в меню браузера (⋮).</div>
-      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
-      <!-- 3.11: проактивность Цыпы отдельным тумблером -->
-      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Авто-подсказки Цыпы<input type="checkbox" id="tsypaAutoToggle" checked /></label>
-      <div class="m-note">Выкл — Цыпа молчит и подсказывает по клику на неё (компьютер). Вкл — подсказки сменяются сами.</div>
-      <!-- 3.12: вибро-отклик -->
-      <label class="m-switch"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Вибро-отклик<input type="checkbox" id="hapticsToggle" checked /></label>
-      <div class="m-note">На телефоне: короткая вибрация при добавлении/удалении объекта и выполнении задачи. Звук не используется.</div>
+      <button type="button" class="m-item" data-mact="saveBtn" data-tip="Сохранить план участка в файл на устройстве"><span class="mi"><svg class="ic-site"><use href="#si-save"/></svg></span>Сохранить</button>
+      <button type="button" class="m-item" data-mact="loadBtn" data-tip="Восстановить план из сохранённого файла"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Загрузить</button>
+      <button type="button" class="m-item" data-mact="resetBtn" data-tip="Очистить схему: удалить все объекты и имя"><span class="mi"><svg class="ic-site"><use href="#si-reset"/></svg></span>Сбросить</button>
+      <button type="button" class="m-item" data-mact="historyBtn" data-tip="Список версий приложения и что менялось"><span class="mi"><svg class="ic-site"><use href="#si-history"/></svg></span>История ревизий</button>
+      <button type="button" class="m-item" data-mact="tutorialBtn" data-tip="10 слайдов о главных возможностях"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
+      <button type="button" class="m-item" data-mact="guestbookBtn" data-tip="Вопрос, отзыв или оценка — ответим в книге"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
+      <button type="button" class="m-item" data-mact="printBtn" data-tip="Печатная версия: схема, календарь, задачи сезона"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
+      <button type="button" class="m-item" data-mact="exportBtn" data-tip="Плакат участка картинкой — сохранить или отправить"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
+      <button type="button" class="m-item" data-mact="loadDemoBtn" data-tip="Пример участка с культурами, фазами и задачами"><span class="mi"><svg class="ic-site"><use href="#si-map"/></svg></span>Демо-участок</button>
+      <button type="button" class="m-item" id="installAppBtn" style="display:none" data-tip="Ярлык на рабочий стол, работает офлайн"><span class="mi"><svg class="ic-site"><use href="#si-install"/></svg></span>Установить приложение</button>
+      <button type="button" class="m-item" id="restoreAutosaveBtn" data-tip="Вернуть последнее автосохранение плана"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Восстановить автосохранение</button>
+      <label class="m-switch" data-tip="На телефоне: компактный интерфейс вместо десктопного"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Мобильная версия<input type="checkbox" id="mobileModeToggle" checked /></label>
+      <label class="m-switch" data-tip="Полностью убрать Цыпу с экрана"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Показывать Цыпу<input type="checkbox" id="tsypaToggle" checked /></label>
+      <label class="m-switch" data-tip="Вкл — подсказки сами, выкл — по клику на Цыпу"><span class="mi"><svg class="ic-site"><use href="#si-chick"/></svg></span>Авто-подсказки Цыпы<input type="checkbox" id="tsypaAutoToggle" checked /></label>
+      <label class="m-switch" data-tip="Короткая вибрация на действиях, только телефон"><span class="mi"><svg class="ic-site"><use href="#si-phone"/></svg></span>Вибро-отклик<input type="checkbox" id="hapticsToggle" checked /></label>
+      <!-- 3.24: локальные напоминания -->
+      <label class="m-switch" data-tip="Просроченные задачи и цель дня после 18:00, раз в день"><span class="mi"><svg class="ic-site"><use href="#si-calendar"/></svg></span>Напоминания о задачах<input type="checkbox" id="remindersToggle" /></label>
       <div style="text-align:center;color:var(--ink-soft);font-size:12px;margin-top:8px">Умный садовод · v<span id="mVersion"></span></div>
     </div>
   </div>
