@@ -1262,6 +1262,15 @@ on('historyBtn', function(){
   const hc=modal.querySelector('#historyClose'); if (hc) hc.addEventListener('click', ()=>{ const o=document.getElementById('historyOverlay'); if (o) o.classList.add('hidden'); });
 });
 on('historyOverlay', function(e){ if (e.target===document.getElementById('historyOverlay')) document.getElementById('historyOverlay').classList.add('hidden'); }, 'pointerdown');
+/* --- 3.25.3: модалка «Совместимость» закрывается по тапу на фон и по Escape (как история/настройки) --- */
+on('compatOverlay', function(e){ if (e.target === document.getElementById('compatOverlay')) document.getElementById('compatOverlay').classList.add('hidden'); }, 'pointerdown');
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  ['compatOverlay','historyOverlay','schemeSettingsOverlay'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains('hidden')) el.classList.add('hidden');
+  });
+});
 on('closeHintBtn', function(){ const h=document.getElementById('hintBar'); if (h) h.remove(); try { localStorage.setItem('sg-hints-seen','1'); } catch(e){} });
 try { if (localStorage.getItem('sg-hints-seen')==='1') { const h=document.getElementById('hintBar'); if (h) h.classList.add('hidden'); } } catch(e){}
 const av=document.getElementById('appVersion'); if (av) av.textContent='v'+APP_VERSION;
