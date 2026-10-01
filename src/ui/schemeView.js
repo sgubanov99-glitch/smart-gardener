@@ -410,7 +410,7 @@ export class SchemeView {
           `<input id="opNoteDate" type="date" value="${defDate}" style="border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif"/>` +
           `<select id="opNoteType" style="border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif">${opts}</select>` +
           `<input id="opNoteText" type="text" maxlength="120" value="${escHtml(defText)}" placeholder="Заметка…" style="flex:1;min-width:120px;border:none;border-radius:8px;padding:6px 8px;background:#fff;box-shadow:var(--shadow-s);font:600 12px 'Manrope',sans-serif"/>` +
-          `<button type="button" id="opNoteAdd" style="border:none;border-radius:8px;padding:6px 12px;background:var(--olive);color:#fff;font:700 12px 'Manrope',sans-serif;cursor:pointer">${editing ? 'Сохранить' : 'Добавить'}</button>` +
+          `<button type="button" id="opNoteAdd" style="border:none;border-radius:8px;padding:6px 12px;background:var(--olive-deep);color:#fff;font:700 12px 'Manrope',sans-serif;cursor:pointer">${editing ? 'Сохранить' : 'Добавить'}</button>` +
           (editing ? `<button type="button" id="opNoteCancel" style="border:none;border-radius:8px;padding:6px 12px;background:#fff;color:#9A635E;font:700 12px 'Manrope',sans-serif;cursor:pointer;box-shadow:var(--shadow-s);">Отмена</button>` : '') +
         `</div>` +
       `</div></details>`;
