@@ -8,6 +8,7 @@
 import { PHASE_META } from './phaseMachine.js';
 import { getCropIconId } from '../ui/ux.js';
 import { plantingRef, estimateCount, estimateYieldKg } from './planting.js';
+import { artText, inlineArtInHtml } from './artCache.js';   // 3.27.4: офлайн-арт печати (кэш первичен)
 
 const TYPE_META = {
   building:   { label:'Постройка',  fill:'#F9E8D4', stroke:'#D9B48F' },
@@ -295,8 +296,8 @@ ${sec('sec-notes',  'Лист 4 — Журнал объектов', sheet4)}
 export async function exportPrint({ scheme, plants, phases, planting, compat, buildCalendar, appVersion }){
   const D = collectPrintData(scheme, plants, phases, planting, buildCalendar);
   let spriteText = '';
-  try { const r1 = await fetch('assets/smart-gardener.svg'); if (r1.ok) spriteText += await r1.text(); } catch(e){}
-  try { const r2 = await fetch('assets/icons.svg'); if (r2.ok) spriteText += await r2.text(); } catch(e){}
+  spriteText += (await artText('assets/smart-gardener.svg')) || '';
+  spriteText += (await artText('assets/icons.svg')) || '';
   const html = buildPreviewHTML(scheme, D, spriteText, appVersion);
 
   let overlay = document.getElementById('printPreviewOverlay');
@@ -329,6 +330,6 @@ export async function exportPrint({ scheme, plants, phases, planting, compat, bu
     });
   }
   const frame = overlay.querySelector('#pvFrame');
-  frame.srcdoc = html;
+  frame.srcdoc = await inlineArtInHtml(html);   // 3.27.4: data-URL арта без переприсваивания const html
   overlay.classList.remove('hidden');
 }

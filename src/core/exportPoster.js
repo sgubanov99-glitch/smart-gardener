@@ -12,6 +12,7 @@ import { PHASE_ORDER, PHASE_META } from './phaseMachine.js';
 import { plantingRef, estimateCount, estimateYieldKg, firstFruitYear } from './planting.js';
 import { isRainExcused } from './weather.js';
 import { cropIconHTML } from '../ui/ux.js';
+import { artToDataUrl } from './artCache.js';   // 3.27.4: офлайн-арт постера
 
 const PW = 1240, PH = 1754;
 
@@ -261,19 +262,25 @@ async function loadIcons(D){
       img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
     }));
   });
-  jobs.push(new Promise(res=>{
+jobs.push(new Promise(res=>{   // 3.27.4: Цыпа на постере офлайн — из data-URL (sg-art-v1 → SW-кэш → сеть)
+  artToDataUrl('assets/chick_full.svg').then(src=>{
+    if (!src){ res(); return; }          // нет арта нигде — прежний фолбэк (пусто/эмодзи)
     const img=new Image();
     img.onload=()=>{ icons.__tsypa=img; res(); };
     img.onerror=()=>res();
-    img.src='assets/chick_full.svg'; // 2.113: относительный путь
-  }));
-  // 2.105: знак бренда для шапки постера
-  jobs.push(new Promise(res=>{
+    img.src=src;                         // data-URL: canvas рисует без сети и без scope SW
+  });
+}));
+// 2.105: знак бренда для шапки постера
+jobs.push(new Promise(res=>{   // 3.27.4
+  artToDataUrl('assets/logo.svg').then(src=>{
+    if (!src){ res(); return; }
     const img=new Image();
     img.onload=()=>{ icons.__logo=img; res(); };
     img.onerror=()=>res();
-    img.src='assets/logo.svg'; // 2.113: относительный путь
-  }));
+    img.src=src;
+  });
+}));
   await Promise.all(jobs);
   return icons;
 }

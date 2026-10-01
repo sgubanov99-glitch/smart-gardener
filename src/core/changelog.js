@@ -1,6 +1,13 @@
 // src/core/changelog.js — история ревизий «Умного садовода» (консолидация к этапу 3.x)
-export const APP_VERSION = '3.27.3';
+export const APP_VERSION = '3.27.4';
 export const CHANGELOG = [
+{ v:'3.27.4', date:'01.10.2026', title:'Офлайн-арт постера и печати: страничный кэш sg-art-v1 + data-URL, SW v3274 с awaited-прекэшем', notes:[
+  'Причина: печатное окно (blob/about) вне scope SW — его <img> и fetch exportPrint.js:298-299 офлайн шли в сеть (ERR_INTERNET_DISCONNECTED); постер падал в эмодзи',
+  'artCache.js: ensureArtCache() пополняет window.caches[sg-art-v1] онлайн (не зависит от SW и ревизий precache); artToDataUrl/artText/inlineArtInHtml для экспортеров',
+  'exportPrint: svg-инлайны через artText, весь HTML печати проходит inlineArtInHtml до записи — ноль сетевых запросов офлайн; exportPoster: арт через artToDataUrl до drawImage',
+  'sw v3274: install дожидается NON_CRITICAL до skipWaiting; gb.png → gb.webp; activate не удаляет sg-art-v1',
+  'POST tag.js офлайн — ожидаемое поведение beacon Метрики, не баг'
+]},
 { v:'3.27.3', date:'01.10.2026', title:'Мобильная модалка «Совместимость»: примечания переносятся на свою строку, контент не выходит за рамку', notes:[
   'Причина: двухколоночная раскладка строки (пара | примечание) суммарно шире внутренней ширины модалки на 360–430px — примечание обрезалось краем экрана',
   'Мобильный CSS: #compatModal .m-row → flex-wrap; последний ребёнок flex-basis:100% (примечание своей строкой); min-width:0 + overflow-wrap:break-word на всех детях; overflow-x:hidden на модалке',
