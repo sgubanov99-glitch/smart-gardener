@@ -1,17 +1,19 @@
-// sw.js — service worker (ревизия 3.24)
+// sw.js — service worker (ревизия 3.27)
+// 3.27: кэш поднят до v3270 (инвалидация после качественного прохода: lazy-стикеры, dialog-роли, passive);
+//      аудит precache: оба имени справочника совместимости оставлены намеренно — loadCompatibility()
+//      использует одно из них, Promise.allSettled корректно пропускает отсутствующее (404 не ломает install)
 // 3.24: обработчик notificationclick — клик по напоминанию открывает приложение на Календаре:
 //      фокус существующей вкладки + postMessage({type:'SG_OPEN',page}) (main.js зовёт showScreen),
-//      иначе clients.openWindow('./?page=…'); кэш поднят до v3240
+//      иначе clients.openWindow('./?page=…')
 // 3.21: src/ui/gbMetrics.js в CRITICAL precache — метрики модератора доступны офлайн
 // 3.19: стикер stickers/ach-perfect-days.png в NON_CRITICAL (13-е достижение «Пять идеальных дней»)
-// 3.18.1: guard не-http(s)-схем (chrome-extension и пр.) — не обслуживаем и не кэшируем,
-//      cache.put больше не падает на запросах расширений браузера
+// 3.18.1: guard не-http(s)-схем (chrome-extension и пр.) — не обслуживаем и не кэшируем
 // 3.17: 12 стикеров достижений stickers/ach-*.png в NON_CRITICAL (бейджи Аналитики и попапы офлайн)
 // 3.16: src/core/gamification.js в CRITICAL precache — модуль геймификации доступен офлайн
 // 3.6: data/demo-scheme.json в CRITICAL — демо-участок офлайн с первого запуска
 // 2.175: управляемые обновления (SKIP_WAITING по подтверждению); первая установка активируется сразу
 // 2.167: precache разделён на критичный (ждём) и фоновый (стикеры/PNG)
-const CACHE = 'sg-cache-v3240';
+const CACHE = 'sg-cache-v3272';
 const CRITICAL = [
 './',
 './index.html',
@@ -86,7 +88,8 @@ const NON_CRITICAL = [
 './stickers/ach-collector.png',
 './stickers/ach-keeper.png',
 './stickers/ach-perfect-days.png',
-'./gb.png'
+// в NON_CRITICAL: было './gb.png' → стало:
+'./gb.webp',   // 3.27.2: фон Книги отзывов WebP (≤500KB) — офлайн сразу; если файл >500KB, уберите строку (SWR докэширует после первого открытия)
 ];
 self.addEventListener('install', (e) => {
 e.waitUntil((async () => {
