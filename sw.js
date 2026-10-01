@@ -1,19 +1,11 @@
-// sw.js — service worker (ревизия 3.27)
-// 3.27: кэш поднят до v3270 (инвалидация после качественного прохода: lazy-стикеры, dialog-роли, passive);
-//      аудит precache: оба имени справочника совместимости оставлены намеренно — loadCompatibility()
-//      использует одно из них, Promise.allSettled корректно пропускает отсутствующее (404 не ломает install)
-// 3.24: обработчик notificationclick — клик по напоминанию открывает приложение на Календаре:
-//      фокус существующей вкладки + postMessage({type:'SG_OPEN',page}) (main.js зовёт showScreen),
-//      иначе clients.openWindow('./?page=…')
-// 3.21: src/ui/gbMetrics.js в CRITICAL precache — метрики модератора доступны офлайн
-// 3.19: стикер stickers/ach-perfect-days.png в NON_CRITICAL (13-е достижение «Пять идеальных дней»)
-// 3.18.1: guard не-http(s)-схем (chrome-extension и пр.) — не обслуживаем и не кэшируем
-// 3.17: 12 стикеров достижений stickers/ach-*.png в NON_CRITICAL (бейджи Аналитики и попапы офлайн)
-// 3.16: src/core/gamification.js в CRITICAL precache — модуль геймификации доступен офлайн
-// 3.6: data/demo-scheme.json в CRITICAL — демо-участок офлайн с первого запуска
-// 2.175: управляемые обновления (SKIP_WAITING по подтверждению); первая установка активируется сразу
-// 2.167: precache разделён на критичный (ждём) и фоновый (стикеры/PNG)
-const CACHE = 'sg-cache-v3272';
+// sw.js — service worker (ревизия 3.27.4)
+// 3.27.4: install дожидается NON_CRITICAL до skipWaiting (стикеры гарантированы на холодной установке);
+//      gb.png → gb.webp (арт книги от дизайнера, 147KB); кэш поднят до v3274
+// 3.24: notificationclick → фокус вкладки + SG_OPEN, иначе openWindow('./?page=…')
+// 3.21: gbMetrics.js в CRITICAL; 3.19: ach-perfect-days.png в NON_CRITICAL; 3.18.1: guard не-http(s)
+// 3.17: 12 ach-стикеров в NON_CRITICAL; 3.16: gamification.js в CRITICAL; 3.6: demo-scheme.json в CRITICAL
+// 2.175: управляемые обновления (SKIP_WAITING по подтверждению); 2.167: precache критичный/фоновый
+const CACHE = 'sg-cache-v3274';
 const CRITICAL = [
 './',
 './index.html',
@@ -28,6 +20,7 @@ const CRITICAL = [
 './src/core/shade.js',
 './src/core/exportPoster.js',
 './src/core/exportPrint.js',
+'./src/core/artCache.js',
 './src/core/history.js',
 './src/core/reminders.js',
 './src/core/changelog.js',
@@ -88,29 +81,25 @@ const NON_CRITICAL = [
 './stickers/ach-collector.png',
 './stickers/ach-keeper.png',
 './stickers/ach-perfect-days.png',
-// в NON_CRITICAL: было './gb.png' → стало:
-'./gb.webp',   // 3.27.2: фон Книги отзывов WebP (≤500KB) — офлайн сразу; если файл >500KB, уберите строку (SWR докэширует после первого открытия)
+'./gb.webp'
 ];
 self.addEventListener('install', (e) => {
 e.waitUntil((async () => {
 const cache = await caches.open(CACHE);
 await Promise.allSettled(CRITICAL.map(u => cache.add(u)));
-// первая установка (пока нет активного SW) — активируем сразу;
-// при обновлении ждём подтверждения от приложения (SKIP_WAITING)
+await Promise.allSettled(NON_CRITICAL.map(u => cache.add(u)));   // 3.27.4: стикеры/фон готовы ДО активации
 if (!self.registration.active) await self.skipWaiting();
-Promise.allSettled(NON_CRITICAL.map(u => cache.add(u)));
 })());
 });
 self.addEventListener('activate', (e) => {
 e.waitUntil((async () => {
 const keys = await caches.keys();
-await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+await Promise.all(keys.filter(k => k !== CACHE && k !== 'sg-art-v1').map(k => caches.delete(k)));   // 3.27.4: страничный арт-кэш не трогаем
 await self.clients.claim();
 const clients = await self.clients.matchAll();
 clients.forEach(c => c.postMessage('SW_ACTIVATED'));
 })());
 });
-// команда от приложения: занять управление сразу после подтверждения обновления
 self.addEventListener('message', (e) => {
 if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
