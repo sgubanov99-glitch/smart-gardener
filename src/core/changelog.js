@@ -1,6 +1,26 @@
 // src/core/changelog.js — история ревизий «Умного садовода» (консолидация к этапу 3.x)
-export const APP_VERSION = '3.26';
+export const APP_VERSION = '3.27.2';
 export const CHANGELOG = [
+{ v:'3.27.2', date:'01.10.2026', title:'Фон Книги отзывов переведён на WebP (gb.webp): минус ~1.5–1.8MB к PNG-версии', notes:[
+  'Дизайнерский рисунок принят в WebP: композиция и привязки прежние (хотспот ✕ .gb-close 63%/76%/7.8%, лист панели 52%/39.5%/53%), кодек легче PNG при том же качестве',
+  'ensureGbBg() ставит src=gb.webp лениво при первом открытии книги (desktop); мобильная ветка по-прежнему без фона; onerror → градиент .no-image',
+  'sw.js v3272: ./gb.webp в NON_CRITICAL precache (условие: файл ≤500KB), старый gb.png из репозитория и кэш-списков удалён',
+  'Lighthouse-ожидание: total-byte-weight и cache-insight улучшаются на разницу PNG→WebP; repeat-view офлайн книги работает с первого открытия'
+]},
+{ v:'3.27.1', date:'01.10.2026', title:'Хотфиксы аудита Lighthouse: имена диалогов, контраст AA, SW-guard первой установки, ленивый gb.png', notes:[
+  'aria-label на всех role=dialog (axe aria-dialog-name serious: tutorialOverlay и др.)',
+  '--olive-deep #64754E (4.95:1) для всех поверхностей с белым текстом: btn-olive, nav-btn.active, stats/plants/cal/wx active, obj-chip.selected, gam-chip-met, nf-chip-on, nf-type, chal-all, hm-btn, chat send, gb-send, m-fab, ss-compass.active (+ opNoteAdd в schemeView)',
+  'SW: controllerchange-guard (hadController) — first-install больше не дёргает location.reload() (убирает mobile redirects ~5.2s); регистрация в requestIdleCallback (timeout 4s)',
+  'gb.png: ensureGbBg() при первом открытии Книги отзывов вместо старта; удалён из NON_CRITICAL precache (sw v3271) — −2.1MB из критического пути',
+  'Принятые риски без изменений: third-party cookies Метрики (BP 77), cache TTL 0 на dev-сервере'
+]},
+{ v:'3.27', date:'01.10.2026', title:'Качественный проход перед сезоном: lazy-стикеры, dialog-роли, passive-слушатели, аудит-протокол', notes:[
+  'Стикеры экранов: loading="lazy" decoding="async" — декор ниже первого экрана не конкурирует за полосу при холодной загрузке',
+  'Все модалки: role="dialog" aria-modal="true"; closeHintBtn получил aria-label — доступность для скринридеров',
+  'pointerup-коммит истории passive:true — тач-прокрутка без блокировок',
+  'sw.js: ревизия precache (убран мёртвый дубль справочника совместимости при его отсутствии)',
+  'Часть B/C: протокол аудита (Lighthouse, офлайн-матрица, консоль-гигиена) и регрессионный чек-лист 3.1–3.26 — в сообщении ревизии'
+]},
 { v:'3.26', date:'30.09.2026', title:'Расширение ленты «Последние заметки»: фильтры по типу и объекту, дозация по 8', notes:[
   'Два ряда чипов: тип (Все/Авто/присутствующие ручные типы) и объект (Все + топ-5 по числу заметок); фильтры комбинируются логикой И; активный чип оливковый',
   'Счётчик карточки показывает «отфильтровано из всего»; пакетная дозагрузка «Показать ещё 8 (осталось N)» и «Свернуть»; пустая выборка — строка со кнопкой «Сбросить»',
