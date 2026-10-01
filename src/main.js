@@ -1,8 +1,9 @@
-// src/main.js — точка входа (ревизия 3.26)
-// 3.26: расширение ленты «Последние заметки»: два ряда фильтр-чипов (тип: Все/Авто/ручные типы;
-//      объект: Все + топ-5 по числу заметок), комбинация фильтров логикой И, счётчик «K из N»,
-//      пакетная дозагрузка «Показать ещё 8 (осталось N)» / «Свернуть», пустая выборка со кнопкой сброса;
-//      состояние в памяти сессии (nfType/nfObjId/nfLimit), сброс при загрузке/замене плана (applyScheme)
+// src/main.js — точка входа (ревизия 3.27.1)
+// 3.27.1: правки по Lighthouse: aria-label диалогов + --olive-deep (index.html); SW controllerchange-guard
+//      (first-install не дёргает reload — убирает double-navigation mobile), регистрация SW в idle-окно,
+//      gb.png ставится лениво при первом открытии Книги отзывов (−2.1MB из критического пути)
+// 3.27: lazy/async-стикеры, role=dialog+aria-modal, aria-label closeHintBtn, pointerup passive, sw v3270
+// 3.26: лента заметок v2: фильтр-чипы тип/объект (И), счётчик «K из N», дозация по 8, сброс в applyScheme
 // 3.25.6: единственная кнопка «Закрыть» длинных модалок — липкая пилюля внизу (pinModalClose, ASI-safe)
 // 3.25.4: тулбар Схемы моб.: 3D (1/3) + Совместимость (2/3); закрытие Совместимости по фону и Escape
 // 3.25.2: подсказки меню: пузырь 3с, touchcancel не сбрасывает, перенос строк, дожим по ширине
@@ -559,7 +560,7 @@ function updateHistoryButtons(){ const u=document.getElementById('undoBtn'), r=d
 history.onStacksChange(updateHistoryButtons);
 document.addEventListener('click', ()=>history.commit());
 document.addEventListener('change', ()=>history.commit());
-document.addEventListener('pointerup', ()=>history.commit());
+document.addEventListener('pointerup', ()=>history.commit(), { passive:true });   // 3.27: passive для тач-прокрутки
 let __ict = null; document.addEventListener('input', ()=>{ clearTimeout(__ict); __ict = setTimeout(()=>history.commit(), 500); });
 updateHistoryButtons();
 
@@ -937,7 +938,7 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
 const tutorialView = createTutorialView({ slides: tutorialSlides });
 on('tutorialBtn', function(){ if (!tutorialSlides.length){ showToast('Обучение не загрузилось — проверьте data/tutorial.json'); return; } tutorialView.open(0); });
 const guestbookView = createGuestbookView({ overlay: document.getElementById('guestbookOverlay'), panel: document.getElementById('gbPanel'), getDiagnostics: ()=>`версия ${APP_VERSION}; объектов: ${scheme.objects.length}; культур: ${scheme.objects.filter(o=>o.culture).length}; браузер: ${navigator.userAgent}`, notify: m=>showToast(m) });
-on('guestbookBtn', function(){ guestbookView.open(); setTimeout(injectGbMetrics, 80); });   // 3.21: метрики после открытия
+on('guestbookBtn', function(){ ensureGbBg(); guestbookView.open(); setTimeout(injectGbMetrics, 80); });   // 3.21 + 3.27.1: фон книги ставится лениво здесь
 on('gbClose', function(){ guestbookView.close(); });
 
 /* --- 3.21/3.21.1: метрики модератора Книги отзывов --- */
@@ -1017,9 +1018,14 @@ function injectGbMetrics(){
   });
 })();
 
+/* --- 3.27.1: фон Книги отзывов грузится ЛЕНИВО при первом открытии (desktop), а не на старте --- */
 const gbBg = document.getElementById('guestbookBg');
-function applyGbBg(){ if (!gbBg) return; const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches; if (isMob) gbBg.removeAttribute('src'); else if (!gbBg.getAttribute('src')) gbBg.setAttribute('src','gb.png'); }
-applyGbBg();
+function ensureGbBg(){   // 3.27.1: фон книги грузится при первом открытии; 3.27.2: WebP от дизайнера
+  if (!gbBg) return;
+  const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches;
+  if (isMob){ gbBg.removeAttribute('src'); return; }   // мобильный: книга без фона (панель во весь экран)
+  if (!gbBg.getAttribute('src')) gbBg.setAttribute('src','gb.webp');   // 3.27.2: было 'gb.png'
+}
 function fixRelativeImages(root){ (root||document).querySelectorAll('img[src^="/"]').forEach(im=>im.setAttribute('src', im.getAttribute('src').replace(/^\//,''))); }
 fixRelativeImages(document);
 const plantsBody = document.getElementById('screen-plants-body');
@@ -1360,6 +1366,7 @@ window.__sgSelfTest = function(){
   push('trackScreen wired', typeof trackScreen==='function', 'screen hits on');   // 3.23
   push('reminders wired', typeof runReminderChecks==='function' && typeof remindOnce==='function', 'rem='+(remindersWanted()?'on':'off')+', perm='+(('Notification' in window)?Notification.permission:'n/a'));   // 3.24
   push('notes feed v2', typeof notesFeedHTML==='function' && document.querySelectorAll('.nf-chips').length>=0, 'filters='+(nfType||'all')+'/'+(nfObjId||'all'));   // 3.26
+  push('gb bg lazy', typeof ensureGbBg==='function' && !(document.getElementById('guestbookBg')||{}).src, 'src ставится при открытии книги');   // 3.27.1
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1492,7 +1499,7 @@ async function loadDemo(replace){
 on('loadDemoBtn', function(){ loadDemo(true); });
 document.addEventListener('click', (e)=>{ if (e.target.closest('#objList [data-load-demo]')) loadDemo(false); });
 
-/* --- 2.175: PWA-полировка --- */
+/* --- 2.175: PWA-полировка; 3.27.1: controllerchange-guard + idle-регистрация --- */
 let deferredInstall = null;
 const installBtn = document.getElementById('installAppBtn');
 const offlineBadge = document.getElementById('offlineBadge');
@@ -1517,26 +1524,32 @@ setOfflineBadge(!navigator.onLine);
 window.addEventListener('offline', ()=>{ setOfflineBadge(true); showToast('Нет сети — приложение работает офлайн'); });
 window.addEventListener('online', ()=>{ setOfflineBadge(false); showToast('Снова в сети'); });
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async ()=>{
-    try {
-      const reg = await navigator.serviceWorker.register('sw.js');
-      reg.addEventListener('updatefound', ()=>{
-        const nw = reg.installing; if (!nw) return;
-        nw.addEventListener('statechange', ()=>{
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            if (confirm('Доступна новая версия приложения. Обновить сейчас?')) {
-              navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+  window.addEventListener('load', ()=>{
+    const start = async ()=>{
+      try {
+        const hadController = !!navigator.serviceWorker.controller;   // 3.27.1: first-install не перезагружаем
+        const reg = await navigator.serviceWorker.register('sw.js');
+        reg.addEventListener('updatefound', ()=>{
+          const nw = reg.installing; if (!nw) return;
+          nw.addEventListener('statechange', ()=>{
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              if (confirm('Доступна новая версия приложения. Обновить сейчас?')) {
+                navigator.serviceWorker.controller.postMessage('SKIP_WAITING');
+              }
             }
-          }
+          });
         });
-      });
-      navigator.serviceWorker.addEventListener('controllerchange', ()=> location.reload());
-      navigator.serviceWorker.addEventListener('message', (e)=>{   // 3.24: клик по уведомлению → экран
-        const d = e.data;
-        if (d && d.type === 'SG_OPEN' && d.page) showScreen('screen-' + d.page);
-      });
-      setInterval(()=>{ reg.update(); }, 60*60*1000);
-    } catch(e){ console.warn('SW register:', e); }
+        navigator.serviceWorker.addEventListener('controllerchange', ()=>{ if (hadController) location.reload(); });   // 3.27.1: reload только при обновлении
+        navigator.serviceWorker.addEventListener('message', (e)=>{   // 3.24: клик по уведомлению → экран
+          const d = e.data;
+          if (d && d.type === 'SG_OPEN' && d.page) showScreen('screen-' + d.page);
+        });
+        setInterval(()=>{ reg.update(); }, 60*60*1000);
+      } catch(e){ console.warn('SW register:', e); }
+    };
+    // 3.27.1: не конкурируем с LCP на медленных устройствах — ставим SW в idle-окно
+    if ('requestIdleCallback' in window) requestIdleCallback(start, { timeout: 4000 });
+    else setTimeout(start, 1500);
   });
 }
 
