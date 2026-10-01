@@ -1,8 +1,10 @@
-// src/main.js — точка входа (ревизия 3.27.1)
-// 3.27.1: правки по Lighthouse: aria-label диалогов + --olive-deep (index.html); SW controllerchange-guard
-//      (first-install не дёргает reload — убирает double-navigation mobile), регистрация SW в idle-окно,
-//      gb.png ставится лениво при первом открытии Книги отзывов (−2.1MB из критического пути)
-// 3.27: lazy/async-стикеры, role=dialog+aria-modal, aria-label closeHintBtn, pointerup passive, sw v3270
+// src/main.js — точка входа (ревизия 3.27.4)
+// 3.27.4: офлайн-арт постера/печати: страничный кэш sg-art-v1 (window.caches, не зависит от scope SW),
+//      ensureArtCache() в idle после старта; экспортеры берут data-URL (artCache.js) — печатное окно
+//      и canvas офлайн не делают сетевых запросов; SW v3274: awaited NON_CRITICAL, gb.webp
+// 3.27.1: aria-label диалогов + --olive-deep (index.html); SW controllerchange-guard (hadController),
+//      idle-регистрация SW; gb.png лениво (ensureGbBg при открытии книги)
+// 3.27: lazy/async-стикеры, role=dialog+aria-modal, aria-label closeHintBtn, pointerup passive
 // 3.26: лента заметок v2: фильтр-чипы тип/объект (И), счётчик «K из N», дозация по 8, сброс в applyScheme
 // 3.25.6: единственная кнопка «Закрыть» длинных модалок — липкая пилюля внизу (pinModalClose, ASI-safe)
 // 3.25.4: тулбар Схемы моб.: 3D (1/3) + Совместимость (2/3); закрытие Совместимости по фону и Escape
@@ -43,6 +45,7 @@ import { WEATHER_MODES } from './core/weather.js';
 import { APP_VERSION, CHANGELOG } from './core/changelog.js';
 import { swapEmojiInTextNodes } from './ui/icons.js';
 import { plantingRef } from './core/planting.js';
+import { ensureArtCache } from './core/artCache.js';   // 3.27.4
 import { DAILY_GOAL, ensureProgress, touchStreak, dailyGoalState, addDailyDone, seasonProgress, ACHIEVEMENTS, checkAchievements, ensureChallenges, markChallenge } from './core/gamification.js';   // 3.16/3.17/3.19
 import { computeMetrics, renderMetricsBox, exportGbJSON, exportGbCSV, copyGbSummary } from './ui/gbMetrics.js';   // 3.21
 
@@ -908,9 +911,7 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
   document.addEventListener('focusout', (e)=>{ if (e.target.closest(SEL)) hideTip(); });
 })();
 
-/* --- 3.25.6: единственная кнопка «Закрыть» — липкая пилюля внизу модалки (ASI-безопасная вставка) ---
-   Кнопка ПЕРЕНОСИТСЯ из шапки в .modal-closebar (id и слушатели сохраняются); новых кнопок нет.
-   Ведущая ';' и отсутствие «голых» массивов в начале выражения исключают склейку с предыдущей строкой. --- */
+/* --- 3.25.6: единственная кнопка «Закрыть» — липкая пилюля внизу модалки (ASI-безопасная вставка) --- */
 ;(function initModalCloseBar(){
   function pinModalClose(modal){
     if (!modal) return;
@@ -938,7 +939,7 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
 const tutorialView = createTutorialView({ slides: tutorialSlides });
 on('tutorialBtn', function(){ if (!tutorialSlides.length){ showToast('Обучение не загрузилось — проверьте data/tutorial.json'); return; } tutorialView.open(0); });
 const guestbookView = createGuestbookView({ overlay: document.getElementById('guestbookOverlay'), panel: document.getElementById('gbPanel'), getDiagnostics: ()=>`версия ${APP_VERSION}; объектов: ${scheme.objects.length}; культур: ${scheme.objects.filter(o=>o.culture).length}; браузер: ${navigator.userAgent}`, notify: m=>showToast(m) });
-on('guestbookBtn', function(){ ensureGbBg(); guestbookView.open(); setTimeout(injectGbMetrics, 80); });   // 3.21 + 3.27.1: фон книги ставится лениво здесь
+on('guestbookBtn', function(){ ensureGbBg(); guestbookView.open(); setTimeout(injectGbMetrics, 80); });   // 3.21 + 3.27.1: фон книги лениво
 on('gbClose', function(){ guestbookView.close(); });
 
 /* --- 3.21/3.21.1: метрики модератора Книги отзывов --- */
@@ -1020,11 +1021,11 @@ function injectGbMetrics(){
 
 /* --- 3.27.1: фон Книги отзывов грузится ЛЕНИВО при первом открытии (desktop), а не на старте --- */
 const gbBg = document.getElementById('guestbookBg');
-function ensureGbBg(){   // 3.27.1: фон книги грузится при первом открытии; 3.27.2: WebP от дизайнера
+function ensureGbBg(){
   if (!gbBg) return;
   const isMob = window.matchMedia && window.matchMedia('(max-width:900px)').matches;
   if (isMob){ gbBg.removeAttribute('src'); return; }   // мобильный: книга без фона (панель во весь экран)
-  if (!gbBg.getAttribute('src')) gbBg.setAttribute('src','gb.webp');   // 3.27.2: было 'gb.png'
+  if (!gbBg.getAttribute('src')) gbBg.setAttribute('src','gb.webp');   // 3.27.2: WebP от дизайнера (147KB)
 }
 function fixRelativeImages(root){ (root||document).querySelectorAll('img[src^="/"]').forEach(im=>im.setAttribute('src', im.getAttribute('src').replace(/^\//,''))); }
 fixRelativeImages(document);
@@ -1366,7 +1367,7 @@ window.__sgSelfTest = function(){
   push('trackScreen wired', typeof trackScreen==='function', 'screen hits on');   // 3.23
   push('reminders wired', typeof runReminderChecks==='function' && typeof remindOnce==='function', 'rem='+(remindersWanted()?'on':'off')+', perm='+(('Notification' in window)?Notification.permission:'n/a'));   // 3.24
   push('notes feed v2', typeof notesFeedHTML==='function' && document.querySelectorAll('.nf-chips').length>=0, 'filters='+(nfType||'all')+'/'+(nfObjId||'all'));   // 3.26
-  push('gb bg lazy', typeof ensureGbBg==='function' && !(document.getElementById('guestbookBg')||{}).src, 'src ставится при открытии книги');   // 3.27.1
+  push('art cache wired', typeof ensureArtCache==='function', 'sg-art-v1');   // 3.27.4
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1539,7 +1540,7 @@ if ('serviceWorker' in navigator) {
             }
           });
         });
-        navigator.serviceWorker.addEventListener('controllerchange', ()=>{ if (hadController) location.reload(); });   // 3.27.1: reload только при обновлении
+        navigator.serviceWorker.addEventListener('controllerchange', ()=>{ if (hadController) location.reload(); });   // 3.27.1
         navigator.serviceWorker.addEventListener('message', (e)=>{   // 3.24: клик по уведомлению → экран
           const d = e.data;
           if (d && d.type === 'SG_OPEN' && d.page) showScreen('screen-' + d.page);
@@ -1602,6 +1603,8 @@ document.body.classList.toggle('on-scheme', true);   // 3.14: стартовый
 maybeUnlockAchievements();   // 3.17: бейджи по текущему состоянию при старте
 try { localStorage.removeItem('sg-gb-mod'); } catch(_){}   // 3.21.1: флаг модератора не персистится
 runReminderChecks();   // 3.24: проверка при запуске (overdue + цель дня после 18:00)
+if ('requestIdleCallback' in window) requestIdleCallback(()=> ensureArtCache(), { timeout: 8000 });
+else setTimeout(ensureArtCache, 4000);   // 3.27.4: онлайн-дозагрузка арта постера/печати в страничный кэш
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
