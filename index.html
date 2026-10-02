@@ -872,6 +872,12 @@
     </div>
   </div>
 
+  <script>
+    /* 3.28.1: приветствие видно с parse-time (не ждём eval модулей) — LCP первого входа ≈ FCP;
+       повторные визиты не затронуты (флаг sg-welcome-seen) */
+    try { if (!localStorage.getItem('sg-welcome-seen')) document.getElementById('welcomeOverlay').classList.remove('hidden'); } catch(e){}
+  </script>
+
   <!-- настройки схемы (размер/сетка/отображение/солнце) -->
   <div class="overlay hidden" id="schemeSettingsOverlay" role="dialog" aria-modal="true" aria-label="Настройки схемы">
     <div class="modal">
