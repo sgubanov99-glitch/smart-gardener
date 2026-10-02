@@ -12,6 +12,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <link rel="apple-touch-icon" href="assets/icon-192.png" />
+<!-- 3.28: LCP первого входа — аватары приветствия грузятся первыми в очереди -->
+<link rel="preload" as="image" href="assets/boy.svg" fetchpriority="high" />
+<link rel="preload" as="image" href="assets/chick_full.svg" fetchpriority="high" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Умный садовод" />
 <meta property="og:title" content="Умный садовод — планировщик дачного участка" />
@@ -28,14 +31,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Neucha&display=swap" rel="stylesheet" />
-<script type="text/javascript">
-    (function(m,e,t,r,i,k,a){
-        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-        m[i].l=1*new Date();
-        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
-        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
-    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=111974153', 'ym');
+<script>
+  /* 3.28: очередь Метрики создаётся СРАЗУ (цели буферизуются в ym.a до загрузки тега),
+     сам tag.js ставится после load+2s — не занимает сетевой канал до LCP.
+     trackGoal в main.js защищён if (window.ym), поэтому ранних потерь целей нет. */
+  (function(){
+    window.ym = window.ym || function(){ (window.ym.a = window.ym.a || []).push(arguments); };
+    window.ym.l = 1*new Date();
     ym(111974153, 'init', { ssr:true, webvisor:false, clickmap:true, referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true });
+  })();
+  window.addEventListener('load', ()=>{ setTimeout(()=>{
+    if (document.querySelector('script[src*="mc.yandex"]')) return;   // защита от повторной вставки
+    const s = document.createElement('script'); s.async = 1;
+    s.src = 'https://mc.yandex.ru/metrika/tag.js?id=111974153';
+    document.head.appendChild(s);
+  }, 2000); });
 </script>
 <noscript><div><img src="https://mc.yandex.ru/watch/111974153" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
 <style>
@@ -71,7 +81,7 @@
   .btn:hover { transform:translateY(-2px); box-shadow:var(--shadow); }
   .btn:active { transform:translateY(1px) scale(.97); }
   .btn:disabled { opacity:.5; cursor:default; }
-  .btn-olive { background:var(--olive-deep); color:#fff; } .btn-blue { background:#BFD8E8; color:#2F4A5C; } .btn-green { background:#C4EDD4; color:#2F5C40; } .btn-pink { background:#FFE1EC; color:#7E4A5C; }   /* 3.27.1: AA-контраст */
+  .btn-olive { background:var(--olive-deep); color:#fff; } .btn-blue { background:#BFD8E8; color:#2F4A5C; } .btn-green { background:#C4EDD4; color:#2F5C40; } .btn-pink { background:#FFE1EC; color:#7E4A5C; }   /* 3.27.1: AA */
   .btn-violet { background:#DCC9E6; color:#5A4668; }
   .advisor { position:relative; }
   .advisor .advisor-emoji { position:absolute; top:-16px; right:-10px; width:30px; height:30px; pointer-events:none; filter:drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
@@ -82,7 +92,7 @@
   .screen-title .accent { text-decoration:underline; text-decoration-style:wavy; text-decoration-color:var(--rose); text-underline-offset:7px; }
   .bottomnav { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:45; display:flex; gap:6px; background:var(--panel); backdrop-filter:blur(6px); border-radius:var(--radius); box-shadow:var(--shadow); padding:6px; }
   .nav-btn { border:none; background:transparent; border-radius:var(--radius-s); padding:8px 16px; font-family:"Manrope",sans-serif; font-weight:700; font-size:12.5px; color:var(--ink-soft); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; }
-  .nav-btn .ico { font-size:20px; display:flex; } .nav-btn.active { background:var(--olive-deep); color:#fff; box-shadow:var(--shadow-s); }   /* 3.27.1: AA-контраст */
+  .nav-btn .ico { font-size:20px; display:flex; } .nav-btn.active { background:var(--olive-deep); color:#fff; box-shadow:var(--shadow-s); }   /* 3.27.1: AA */
   #hintBar { position:relative; z-index:5; margin:0 0 14px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow-s); }
   .hint-content { display:flex; flex-wrap:wrap; gap:8px; }
   .hint-pill { position:relative; display:inline-flex; align-items:center; gap:8px; cursor:help; border:none; background:linear-gradient(180deg,#FFF6DF,#F8EBC8); border-radius:999px; padding:8px 12px; font:600 13px "Manrope",sans-serif; color:#4A3B19; box-shadow:0 6px 12px rgba(70,60,40,.10); }
@@ -587,6 +597,12 @@
     .op-extra { grid-template-columns:1fr; }
     .op-footer { flex-wrap:wrap; }
     .btn-rose { margin-left:0; width:100%; min-height:44px; }
+    /* 3.27.3: модалка «Совместимость» на мобильном — строки переносятся, текст не выходит за рамку */
+    #compatModal .m-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; max-width:100%; }
+    #compatModal .m-row > * { min-width:0; max-width:100%; flex:0 1 auto; overflow-wrap:break-word; white-space:normal; }
+    #compatModal .m-row > *:last-child { flex:1 1 100%; }   /* примечание — отдельной строкой */
+    #compatModal .m-row .ic-site { flex:0 0 auto; }          /* значок ✅/⚠ не сжимается */
+    #compatModal { overflow-x:hidden; }
     .wx-bar { flex-direction:column; align-items:stretch; gap:8px; }
     .wx-bar > span { margin-left:0 !important; display:flex !important; flex-wrap:wrap; gap:6px; }
     [data-wx-place] { width:auto !important; flex:1 1 140px; min-height:40px; }
@@ -617,14 +633,6 @@
     .an-section * { max-width:100% !important; min-width:0 !important; }
     .an-section button, .an-section .btn, .an-section .obj-chip { white-space:normal !important; overflow-wrap:break-word; text-align:left; }
     .an-section table td, .an-section table th { padding:6px 6px; font-size:11.5px; }
-    /* 3.27.3: модалка «Совместимость» на мобильном — строки переносятся, текст не выходит за рамку:
-       пара культур (иконка + названия) остаётся в первой строке, примечание уходит на свою строку
-       во всю ширину модалки; страховка overflow-x на самой модалке */
-    #compatModal .m-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; max-width:100%; }
-    #compatModal .m-row > * { min-width:0; max-width:100%; flex:0 1 auto; overflow-wrap:break-word; white-space:normal; }
-    #compatModal .m-row > *:last-child { flex:1 1 100%; }   /* примечание — отдельной строкой */
-    #compatModal .m-row .ic-site { flex:0 0 auto; }          /* значок ✅/⚠ не сжимается */
-    #compatModal { overflow-x:hidden; }
     .plant-chick { width:30px; top:-12px; left:4px; }
     #screen-home .an-section div, #screen-home .an-section li, #statsOverview .an-section div, #statsOverview .an-section li { flex-wrap:wrap !important; }
     #screen-home .an-section button, #statsOverview .an-section button { width:100%; min-height:40px; margin-top:6px; text-align:center; }
@@ -843,11 +851,11 @@
       </div>
       <div class="welcome-cast">
         <div class="welcome-person">
-          <img src="assets/boy.svg" alt="Мальчик-садовод" class="welcome-avatar" />
+          <img src="assets/boy.svg" alt="Мальчик-садовод" class="welcome-avatar" fetchpriority="high" />
           <div class="welcome-bubble welcome-bubble-boy">Здравствуй! Я Садовод Семён. Разложим твой участок по полочкам: грядки, теплица, деревья — всё на своих местах, с тенями и совместимостью культур.</div>
         </div>
         <div class="welcome-person">
-          <img src="assets/chick_full.svg" alt="Цыпа" class="welcome-avatar welcome-avatar-chick" />
+          <img src="assets/chick_full.svg" alt="Цыпа" class="welcome-avatar welcome-avatar-chick" fetchpriority="high" />
           <div class="welcome-bubble welcome-bubble-chick">А я — Цыпа! Подскажу, когда поливать и подкармливать, напомню про сбор урожая и порадуюсь вместе с тобой первому ведру томатов!</div>
         </div>
       </div>
