@@ -3,8 +3,12 @@
 // (снимает changelog.js из топов payload/cache-аудитов Lighthouse); модалка «История» читается списком из 12 пунктов
 export const APP_VERSION = '3.28.1';
 export const CHANGELOG = [
-{ v:'3.28.1', date:'01.10.2026', title:'Этап 3.27 «Качественный проход» закрыт: mobile Perf 83, BP/SEO 100, CLS 0, B2 7/7, C 12/12', notes:[
-  'Микро-спринт 3.28.1 (опционально): parse-time показ приветствия (LCP → ~2s)'
+{ v:'3.28.1', date:'01.10.2026', title:'Parse-time приветствие: LCP 4.6s → 2.9s, Performance 91. Этап 3.27 «Качественный проход» закрыт', notes:[
+  'index.html: инлайн-скрипт после #welcomeOverlay раскрывает оверлей на parse-time при первом входе (флаг sg-welcome-seen), не дожидаясь eval модулей; showWelcome() в main.js идемпотентен (навешивает обработчики повторно без副作用)',
+  'Финальный mobile-прогон Pages/инкогнито: Perf 91 (цель ≥80), LCP 2.9s (порог зелёного 2.5s — остаток сезонного допуска), TBT 30ms, CLS 0, SI 2.9s, A11y 96, BP 100, SEO 100',
+  'Закрыто по протоколам: B2 офлайн-матрица 7/7 + негатив-тест (арт из sg-art-v1/SW, данные переживают онлайн); C регрессия 3.1–3.26 12/12',
+  'Сезонные остатки (документированы, не блокируют): LCP 2.9s — снимается self-host шрифтов (убирает цепочку fonts.googleapis ~0.4–0.8s); A11y 96 — один аудит (кандидаты: role=tablist без детей tab, отсутствие лендмарка <main>)',
+  'Принятые риски: third-party cookies Метрики (в инкогнито BP=100), COOP-заголовок недоступен на GitHub Pages, dev-cache TTL0 на localhost'
 ]},
 { v:'3.28', date:'01.10.2026', title:'LCP-охота: preload аватаров приветствия, Метрика после load+2s, арт-кэш ≤4 параллельных с 6с', notes:[
   'index.html: <link rel=preload as=image fetchpriority=high> для boy.svg и chick_full.svg — LCP-элемент первого входа грузится первым в очереди',
