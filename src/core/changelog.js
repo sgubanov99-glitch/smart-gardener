@@ -1,8 +1,11 @@
 // src/core/changelog.js — история ревизий «Умного садовода»
 // 3.28: уплотнение — ревизии ≤3.25.8 свёрнуты в диапазонные записи-резюме; файл ~5x легче
 // (снимает changelog.js из топов payload/cache-аудитов Lighthouse); модалка «История» читается списком из 12 пунктов
-export const APP_VERSION = '3.28';
+export const APP_VERSION = '3.28.1';
 export const CHANGELOG = [
+{ v:'3.28.1', date:'01.10.2026', title:'Этап 3.27 «Качественный проход» закрыт: mobile Perf 83, BP/SEO 100, CLS 0, B2 7/7, C 12/12', notes:[
+  'Микро-спринт 3.28.1 (опционально): parse-time показ приветствия (LCP → ~2s)'
+]},
 { v:'3.28', date:'01.10.2026', title:'LCP-охота: preload аватаров приветствия, Метрика после load+2s, арт-кэш ≤4 параллельных с 6с', notes:[
   'index.html: <link rel=preload as=image fetchpriority=high> для boy.svg и chick_full.svg — LCP-элемент первого входа грузится первым в очереди',
   'Метрика: очередь ym() создаётся сразу (цели буферизуются), tag.js ставится после load+2s — не занимает канал до LCP; BP-потолок от cookie остаётся принятым риском',
