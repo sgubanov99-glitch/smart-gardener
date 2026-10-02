@@ -578,8 +578,10 @@
     .palette { margin-left:0; width:100%; }
     .palette-right { margin-left:0; }
     .pal-btn { padding:10px 14px; min-height:40px; }
-    /* 3.25.4: Схема — «3D» (1/3) и «Совместимость» (2/3) строго в одной строке; ниже пара Настройки+Советчик */
-    .scheme-toolbar .palette-right { display:flex; flex-wrap:wrap; gap:8px; }
+    /* 3.29.1 (вариант A): мобильный — группы тулбара схлопываются в одну строку, порядок как в 3.25.4:
+       строка 1: 3D (1/3) + Совместимость (2/3); строка 2: Настройки + Советчик */
+    .scheme-toolbar { display:flex; flex-wrap:wrap; gap:8px; }
+    .scheme-toolbar .palette-left, .scheme-toolbar .palette-right { display:contents; }
     #isoBtn { order:1; flex:1 1 30%; min-width:0; justify-content:center; }
     #compatBtn { order:2; flex:2 1 60%; min-width:0; justify-content:center; }
     #schemeSettingsBtn { order:3; flex:1 1 46%; min-width:0; justify-content:center; }
@@ -767,13 +769,16 @@
       <span class="plot-name-emoji"><svg class="ic-site"><use href="#si-map"/></svg></span>
       <input id="plotNameInput" type="text" placeholder="Дайте имя вашему участку…" maxlength="60" />
     </div>
+    <!-- 3.29.1 (вариант A): левая группа — вид и параметры схемы; правая — подсказки -->
     <div class="scheme-toolbar">
-      <div class="palette palette-right">
-        <button type="button" class="pal-btn" id="compatBtn"><svg class="ic-site"><use href="#si-compatibility"/></svg> Совместимость</button>
+      <div class="palette palette-left" role="group" aria-label="Вид и параметры схемы">
         <button type="button" class="pal-btn" id="isoBtn">3D</button>
+        <button type="button" class="pal-btn" id="schemeSettingsBtn" title="Настройки схемы: размер, сетка, солнце, тени"><svg class="ic-site"><use href="#si-settings"/></svg> Настройки</button>
+      </div>
+      <div class="palette palette-right" role="group" aria-label="Подсказки">
+        <button type="button" class="pal-btn" id="compatBtn"><svg class="ic-site"><use href="#si-compatibility"/></svg> Совместимость</button>
         <button type="button" class="pal-btn advisor d-only" id="advisorBtn">Советчик<img src="assets/chick.svg" alt="" class="advisor-emoji" /></button>
         <button type="button" class="pal-btn m-only" id="advisorBtnMob"><svg class="ic-site"><use href="#si-chick"/></svg> Советчик</button>
-        <button type="button" class="pal-btn" id="schemeSettingsBtn" title="Настройки схемы: размер, сетка, солнце, тени"><svg class="ic-site"><use href="#si-settings"/></svg> Настройки</button>
       </div>
     </div>
     <!-- рабочие кнопки, вызываемые из меню-листа (скрыты на экране); делегирование кликает их по id -->
@@ -871,10 +876,9 @@
       </div>
     </div>
   </div>
-
   <script>
     /* 3.28.1: приветствие видно с parse-time (не ждём eval модулей) — LCP первого входа ≈ FCP;
-       повторные визиты не затронуты (флаг sg-welcome-seen) */
+       повторные визиты не затронуты (флаг sg-welcome-seen). showWelcome() в main.js идемпотентен. */
     try { if (!localStorage.getItem('sg-welcome-seen')) document.getElementById('welcomeOverlay').classList.remove('hidden'); } catch(e){}
   </script>
 
@@ -1006,7 +1010,7 @@
       <button type="button" class="m-item" data-mact="loadBtn" data-tip="Восстановить план из сохранённого файла"><span class="mi"><svg class="ic-site"><use href="#si-load"/></svg></span>Загрузить</button>
       <button type="button" class="m-item" data-mact="resetBtn" data-tip="Очистить схему: удалить все объекты и имя"><span class="mi"><svg class="ic-site"><use href="#si-reset"/></svg></span>Сбросить</button>
       <button type="button" class="m-item" data-mact="historyBtn" data-tip="Список версий приложения и что менялось"><span class="mi"><svg class="ic-site"><use href="#si-history"/></svg></span>История ревизий</button>
-      <button type="button" class="m-item" data-mact="tutorialBtn" data-tip="10 слайдов о главных возможностях"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
+      <button type="button" class="m-item" data-mact="tutorialBtn" data-tip="12 слайдов о главных возможностях"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
       <button type="button" class="m-item" data-mact="guestbookBtn" data-tip="Вопрос, отзыв или оценка — ответим в книге"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
       <button type="button" class="m-item" data-mact="printBtn" data-tip="Печатная версия: схема, календарь, задачи сезона"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
       <button type="button" class="m-item" data-mact="exportBtn" data-tip="Плакат участка картинкой — сохранить или отправить"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
