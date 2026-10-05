@@ -526,6 +526,10 @@
   .gb-textarea { min-height:84px; resize:vertical; }
   .gb-send { width:100%; border:none; border-radius:999px; padding:10px 14px; background:#64754E; color:#fff; font:700 13.5px Manrope,sans-serif; cursor:pointer; }   /* 3.27.1: AA */
   .gb-send:disabled { opacity:.5; cursor:default; }
+  /* 3.29.2 (A.0): согласие на обработку ПДн в форме Книги отзывов (инъекция из main.js) */
+  .gb-consent { display:flex; gap:8px; align-items:flex-start; font:600 11.5px Manrope,sans-serif; color:var(--ink-soft-2); margin:10px 0 8px; line-height:1.45; }
+  .gb-consent input { width:18px; height:18px; flex:none; margin-top:1px; }
+  .gb-consent a { color:var(--olive-dark); text-decoration:underline; }
   .gb-entry { background:#fff; border-radius:12px; padding:10px 12px; margin:8px 0; box-shadow:0 4px 10px rgba(0,0,0,.08); }
   .gb-entry-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px; font:600 12px Manrope,sans-serif; color:#6B6A64; }
   .gb-status { border-radius:999px; padding:1px 8px; font-size:10px; font-weight:700; }
@@ -558,6 +562,13 @@
   .fd-exit { display:none; position:fixed; left:12px; bottom:22px; z-index:44; align-items:center; gap:8px; border:none; border-radius:999px; padding:12px 16px; background:#5A4668; color:#fff; font:700 14px Manrope,sans-serif; box-shadow:var(--shadow); cursor:pointer; }
   html.fd .fd-exit { display:flex; }
   .m-note { font-size:11.5px; color:var(--ink-soft); margin:2px 0 10px; }
+  /* 3.29.3: футер приложения под контентом активного экрана; нижний отступ резервирует
+     зону FAB и нижнего меню — ссылка не перекрывается ни на одном разрешении */
+  .app-footer { max-width:1180px; margin:28px auto 120px; padding:14px 22px 0; border-top:1px solid rgba(63,62,58,.12); display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; justify-content:space-between; font:600 12px Manrope,sans-serif; color:var(--ink-soft-2); }
+  .app-footer a { color:var(--olive-dark); text-decoration:underline; }
+  @media (max-width:900px){
+    .app-footer { margin:20px 12px 130px; padding:12px 4px 0; justify-content:center; text-align:center; }
+  }
   /* 3.25.2: long-press на пунктах и тумблерах меню не выделяет текст и не открывает callout */
   .btn, .nav-btn, .pal-btn, .obj-chip, .m-item, .m-switch, .hm-btn, .gh-phase-btn, .phase-controls .ph { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   @media (max-width: 900px) {
@@ -603,7 +614,7 @@
     #compatModal .m-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; max-width:100%; }
     #compatModal .m-row > * { min-width:0; max-width:100%; flex:0 1 auto; overflow-wrap:break-word; white-space:normal; }
     #compatModal .m-row > *:last-child { flex:1 1 100%; }   /* примечание — отдельной строкой */
-    #compatModal .m-row .ic-site { flex:0 0 auto; }          /* значок ✅/⚠ не сжимается */
+    #compatModal .m-row .ic-site { flex:0 0 auto; }          /* значок пары не сжимается */
     #compatModal { overflow-x:hidden; }
     .wx-bar { flex-direction:column; align-items:stretch; gap:8px; }
     .wx-bar > span { margin-left:0 !important; display:flex !important; flex-wrap:wrap; gap:6px; }
@@ -792,6 +803,7 @@
       <button type="button" id="printBtn">Печать</button>
       <button type="button" id="exportBtn">Постер PNG</button>
       <button type="button" id="loadDemoBtn">Демо-участок</button>
+      <button type="button" id="privacyBtn">Политика конфиденциальности</button><!-- 3.29.2 -->
     </div>
     <div class="scheme-actions">
       <div class="palette palette-left">
@@ -986,6 +998,13 @@
     </div>
   </section>
 
+  <!-- 3.29.3: футер со ссылкой на Политику конфиденциальности (открывается в новой вкладке,
+       как и пункт Меню; приложение остаётся открытым в исходной вкладке) -->
+  <footer class="app-footer">
+    <span>© 2026 «Умный садовод» · бесплатно и без рекламы</span>
+    <a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a>
+  </footer>
+
   <!-- 3.9: навигация 6 → 4 вкладки; Чат вынесен в FAB -->
   <nav class="bottomnav" id="bottomnav">
     <button type="button" class="nav-btn active" data-goto="screen-scheme"><span class="ico"><svg class="ic-site"><use href="#si-map"/></svg></span>Схема</button>
@@ -1012,6 +1031,8 @@
       <button type="button" class="m-item" data-mact="historyBtn" data-tip="Список версий приложения и что менялось"><span class="mi"><svg class="ic-site"><use href="#si-history"/></svg></span>История ревизий</button>
       <button type="button" class="m-item" data-mact="tutorialBtn" data-tip="12 слайдов о главных возможностях"><span class="mi"><svg class="ic-site"><use href="#si-tutorial"/></svg></span>Обучение</button>
       <button type="button" class="m-item" data-mact="guestbookBtn" data-tip="Вопрос, отзыв или оценка — ответим в книге"><span class="mi"><svg class="ic-site"><use href="#si-guestbook"/></svg></span>Книга отзывов</button>
+      <!-- 3.29.2 (A.0): пункт Политики конфиденциальности -->
+      <button type="button" class="m-item" data-mact="privacyBtn" data-tip="Какие данные храним, где и как их удалить"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Политика конфиденциальности</button>
       <button type="button" class="m-item" data-mact="printBtn" data-tip="Печатная версия: схема, календарь, задачи сезона"><span class="mi"><svg class="ic-site"><use href="#si-print"/></svg></span>Печать</button>
       <button type="button" class="m-item" data-mact="exportBtn" data-tip="Плакат участка картинкой — сохранить или отправить"><span class="mi"><svg class="ic-site"><use href="#si-poster"/></svg></span>Постер PNG</button>
       <button type="button" class="m-item" data-mact="loadDemoBtn" data-tip="Пример участка с культурами, фазами и задачами"><span class="mi"><svg class="ic-site"><use href="#si-map"/></svg></span>Демо-участок</button>
