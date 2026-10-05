@@ -1,10 +1,11 @@
-// src/main.js — точка входа (ревизия 3.27.4)
-// 3.27.4: офлайн-арт постера/печати: страничный кэш sg-art-v1 (window.caches, не зависит от scope SW),
-//      ensureArtCache() в idle после старта; экспортеры берут data-URL (artCache.js) — печатное окно
-//      и canvas офлайн не делают сетевых запросов; SW v3274: awaited NON_CRITICAL, gb.webp
-// 3.27.1: aria-label диалогов + --olive-deep (index.html); SW controllerchange-guard (hadController),
-//      idle-регистрация SW; gb.png лениво (ensureGbBg при открытии книги)
-// 3.27: lazy/async-стикеры, role=dialog+aria-modal, aria-label closeHintBtn, pointerup passive
+// src/main.js — точка входа (ревизия 3.29.2)
+// 3.29.2 (A.0): юридический контур — пункт Меню «Политика конфиденциальности» (privacy.html новой вкладкой
+//      внутри жеста тапа); согласие на обработку ПДн в Книге отзывов реализуется ВНЕШНЕ: инъекция чек-бокса
+//      в #gbPanel перед .gb-send, capture-гейт отправки без галочки, журнал согласий localStorage['sg-gb-consents'],
+//      дополнение .gb-note; guestbookView.js НЕ меняется (ревизия 2.115)
+// 3.28: preload аватаров + отложенная Метрика (index.html); ensureArtCache ≤4 параллельных с задержкой 6с после load
+// 3.27.4: офлайн-арт постера/печати: sg-art-v1 (window.caches), data-URL в экспортерах; SW v3274 awaited NON_CRITICAL
+// 3.27.1: SW controllerchange-guard (hadController), idle-регистрация; ensureGbBg лениво; aria/контраст в index.html
 // 3.26: лента заметок v2: фильтр-чипы тип/объект (И), счётчик «K из N», дозация по 8, сброс в applyScheme
 // 3.25.6: единственная кнопка «Закрыть» длинных модалок — липкая пилюля внизу (pinModalClose, ASI-safe)
 // 3.25.4: тулбар Схемы моб.: 3D (1/3) + Совместимость (2/3); закрытие Совместимости по фону и Escape
@@ -87,7 +88,7 @@ function trackGoal(name, params){
 function trackStreak7(pr, today){
   if (pr.streak.count !== 7) return;
   try { if (localStorage.getItem('sg-metric-streak7') === today) return; localStorage.setItem('sg-metric-streak7', today); } catch(e){}
-  trackGoal('streak_7', { best: pr.streak.best });
+  trackGoal('streak_7', { best: pr.streak.best })
 }
 /* --- 3.23: виртуальные просмотры экранов (SPA без перезагрузок) --- */
 const SCREEN_TITLES = { 'screen-scheme':'Схема', 'screen-plants':'Растения', 'screen-calendar':'Календарь', 'screen-chat':'Чат', 'screen-stats':'Статистика' };
@@ -939,8 +940,57 @@ setInterval(runReminderChecks, 60*60*1000);   // почасовой фоновы
 const tutorialView = createTutorialView({ slides: tutorialSlides });
 on('tutorialBtn', function(){ if (!tutorialSlides.length){ showToast('Обучение не загрузилось — проверьте data/tutorial.json'); return; } tutorialView.open(0); });
 const guestbookView = createGuestbookView({ overlay: document.getElementById('guestbookOverlay'), panel: document.getElementById('gbPanel'), getDiagnostics: ()=>`версия ${APP_VERSION}; объектов: ${scheme.objects.length}; культур: ${scheme.objects.filter(o=>o.culture).length}; браузер: ${navigator.userAgent}`, notify: m=>showToast(m) });
-on('guestbookBtn', function(){ ensureGbBg(); guestbookView.open(); setTimeout(injectGbMetrics, 80); });   // 3.21 + 3.27.1: фон книги лениво
+on('guestbookBtn', function(){ ensureGbBg(); guestbookView.open(); setTimeout(()=>{ injectGbMetrics(); injectGbConsent(); }, 80); });   // 3.21 + 3.27.1 + 3.29.2
 on('gbClose', function(){ guestbookView.close(); });
+
+/* --- 3.29.2 (A.0): Политика конфиденциальности и согласие на обработку ПДн в Книге отзывов.
+       Реализовано ВНЕШНЕ относительно guestbookView.js (ревизия 2.115 не меняется):
+       чек-бокс инжектится перед .gb-send, отправка без согласия блокируется capture-слушателем,
+       журнал согласий пишется в localStorage['sg-gb-consents'] (доказательство по ч.4 ст.9 152-ФЗ). --- */
+on('privacyBtn', function(){ window.open('privacy.html', '_blank', 'noopener'); });
+function logGbConsent(){
+  try {
+    const arr = JSON.parse(localStorage.getItem('sg-gb-consents') || '[]');
+    arr.push({ at: new Date().toISOString(), policy: 'v1.0', scope: 'moderation_reply' });
+    localStorage.setItem('sg-gb-consents', JSON.stringify(arr.slice(-500)));   // журнал с ограничением размера
+    sessionStorage.setItem('sg-gb-consent-ok', '1');                            // предзаполнение галочки в сессии
+  } catch(e){}
+}
+function injectGbConsent(){
+  const panel = document.getElementById('gbPanel'); if (!panel) return;
+  const send = panel.querySelector('.gb-send'); if (!send) return;
+  if (!panel.querySelector('#gbConsentRow')){
+    const row = document.createElement('label');
+    row.className = 'gb-consent'; row.id = 'gbConsentRow';
+    row.innerHTML = '<input type="checkbox" id="gbConsent" />' +
+      'Согласен с <a href="privacy.html" target="_blank" rel="noopener">Политикой конфиденциальности</a> и даю согласие на обработку персональных данных (имя, e-mail, текст обращения, IP-адрес) в целях модерации и ответа на обращение.';
+    send.insertAdjacentElement('beforebegin', row);
+    const box = row.querySelector('#gbConsent');
+    try { if (sessionStorage.getItem('sg-gb-consent-ok') === '1' && box) box.checked = true; } catch(e){}
+  }
+  const note = panel.querySelector('.gb-note');
+  if (note && !note.dataset.a0){
+    note.dataset.a0 = '1';
+    note.textContent += ' Отправляя сообщение, вы соглашаетесь с Политикой конфиденциальности; до введения серверной синхронизации данные хранятся на вашем устройстве.';
+  }
+}
+(function gbConsentWatch(){   // пере-инъекция после перерисовок панели (вкладки Написать/Читать)
+  const panel = document.getElementById('gbPanel'); if (!panel || !window.MutationObserver) return;
+  let raf = 0;
+  new MutationObserver(()=>{ if (raf) return; raf = requestAnimationFrame(()=>{ raf = 0; injectGbConsent(); }); }).observe(panel, { childList:true, subtree:true });
+})();
+document.addEventListener('click', (e)=>{   // 3.29.2: capture-гейт — без галочки отправка невозможна
+  const send = e.target.closest('.gb-send');
+  if (!send) return;
+  const box = document.getElementById('gbConsent');
+  if (!box || !box.checked){
+    e.stopPropagation(); e.preventDefault();
+    showToast('Для отправки отметьте согласие с Политикой конфиденциальности');
+    if (box) box.focus();
+    return;
+  }
+  logGbConsent();
+}, true);
 
 /* --- 3.21/3.21.1: метрики модератора Книги отзывов --- */
 let gbModSession = false;   // 3.21.1: режим живёт ТОЛЬКО до перезагрузки (не персистится)
@@ -1046,7 +1096,15 @@ on('menuBtn', function(){
 on('mMenuClose', mCloseSheets); on('mAddClose', mCloseSheets);
 if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{ if (e.target===mMenuSheet) mCloseSheets(); });
 if (mAddSheet) mAddSheet.addEventListener('click', (e)=>{ if (e.target===mAddSheet) mCloseSheets(); });
-if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{ const item=e.target.closest('[data-mact]'); if (!item) return; mCloseSheets(); const t=document.getElementById(item.dataset.mact); if (t) setTimeout(()=>t.click(), 60); });
+if (mMenuSheet) mMenuSheet.addEventListener('click', (e)=>{
+  const item=e.target.closest('[data-mact]'); if (!item) return;
+  if (item.dataset.mact === 'privacyBtn'){   // 3.29.2: открываем внутри жеста тапа — попап-фильтр не блокирует вкладку
+    mCloseSheets();
+    window.open('privacy.html', '_blank', 'noopener');
+    return;
+  }
+  mCloseSheets(); const t=document.getElementById(item.dataset.mact); if (t) setTimeout(()=>t.click(), 60);
+});
 const tsypaToggle = document.getElementById('tsypaToggle');
 function applyTsypaVisibility(){ const el=document.getElementById('tsypa'); if (!el) return; let hidden=false; try { hidden = localStorage.getItem('sg-tsypa-hidden')==='1'; } catch(e){} el.style.display = hidden ? 'none' : ''; if (tsypaToggle) tsypaToggle.checked = !hidden; }
 if (tsypaToggle) tsypaToggle.addEventListener('change', ()=>{ try { localStorage.setItem('sg-tsypa-hidden', tsypaToggle.checked?'0':'1'); } catch(e){} applyTsypaVisibility(); });
@@ -1368,6 +1426,8 @@ window.__sgSelfTest = function(){
   push('reminders wired', typeof runReminderChecks==='function' && typeof remindOnce==='function', 'rem='+(remindersWanted()?'on':'off')+', perm='+(('Notification' in window)?Notification.permission:'n/a'));   // 3.24
   push('notes feed v2', typeof notesFeedHTML==='function' && document.querySelectorAll('.nf-chips').length>=0, 'filters='+(nfType||'all')+'/'+(nfObjId||'all'));   // 3.26
   push('art cache wired', typeof ensureArtCache==='function', 'sg-art-v1');   // 3.27.4
+  let consents = 0; try { consents = (JSON.parse(localStorage.getItem('sg-gb-consents')||'[]')||[]).length; } catch(e){}
+  push('gb consent gate', typeof injectGbConsent==='function' && typeof logGbConsent==='function', 'consents='+consents);   // 3.29.2
   console.table(report); return report;
 };
 console.info('Умный садовод: самопроверка — __sgSelfTest()');
@@ -1603,8 +1663,11 @@ document.body.classList.toggle('on-scheme', true);   // 3.14: стартовый
 maybeUnlockAchievements();   // 3.17: бейджи по текущему состоянию при старте
 try { localStorage.removeItem('sg-gb-mod'); } catch(_){}   // 3.21.1: флаг модератора не персистится
 runReminderChecks();   // 3.24: проверка при запуске (overdue + цель дня после 18:00)
-if ('requestIdleCallback' in window) requestIdleCallback(()=> ensureArtCache(), { timeout: 8000 });
-else setTimeout(ensureArtCache, 4000);   // 3.27.4: онлайн-дозагрузка арта постера/печати в страничный кэш
+// 3.28: прогрев арт-кэша не раньше 6с после load — не конкурирует с LCP холодного старта
+setTimeout(()=>{
+  if ('requestIdleCallback' in window) requestIdleCallback(()=> ensureArtCache(), { timeout: 10000 });
+  else ensureArtCache();
+}, 6000);
 
 /* --- 2.168: рантайм-замена эмодзи на знаки спрайта --- */
 let swapRaf = 0;
